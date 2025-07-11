@@ -2,26 +2,25 @@ import uuid
 from datetime import datetime
 
 from pydantic import BaseModel
-from app.models.state import OrderState
+from app.models.state import OrderStatus
 
 class OrderCreate(BaseModel):
-    lot: int
+    lote: int
     code: str
-    state: OrderState
+    status: OrderStatus
     description: str
-    amount: float
+    quantity: int
     bin: int
-    created_at: datetime
-
+    dueDate: datetime
 class OrderOut(BaseModel):
     id: uuid.UUID
-    lot: int
+    lote: int
     code: str
-    state: OrderState
+    status: OrderStatus
     description: str
-    amount: float
+    quantity: int
     bin: int
-    created_at: datetime
+    dueDate: datetime
 
     class Config:
         orm_mode = True

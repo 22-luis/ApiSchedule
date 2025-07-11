@@ -1,13 +1,17 @@
-from sqlalchemy import Column, String, Enum, Integer, DateTime
-from pydantic import BaseModel
-from app.models.state import OrderState
+from datetime import date
+import uuid
+from app.models.state import OrderStatus
+from sqlalchemy import Column, String, Enum, Integer, UUID, DateTime
+from sqlalchemy.ext.declarative import declarative_base
+Base = declarative_base()
 
-class Order(BaseModel):
-    id = Column(String, primary_key=True)
-    lot = Column(Integer)
-    code = Column(String)
-    state = Column(Enum(OrderState))
+class Order(Base):
+    __tablename__ = "orders"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
     description = Column(String)
-    amount = Column(Integer)
+    quantity = Column(Integer)
+    dueDate = Column(DateTime)
+    status = Column(Enum(OrderStatus))
+    code = Column(String)
+    lote = Column(Integer)
     bin = Column(Integer)
-    created_at = Column(DateTime)
