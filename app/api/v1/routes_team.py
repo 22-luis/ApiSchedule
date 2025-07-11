@@ -42,11 +42,11 @@ def update_team(team_id: str, team: TeamCreate, db: Session = Depends(get_db), c
     db_team = db.query(Team).filter(Team.id == team_id).first()
     if not db_team:
         raise HTTPException(status_code=404, detail="Team not found")
-    db_team.name = team.name
     
     supervisor = db.query(User).filter(User.id == team.supervisorId, User.state == UserState.ACTIVE).first()
     if not supervisor:
         raise HTTPException(status_code=400, detail="Supervisor must be an active user")
+    db_team.name = team.name
     db_team.supervisorId = team.supervisorId
     
     if team.userIds is not None:  # user_ids es la lista de IDs de usuarios a asignar
