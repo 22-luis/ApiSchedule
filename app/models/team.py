@@ -1,11 +1,12 @@
 import uuid
 
-from pydantic import BaseModel
 from sqlalchemy import Column, String, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship
-from app.models.userTeam import user_team_association
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship
+
+from app.models.userTeam import user_team_association
+
 Base = declarative_base()
 
 class Team(Base):

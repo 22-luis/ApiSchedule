@@ -1,13 +1,13 @@
 import uuid
 
-from pydantic import BaseModel
-from sqlalchemy import Column, String, Enum, ForeignKey
+from sqlalchemy import Column, String, Enum
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
 from app.models.role import UserRole
 from app.models.state import UserState
 from app.models.userTeam import user_team_association
 from sqlalchemy.ext.declarative import declarative_base
+
 Base = declarative_base()
 
 class User(Base):
