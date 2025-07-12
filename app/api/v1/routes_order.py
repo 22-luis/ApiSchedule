@@ -9,9 +9,9 @@ from app.models.user import User
 from app.utils.dependencies import get_current_user, require_roles
 from app.models.role import UserRole
 
-router = APIRouter()
+router = APIRouter(prefix="/orders", tags=["orders"])
 
-@router.post("/orders")
+@router.post("/")
 def create_order(order: OrderCreate, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))):
     db_order = order_model.Order(
         lote=order.lote,
@@ -26,7 +26,7 @@ def create_order(order: OrderCreate, db: Session = Depends(get_db), current_user
     db.refresh(db_order)
     return db_order
 
-@router.delete("/orders/{order_id}")
+@router.delete("/{order_id}")
 def delete_order(order_id: str, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))):
     db_order = db.query(order_model.Order).filter(order_model.Order.id == order_id).first()
     if not db_order:
@@ -35,7 +35,7 @@ def delete_order(order_id: str, db: Session = Depends(get_db), current_user: Use
     db.commit()
     return {"message": "Order deleted successfully"}
 
-@router.get("/orders", response_model=List[OrderOut])
+@router.get("/", response_model=List[OrderOut])
 def get_orders(db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.PLANNER, UserRole.SUPERVISOR))):
     orders = db.query(order_model.Order).all()
     return orders

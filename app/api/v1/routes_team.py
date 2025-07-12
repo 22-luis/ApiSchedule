@@ -10,9 +10,9 @@ from app.schemas.team import TeamCreate, TeamOut
 from app.utils.dependencies import get_current_user, require_roles
 from app.models.role import UserRole
 
-router = APIRouter()
+router = APIRouter(prefix="/teams", tags=["teams"])
 
-@router.post("/teams", response_model=TeamOut)
+@router.post("/", response_model=TeamOut)
 def create_team(team: TeamCreate, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))):
     supervisor = db.query(User).filter(User.id == team.supervisorId, User.state == UserState.ACTIVE).first()
     if not supervisor:
@@ -27,7 +27,7 @@ def create_team(team: TeamCreate, db: Session = Depends(get_db), current_user: U
     db.refresh(db_team)
     return db_team
 
-@router.delete("/teams/{team_id}", response_model=TeamOut)
+@router.delete("/{team_id}", response_model=TeamOut)
 def delete_team(team_id: str, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))):
     db_team = db.query(Team).filter(Team.id == team_id).first()
     if not db_team:
@@ -36,7 +36,7 @@ def delete_team(team_id: str, db: Session = Depends(get_db), current_user: User 
     db.commit()
     return {"message": "Team deleted successfully"}
 
-@router.patch("/teams/{team_id}", response_model=TeamOut)
+@router.patch("/{team_id}", response_model=TeamOut)
 def update_team(team_id: str, team: TeamCreate, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))):
     
     db_team = db.query(Team).filter(Team.id == team_id).first()
@@ -59,12 +59,12 @@ def update_team(team_id: str, team: TeamCreate, db: Session = Depends(get_db), c
     db.refresh(db_team)
     return db_team
 
-@router.get("/teams", response_model=List[TeamOut])
+@router.get("/", response_model=List[TeamOut])
 def get_teams(db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))):
     teams = db.query(Team).all()
     return teams
 
-@router.get("/teams/{team_id}", response_model=TeamOut)
+@router.get("/{team_id}", response_model=TeamOut)
 def get_team(team_id: str, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))):
     db_team = db.query(Team).filter(Team.id == team_id).first()
     if not db_team:

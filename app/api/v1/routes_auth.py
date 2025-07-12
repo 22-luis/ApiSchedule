@@ -7,7 +7,7 @@ from app.models.user import User
 from app.utils.jwt import create_access_token
 from app.utils.security import verify_password
 
-router = APIRouter()
+router = APIRouter(prefix="/auth", tags=["auth"])
 
 @router.post("/login")
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):

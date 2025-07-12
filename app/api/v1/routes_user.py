@@ -9,9 +9,9 @@ from app.models.team import Team
 from app.models.state import UserState
 from app.models.role import UserRole
 
-router = APIRouter()
+router = APIRouter(prefix="/users", tags=["users"])
 
-@router.post("/users", response_model=UserOut)
+@router.post("/", response_model=UserOut)
 def create_user(
     user: UserCreate,
     db: Session = Depends(get_db),
@@ -27,7 +27,7 @@ def create_user(
     db.refresh(db_user)
     return db_user
 
-@router.delete("/users/{user_id}")
+@router.delete("/{user_id}")
 def delete_user(user_id: str, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))):
     db_user = db.query(User).filter(User.id == user_id).first()
     if not db_user:
@@ -36,7 +36,7 @@ def delete_user(user_id: str, db: Session = Depends(get_db), current_user: User 
     db.commit()
     return {"message": "User deleted successfully"}
 
-@router.patch("/users/{user_id}", response_model=UserOut)
+@router.patch("/{user_id}", response_model=UserOut)
 def update_user(user_id: str, user: UserCreate, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))):
     db_user = db.query(User).filter(User.id == user_id).first()
     if not db_user:
@@ -60,7 +60,7 @@ def update_user(user_id: str, user: UserCreate, db: Session = Depends(get_db), c
     db.refresh(db_user)
     return db_user
 
-@router.get("/users", response_model=List[UserOut])
+@router.get("/", response_model=List[UserOut])
 def get_users(
     db: Session = Depends(get_db), 
     state: Optional[UserState] = Query(default=None, description="State filter"),

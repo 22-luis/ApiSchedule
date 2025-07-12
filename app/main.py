@@ -1,16 +1,15 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import APIRouter, FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
 from starlette.middleware.cors import CORSMiddleware
 
 from app.db.session import engine
 from app.db.database import Base
-from app.models import order
 from app.utils.exception_handlers import http_exception_handler, validation_exception_handler, generic_exception_handler
 from app.api.v1.routes_auth import router as auth_router
 from app.api.v1.routes_user import router as user_router
 from app.api.v1.routes_team import router as team_router
 from app.api.v1.routes_order import router as order_router
-from app.api.v1.routes_task import router as task_router
+from app.api.v1.routes_task import router as task_router, nested_router as task_nested_router
 
 app = FastAPI()
 
@@ -29,10 +28,15 @@ app.add_exception_handler(RequestValidationError, validation_exception_handler)
 app.add_exception_handler(Exception, generic_exception_handler)
 
 # Registro los routers
-app.include_router(auth_router, prefix="/api/v1", tags=["auth"])
-app.include_router(user_router, prefix="/api/v1", tags=["users"])
-app.include_router(team_router, prefix="/api/v1", tags=["teams"])
-app.include_router(order_router, prefix="/api/v1", tags=["orders"])
-app.include_router(task_router, prefix="/api/v1", tags=["tasks"])
+api_router = APIRouter(prefix="/api/v1")
+api_router.include_router(auth_router, tags=["auth"])
+api_router.include_router(user_router, tags=["users"])
+api_router.include_router(team_router, tags=["teams"])
+api_router.include_router(order_router, tags=["orders"])
+api_router.include_router(task_router, tags=["tasks"])
+api_router.include_router(task_nested_router, tags=["tasks"])
+
+# Incluir el router principal en la app
+app.include_router(api_router)
 
 Base.metadata.create_all(bind=engine)
