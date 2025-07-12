@@ -4,7 +4,6 @@ from app.models.role import UserRole
 from app.models.state import UserState
 from app.models.team import Team
 from typing import List, Optional
-from uuid import UUID
 
 class UserCreate(BaseModel):
     username: str

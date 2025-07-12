@@ -47,8 +47,9 @@ def update_team(team_id: str, team: TeamCreate, db: Session = Depends(get_db), c
     if not supervisor:
         raise HTTPException(status_code=400, detail="Supervisor must be an active user")
     
-    db_team.name = team.name 
-    db_team.supervisorId = team.supervisorId
+    # Actualizar campos del equipo
+    setattr(db_team, 'name', team.name)
+    setattr(db_team, 'supervisorId', team.supervisorId)
     
     if team.userIds is not None:  # user_ids es la lista de IDs de usuarios a asignar
         active_users = db.query(User).filter(User.id.in_(team.userIds), User.state == UserState.ACTIVE).all()

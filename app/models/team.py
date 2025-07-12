@@ -14,3 +14,4 @@ class Team(Base):
     name = Column(String)
     supervisorId = Column(UUID(as_uuid=True), ForeignKey("users.id"))
     users = relationship("User", secondary=user_team_association, back_populates="teams")
+    tasks = relationship("Task", back_populates="team")
