@@ -12,6 +12,9 @@ class UserCreate(BaseModel):
     state: UserState
     teamIds: Optional[List[uuid.UUID]]
 
+    class Config:
+        from_attributes = True
+
 class UserOut(BaseModel):
     id: uuid.UUID
     username: str

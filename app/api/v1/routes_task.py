@@ -18,17 +18,17 @@ def create_task(
     db: Session = Depends(get_db), 
     current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))
 ):
-    # Verificar que el equipo existe
-    team = db.query(Team).filter(Team.id == task.team_id).first()
-    if not team:
-        raise HTTPException(status_code=400, detail="Team not found")
-    
+    # Verificar que los equipos existen
+    teams = db.query(Team).filter(Team.id.in_(task.teamIds)).all()
+    if len(teams) != len(task.teamIds):
+        raise HTTPException(status_code=400, detail="One or more teams not found")
     # Crear la tarea
     db_task = Task(
         code=task.code,
         description=task.description,
         unit=task.unit,
         type=task.type,
+        activity=task.activity,
         quantity=task.quantity,
         minutes=task.minutes,
         people=task.people,
@@ -37,9 +37,8 @@ def create_task(
         presentation=task.presentation,
         fabricationCode=task.fabricationCode,
         usefulLife=task.usefulLife,
-        team_id=task.team_id
+        teams=teams
     )
-    
     db.add(db_task)
     db.commit()
     db.refresh(db_task)
@@ -74,21 +73,15 @@ def update_task(
     db_task = db.query(Task).filter(Task.id == task_id).first()
     if not db_task:
         raise HTTPException(status_code=404, detail="Task not found")
-    
-    # Actualizar campos si se proporcionan
     update_data = task_update.dict(exclude_unset=True)
-    team_id = update_data.pop("team_id", None)
-    
+    team_ids = update_data.pop("teamIds", None)
     for field, value in update_data.items():
         setattr(db_task, field, value)
-    
-    # Actualizar equipo si se proporciona
-    if team_id is not None:
-        team = db.query(Team).filter(Team.id == team_id).first()
-        if not team:
-            raise HTTPException(status_code=400, detail="Team not found")
-        db_task.team_id = team_id
-    
+    if team_ids is not None:
+        teams = db.query(Team).filter(Team.id.in_(team_ids)).all()
+        if len(teams) != len(team_ids):
+            raise HTTPException(status_code=400, detail="One or more teams not found")
+        db_task.teams = teams
     db.commit()
     db.refresh(db_task)
     return db_task

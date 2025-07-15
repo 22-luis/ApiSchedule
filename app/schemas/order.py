@@ -12,8 +12,8 @@ class OrderCreate(BaseModel):
     quantity: int
     bin: int
     dueDate: datetime
+
 class OrderOut(BaseModel):
-    id: uuid.UUID
     lote: int
     code: str
     status: OrderStatus
@@ -23,4 +23,4 @@ class OrderOut(BaseModel):
     dueDate: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True

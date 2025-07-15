@@ -1,6 +1,6 @@
 import uuid
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 from app.schemas.team import TeamOut
 
 class TaskCreate(BaseModel):
@@ -8,6 +8,7 @@ class TaskCreate(BaseModel):
     description: str
     unit: str
     type: str
+    activity: str
     quantity: str
     minutes: int
     people: int
@@ -16,13 +17,14 @@ class TaskCreate(BaseModel):
     presentation: str
     fabricationCode: str
     usefulLife: str
-    team_id: uuid.UUID  # ID del equipo obligatorio
+    teamIds: List[uuid.UUID]  # IDs de los equipos obligatorios
 
 class TaskUpdate(BaseModel):
     code: Optional[str] = None
     description: Optional[str] = None
     unit: Optional[str] = None
     type: Optional[str] = None
+    activity: Optional[str] = None
     quantity: Optional[str] = None
     minutes: Optional[int] = None
     people: Optional[int] = None
@@ -31,7 +33,7 @@ class TaskUpdate(BaseModel):
     presentation: Optional[str] = None
     fabricationCode: Optional[str] = None
     usefulLife: Optional[str] = None
-    team_id: Optional[uuid.UUID] = None
+    teamIds: Optional[List[uuid.UUID]] = None
 
 class TaskOut(BaseModel):
     id: uuid.UUID
@@ -39,6 +41,7 @@ class TaskOut(BaseModel):
     description: str
     unit: str
     type: str
+    activity: str
     quantity: str
     minutes: int
     people: int
@@ -47,8 +50,7 @@ class TaskOut(BaseModel):
     presentation: str
     fabricationCode: str
     usefulLife: str
-    team_id: uuid.UUID
-    team: TeamOut
+    teams: List[TeamOut]
 
     class Config:
-        orm_mode = True
+        from_attributes = True

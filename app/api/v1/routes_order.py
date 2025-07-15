@@ -28,7 +28,7 @@ def create_order(order: OrderCreate, db: Session = Depends(get_db), current_user
 
 @router.delete("/{order_id}")
 def delete_order(order_id: str, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))):
-    db_order = db.query(order_model.Order).filter(order_model.Order.id == order_id).first()
+    db_order = db.query(order_model.Order).filter(order_model.Order.lote == order_id).first()
     if not db_order:
         raise HTTPException(status_code=404, detail="Order not found")
     db.delete(db_order)

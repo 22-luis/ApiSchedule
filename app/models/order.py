@@ -7,11 +7,11 @@ from sqlalchemy.ext.declarative import declarative_base
 Base = declarative_base()
 
 class Order(Base):
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    __tablename__ = 'order'
+    lote = Column(Integer, primary_key=True, nullable=False)
     description = Column(String)
     quantity = Column(Integer)
     dueDate = Column(DateTime)
     status = Column(Enum(OrderStatus))
     code = Column(String)
-    lote = Column(Integer)
     bin = Column(Integer)

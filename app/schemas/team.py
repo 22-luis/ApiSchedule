@@ -8,6 +8,9 @@ class TeamCreate(BaseModel):
     supervisorId: uuid.UUID
     userIds: Optional[List[uuid.UUID]] = None
 
+    class Config:
+        from_attributes = True
+
 class TeamOut(BaseModel):
     id: uuid.UUID
     name: str
