@@ -68,7 +68,7 @@ def update_user_state(user_id: str, state_update: UserStateUpdate, db: Session =
     db_user = db.query(User).filter(User.id == user_id).first()
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found")
-    db_user.state = state_update.state.value
+    db_user.state = state_update.state
     db.commit()
     db.refresh(db_user)
     return db_user
