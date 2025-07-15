@@ -6,100 +6,369 @@
   },
   "item": [
     {
-      "name": "Login",
-      "request": {
-        "method": "POST",
-        "header": [],
-        "body": {
-          "mode": "urlencoded",
-          "urlencoded": [
-            { "key": "username", "value": "admin", "type": "text" },
-            { "key": "password", "value": "tu_contraseña", "type": "text" }
-          ]
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "username", "value": "admin", "type": "text" },
+                { "key": "password", "value": "tu_contraseña", "type": "text" }
+              ]
+            },
+            "url": { "raw": "{{base_url}}/login", "host": ["{{base_url}}"], "path": ["login"] }
+          },
+          "response": []
         },
-        "url": { "raw": "{{base_url}}/login", "host": ["{{base_url}}"], "path": ["login"] }
-      },
-      "response": []
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": { "raw": "{{base_url}}/logout", "host": ["{{base_url}}"], "path": ["logout"] }
+          },
+          "response": []
+        }
+      ]
     },
     {
-      "name": "Crear usuario",
-      "request": {
-        "method": "POST",
-        "header": [
-          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
-          { "key": "Content-Type", "value": "application/json", "type": "text" }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"username\": \"nuevo_usuario\",\n  \"password\": \"password_segura\",\n  \"role\": \"User\",\n  \"state\": \"Activo\",\n  \"teamIds\": []\n}"
+      "name": "Usuarios",
+      "item": [
+        {
+          "name": "Crear usuario",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"nuevo_usuario\",\n  \"password\": \"password_segura\",\n  \"role\": \"User\",\n  \"state\": \"Activo\",\n  \"teamIds\": []\n}"
+            },
+            "url": { "raw": "{{base_url}}/users", "host": ["{{base_url}}"], "path": ["users"] }
+          },
+          "response": []
         },
-        "url": { "raw": "{{base_url}}/users", "host": ["{{base_url}}"], "path": ["users"] }
-      },
-      "response": []
+        {
+          "name": "Editar usuario",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"usuario_editado\",\n  \"password\": \"nueva_password\",\n  \"role\": \"User\",\n  \"state\": \"Activo\",\n  \"teamIds\": [\"{{teamId1}}\"]\n}"
+            },
+            "url": { "raw": "{{base_url}}/users/{{userId1}}", "host": ["{{base_url}}"], "path": ["users", "{{userId1}}"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Listar usuarios",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": { "raw": "{{base_url}}/users", "host": ["{{base_url}}"], "path": ["users"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Eliminar usuario",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": { "raw": "{{base_url}}/users/{{userId1}}", "host": ["{{base_url}}"], "path": ["users", "{{userId1}}"] }
+          },
+          "response": []
+        }
+      ]
     },
     {
-      "name": "Crear equipo",
-      "request": {
-        "method": "POST",
-        "header": [
-          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
-          { "key": "Content-Type", "value": "application/json", "type": "text" }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"name\": \"Equipo A\",\n  \"supervisorId\": \"{{supervisorId}}\",\n  \"userIds\": [\"{{userId1}}\", \"{{userId2}}\"]\n}"
+      "name": "Equipos",
+      "item": [
+        {
+          "name": "Crear equipo",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Equipo A\",\n  \"supervisorId\": \"{{supervisorId}}\",\n  \"userIds\": [\"{{userId1}}\", \"{{userId2}}\"]\n}"
+            },
+            "url": { "raw": "{{base_url}}/teams", "host": ["{{base_url}}"], "path": ["teams"] }
+          },
+          "response": []
         },
-        "url": { "raw": "{{base_url}}/teams", "host": ["{{base_url}}"], "path": ["teams"] }
-      },
-      "response": []
+        {
+          "name": "Editar equipo",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Equipo Editado\",\n  \"supervisorId\": \"{{supervisorId}}\",\n  \"userIds\": [\"{{userId1}}\", \"{{userId3}}\"]\n}"
+            },
+            "url": { "raw": "{{base_url}}/teams/{{teamId1}}", "host": ["{{base_url}}"], "path": ["teams", "{{teamId1}}"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Listar equipos",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": { "raw": "{{base_url}}/teams", "host": ["{{base_url}}"], "path": ["teams"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Obtener equipo por id",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": { "raw": "{{base_url}}/teams/{{teamId1}}", "host": ["{{base_url}}"], "path": ["teams", "{{teamId1}}"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Eliminar equipo",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": { "raw": "{{base_url}}/teams/{{teamId1}}", "host": ["{{base_url}}"], "path": ["teams", "{{teamId1}}"] }
+          },
+          "response": []
+        }
+      ]
     },
     {
-      "name": "Crear orden",
-      "request": {
-        "method": "POST",
-        "header": [
-          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
-          { "key": "Content-Type", "value": "application/json", "type": "text" }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"lote\": 123,\n  \"dueDate\": \"2024-07-01T12:00:00\",\n  \"code\": \"ORD-001\",\n  \"description\": \"Orden de prueba\",\n  \"quantity\": 10,\n  \"bin\": 5,\n  \"status\": \"Pending\"\n}"
+      "name": "Órdenes",
+      "item": [
+        {
+          "name": "Crear orden",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lote\": 123,\n  \"dueDate\": \"2024-07-01T12:00:00\",\n  \"code\": \"ORD-001\",\n  \"description\": \"Orden de prueba\",\n  \"quantity\": 10,\n  \"bin\": 5,\n  \"status\": \"Pending\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/orders", "host": ["{{base_url}}"], "path": ["orders"] }
+          },
+          "response": []
         },
-        "url": { "raw": "{{base_url}}/orders", "host": ["{{base_url}}"], "path": ["orders"] }
-      },
-      "response": []
+        {
+          "name": "Listar órdenes",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": { "raw": "{{base_url}}/orders", "host": ["{{base_url}}"], "path": ["orders"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Eliminar orden",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": { "raw": "{{base_url}}/orders/{{orderId1}}", "host": ["{{base_url}}"], "path": ["orders", "{{orderId1}}"] }
+          },
+          "response": []
+        }
+      ]
     },
     {
-      "name": "Editar usuario",
-      "request": {
-        "method": "PATCH",
-        "header": [
-          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
-          { "key": "Content-Type", "value": "application/json", "type": "text" }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"username\": \"usuario_editado\",\n  \"password\": \"nueva_password\",\n  \"role\": \"User\",\n  \"state\": \"Activo\",\n  \"teamIds\": [\"{{teamId1}}\"]\n}"
+      "name": "Tareas",
+      "item": [
+        {
+          "name": "Crear tarea",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"T-001\",\n  \"description\": \"Tarea de ejemplo\",\n  \"unit\": \"h\",\n  \"type\": \"Normal\",\n  \"activity\": \"Montaje\",\n  \"quantity\": \"10\",\n  \"minutes\": 60,\n  \"people\": 2,\n  \"performance\": 100,\n  \"material\": \"Material X\",\n  \"presentation\": \"Caja\",\n  \"fabricationCode\": \"F-001\",\n  \"usefulLife\": \"12m\",\n  \"teamIds\": [\"{{teamId1}}\"]\n}"
+            },
+            "url": { "raw": "{{base_url}}/tasks", "host": ["{{base_url}}"], "path": ["tasks"] }
+          },
+          "response": []
         },
-        "url": { "raw": "{{base_url}}/users/{{userId1}}", "host": ["{{base_url}}"], "path": ["users", "{{userId1}}"] }
-      },
-      "response": []
+        {
+          "name": "Editar tarea",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Tarea editada\",\n  \"teamIds\": [\"{{teamId1}}\", \"{{teamId2}}\"]\n}"
+            },
+            "url": { "raw": "{{base_url}}/tasks/{{taskId1}}", "host": ["{{base_url}}"], "path": ["tasks", "{{taskId1}}"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Listar tareas",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": { "raw": "{{base_url}}/tasks", "host": ["{{base_url}}"], "path": ["tasks"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Obtener tarea por id",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": { "raw": "{{base_url}}/tasks/{{taskId1}}", "host": ["{{base_url}}"], "path": ["tasks", "{{taskId1}}"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Eliminar tarea",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": { "raw": "{{base_url}}/tasks/{{taskId1}}", "host": ["{{base_url}}"], "path": ["tasks", "{{taskId1}}"] }
+          },
+          "response": []
+        }
+      ]
     },
     {
-      "name": "Editar equipo",
-      "request": {
-        "method": "PATCH",
-        "header": [
-          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
-          { "key": "Content-Type", "value": "application/json", "type": "text" }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"name\": \"Equipo Editado\",\n  \"supervisorId\": \"{{supervisorId}}\",\n  \"userIds\": [\"{{userId1}}\", \"{{userId3}}\"]\n}"
+      "name": "Preparaciones",
+      "item": [
+        {
+          "name": "Crear preparación",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Preparación de ejemplo\",\n  \"minutes\": 30\n}"
+            },
+            "url": { "raw": "{{base_url}}/preparations", "host": ["{{base_url}}"], "path": ["preparations"] }
+          },
+          "response": []
         },
-        "url": { "raw": "{{base_url}}/teams/{{teamId1}}", "host": ["{{base_url}}"], "path": ["teams", "{{teamId1}}"] }
-      },
-      "response": []
+        {
+          "name": "Editar preparación",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Preparación editada\",\n  \"minutes\": 45\n}"
+            },
+            "url": { "raw": "{{base_url}}/preparations/{{preparationId1}}", "host": ["{{base_url}}"], "path": ["preparations", "{{preparationId1}}"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Listar preparaciones",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": { "raw": "{{base_url}}/preparations", "host": ["{{base_url}}"], "path": ["preparations"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Obtener preparación por id",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": { "raw": "{{base_url}}/preparations/{{preparationId1}}", "host": ["{{base_url}}"], "path": ["preparations", "{{preparationId1}}"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Eliminar preparación",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": { "raw": "{{base_url}}/preparations/{{preparationId1}}", "host": ["{{base_url}}"], "path": ["preparations", "{{preparationId1}}"] }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Programaciones",
+      "item": [
+        {
+          "name": "Crear programación",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantity\": 5,\n  \"minutes\": 120,\n  \"date\": \"2024-07-01T12:00:00\",\n  \"task_id\": \"{{taskId1}}\",\n  \"order_lote\": 123\n}"
+            },
+            "url": { "raw": "{{base_url}}/programmings", "host": ["{{base_url}}"], "path": ["programmings"] }
+          },
+          "response": []
+        }
+      ]
     }
   ],
   "variable": [
@@ -109,6 +378,10 @@
     { "key": "userId1", "value": "" },
     { "key": "userId2", "value": "" },
     { "key": "userId3", "value": "" },
-    { "key": "teamId1", "value": "" }
+    { "key": "teamId1", "value": "" },
+    { "key": "teamId2", "value": "" },
+    { "key": "taskId1", "value": "" },
+    { "key": "preparationId1", "value": "" },
+    { "key": "orderId1", "value": "" }
   ]
 } 
