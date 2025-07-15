@@ -21,7 +21,14 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     except Exception:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect username or password")
     access_token = create_access_token(data={"sub": str(user.id), "username": user.username, "role": user.role.value})
-    return {"access_token": access_token, "token_type": "bearer"}
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": {
+            "id": user.id,
+            "username":user.username,
+            "role": user.role
+        }}
 
 @router.post("/logout")
 def logout(current_user=Depends(get_current_user)):
