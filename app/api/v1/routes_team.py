@@ -32,9 +32,19 @@ def delete_team(team_id: str, db: Session = Depends(get_db), current_user: User 
     db_team = db.query(Team).filter(Team.id == team_id).first()
     if not db_team:
         raise HTTPException(status_code=404, detail="Team not found")
+    supervisor = db.query(User).filter(User.id == db_team.supervisorId).first()
+    supervisor_username = supervisor.username if supervisor else None
+    users = db_team.users
+    response = {
+        "id": db_team.id,
+        "name": db_team.name,
+        "supervisorId": db_team.supervisorId,
+        "supervisorUsername": supervisor_username,
+        "users": users,
+    }
     db.delete(db_team)
     db.commit()
-    return {"message": "Team deleted successfully"}
+    return response
 
 @router.patch("/{team_id}", response_model=TeamOut)
 def update_team(team_id: str, team: TeamCreate, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))):
