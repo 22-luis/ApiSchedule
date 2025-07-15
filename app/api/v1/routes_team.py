@@ -14,13 +14,13 @@ router = APIRouter(prefix="/teams", tags=["teams"])
 
 @router.post("/", response_model=TeamOut)
 def create_team(team: TeamCreate, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))):
-    supervisor = db.query(User).filter(User.id == team.supervisorId, User.state == UserState.ACTIVE).first()
+    supervisor = db.query(User).filter(User.id == team.supervisorId, User.state == UserState.ACTIVE).all()
     if not supervisor:
         raise HTTPException(status_code=400, detail="Supervisor must be an active user")
     db_team = Team(name=team.name, supervisorId=team.supervisorId)
     # Asign active members
     if team.userIds:
-        active_users = db.query(User).filter(User.id.in_(team.userIds), User.state == UserState.ACTIVE).first()
+        active_users = db.query(User).filter(User.id.in_(team.userIds), User.state == UserState.ACTIVE).all()
         db_team.users = active_users
     db.add(db_team)
     db.commit()
@@ -29,7 +29,7 @@ def create_team(team: TeamCreate, db: Session = Depends(get_db), current_user: U
 
 @router.delete("/{team_id}", response_model=TeamOut)
 def delete_team(team_id: str, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))):
-    db_team = db.query(Team).filter(Team.id == team_id).first()
+    db_team = db.query(Team).filter(Team.id == team_id).all()
     if not db_team:
         raise HTTPException(status_code=404, detail="Team not found")
     db.delete(db_team)
@@ -39,11 +39,11 @@ def delete_team(team_id: str, db: Session = Depends(get_db), current_user: User 
 @router.patch("/{team_id}", response_model=TeamOut)
 def update_team(team_id: str, team: TeamCreate, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))):
     
-    db_team = db.query(Team).filter(Team.id == team_id).first()
+    db_team = db.query(Team).filter(Team.id == team_id).all()
     if not db_team:
         raise HTTPException(status_code=404, detail="Team not found")
     
-    supervisor = db.query(User).filter(User.id == team.supervisorId, User.state == UserState.ACTIVE).first()
+    supervisor = db.query(User).filter(User.id == team.supervisorId, User.state == UserState.ACTIVE).all()
     if not supervisor:
         raise HTTPException(status_code=400, detail="Supervisor must be an active user")
     
@@ -62,13 +62,32 @@ def update_team(team_id: str, team: TeamCreate, db: Session = Depends(get_db), c
 @router.get("/", response_model=List[TeamOut])
 def get_teams(db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))):
     teams = db.query(Team).all()
-    return teams
+    result = []
+    for t in teams:
+        supervisor = db.query(User).filter(User.id == t.supervisorId).first()
+        supervisor_username = supervisor.username if supervisor else None
+        result.append({
+            "id": t.id,
+            "name": t.name,
+            "supervisorId": t.supervisorId,
+            "supervisorUsername": supervisor_username,
+            "users": t.users
+        })
+    return result
 
 @router.get("/{team_id}", response_model=TeamOut)
 def get_team(team_id: str, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))):
     db_team = db.query(Team).filter(Team.id == team_id).first()
     if not db_team:
         raise HTTPException(status_code=404, detail="Team not found")
+    supervisor = db.query(User).filter(User.id == db_team.supervisorId).first()
+    supervisor_username = supervisor.username if supervisor else None
     # Filtra solo usuarios activos
-    db_team.users = [user for user in db_team.users if user.state == UserState.ACTIVE]
-    return db_team
+    users = [user for user in db_team.users if user.state == UserState.ACTIVE]
+    return {
+        "id": db_team.id,
+        "name": db_team.name,
+        "supervisorId": db_team.supervisorId,
+        "supervisorUsername": supervisor_username,
+        "users": users
+    }

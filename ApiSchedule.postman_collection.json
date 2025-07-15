@@ -185,7 +185,17 @@
             ],
             "url": { "raw": "{{base_url}}/api/v1/teams/{{teamId1}}", "host": ["{{base_url}}"], "path": ["api", "v1", "teams", "{{teamId1}}"] }
           },
-          "response": []
+          "response": [
+            {
+              "name": "Ejemplo de respuesta equipo",
+              "originalRequest": {},
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [],
+              "body": "{\n  \"id\": \"uuid-del-equipo\",\n  \"name\": \"Equipo A\",\n  \"supervisorId\": \"uuid-del-supervisor\",\n  \"supervisorUsername\": \"nombre_usuario_supervisor\",\n  \"users\": []\n}"
+            }
+          ]
         },
         {
           "name": "Eliminar equipo",

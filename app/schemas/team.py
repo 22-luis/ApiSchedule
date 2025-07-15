@@ -15,4 +15,5 @@ class TeamOut(BaseModel):
     id: uuid.UUID
     name: str
     supervisorId: uuid.UUID
+    supervisorUsername: str
     users: List[UserOut]
