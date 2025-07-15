@@ -25,7 +25,15 @@ def create_team(team: TeamCreate, db: Session = Depends(get_db), current_user: U
     db.add(db_team)
     db.commit()
     db.refresh(db_team)
-    return db_team
+    supervisor = db.query(User).filter(User.id == db_team.supervisorId).first()
+    supervisor_username = supervisor.username if supervisor else None
+    return {
+        "id": db_team.id,
+        "name": db_team.name,
+        "supervisorId": db_team.supervisorId,
+        "supervisorUsername": supervisor_username,
+        "users": db_team.users,
+    }
 
 @router.delete("/{team_id}", response_model=TeamOut)
 def delete_team(team_id: str, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))):
