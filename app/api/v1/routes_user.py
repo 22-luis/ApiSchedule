@@ -8,6 +8,7 @@ from typing import List, Optional
 from app.models.team import Team
 from app.models.state import UserState
 from app.models.role import UserRole
+from app.utils.security import hash_password
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -19,7 +20,7 @@ def create_user(
     ):
     db_user = User(
         username=user.username, 
-        password=user.password, 
+        password=hash_password(user.password),
         role=user.role
         )
     db.add(db_user)
@@ -41,21 +42,23 @@ def update_user(user_id: str, user: UserCreate, db: Session = Depends(get_db), c
     db_user = db.query(User).filter(User.id == user_id).first()
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found")
-    
+
     past_state = db_user.state
-    
+
+    # The following assignments are correct for SQLAlchemy models, linter may show false positives
     db_user.username = user.username
-    db_user.password = user.password
+    if user.password:
+        db_user.password = hash_password(user.password)
     db_user.role = user.role
     db_user.state = user.state
-    
-    # si el estado es INACTIVE, se debe eliminar el usuario de los equipos
-    if user.state == UserState.INACTIVE and past_state == UserState.ACTIVE:
-      db_user.teams = []
-    
-    if user.teamIds is not None and user.state == UserState.ACTIVE:
-      db_user.teams = db.query(Team).filter(Team.id.in_(user.teamIds)).all()
-    
+
+    # Use .value for Enum comparisons to avoid linter errors
+    if user.state.value == UserState.INACTIVE.value and past_state == UserState.ACTIVE:
+        db_user.teams = []
+
+    if user.teamIds is not None and user.state.value == UserState.ACTIVE.value:
+        db_user.teams = db.query(Team).filter(Team.id.in_(user.teamIds)).all()
+
     db.commit()
     db.refresh(db_user)
     return db_user
