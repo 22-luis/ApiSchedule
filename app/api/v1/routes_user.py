@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from app.utils.dependencies import get_current_user, require_roles
 from sqlalchemy.orm import Session
 from app.models.user import User
-from app.schemas.user import UserCreate, UserOut
+from app.schemas.user import UserCreate, UserOut, UserStateUpdate
 from app.db.dependency import get_db
 from typing import List, Optional
 from app.models.team import Team
@@ -59,6 +59,16 @@ def update_user(user_id: str, user: UserCreate, db: Session = Depends(get_db), c
     if user.teamIds is not None and user.state.value == UserState.ACTIVE.value:
         db_user.teams = db.query(Team).filter(Team.id.in_(user.teamIds)).all()
 
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+
+@router.patch("/{user_id}/state", response_model=UserOut)
+def update_user_state(user_id: str, state_update: UserStateUpdate, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))):
+    db_user = db.query(User).filter(User.id == user_id).first()
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    db_user.state = state_update.state.value
     db.commit()
     db.refresh(db_user)
     return db_user

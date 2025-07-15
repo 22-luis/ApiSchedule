@@ -21,3 +21,6 @@ class UserOut(BaseModel):
     role: UserRole
     state: UserState = UserState.ACTIVE
     teamIds: Optional[List[uuid.UUID]] = []
+
+class UserStateUpdate(BaseModel):
+    state: UserState

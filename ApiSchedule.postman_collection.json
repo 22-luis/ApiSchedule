@@ -50,7 +50,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"username\": \"nuevo_usuario\",\n  \"password\": \"password_segura\",\n  \"role\": \"user\",\n  \"state\": \"active\",\n  \"teamIds\": []\n}"
+              "raw": "{\n  \"username\": \"nuevo_usuario\",\n  \"password\": \"password_segura\",\n  \"role\": \"admin\",\n  \"state\": \"active\",\n  \"teamIds\": []\n}"
             },
             "url": { "raw": "{{base_url}}/api/v1/users", "host": ["{{base_url}}"], "path": ["api", "v1", "users"] }
           },
@@ -66,9 +66,25 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"username\": \"usuario_editado\",\n  \"password\": \"nueva_password\",\n  \"role\": \"user\",\n  \"state\": \"active\",\n  \"teamIds\": [\"{{teamId1}}\"]\n}"
+              "raw": "{\n  \"username\": \"usuario_editado\",\n  \"password\": \"nueva_password\",\n  \"role\": \"planner\",\n  \"state\": \"inactive\",\n  \"teamIds\": [\"{{teamId1}}\"]\n}"
             },
             "url": { "raw": "{{base_url}}/api/v1/users/{{userId1}}", "host": ["{{base_url}}"], "path": ["api", "v1", "users", "{{userId1}}"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Cambiar estado de usuario",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"state\": \"inactive\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/v1/users/{{userId1}}/state", "host": ["{{base_url}}"], "path": ["api", "v1", "users", "{{userId1}}", "state"] }
           },
           "response": []
         },
