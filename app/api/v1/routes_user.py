@@ -77,6 +77,7 @@ def update_user_state(user_id: str, state_update: UserStateUpdate, db: Session =
 def get_users(
     db: Session = Depends(get_db), 
     state: Optional[UserState] = Query(default=None, description="State filter"),
+    role: Optional[UserRole] = Query(default=None, description="Role filter"),
     skip: int = Query(0, ge=0, description="Skip"),
     limit: int = Query(10, ge=1, le=50, description="Limit"),
     current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
@@ -84,6 +85,8 @@ def get_users(
     query = db.query(User)
     if state is not None:
         query = query.filter(User.state == state)
+    if role is not None:
+        query = query.filter(User.role == role)
     users = query.all()
     return users
 

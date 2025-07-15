@@ -100,6 +100,24 @@
           "response": []
         },
         {
+          "name": "Listar usuarios por rol",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/users?role=admin",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "users"],
+              "query": [
+                { "key": "role", "value": "admin" }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
           "name": "Eliminar usuario",
           "request": {
             "method": "DELETE",
