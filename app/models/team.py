@@ -2,10 +2,9 @@ import uuid
 
 from sqlalchemy import Column, String, ForeignKey, Table
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
-
-Base = declarative_base()
+from app.db.database import Base
+from app.models.task import task_team_association
 
 user_team_association = Table(
     "user_team_association",
@@ -20,4 +19,4 @@ class Team(Base):
     name = Column(String)
     supervisorId = Column(UUID(as_uuid=True), ForeignKey("users.id"))
     users = relationship("User", secondary=user_team_association, back_populates="teams")
-    tasks = relationship('Task', secondary='task_team_association', back_populates='teams')
+    tasks = relationship('Task', secondary=task_team_association, back_populates='teams')

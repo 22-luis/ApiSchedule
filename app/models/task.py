@@ -3,9 +3,7 @@ import uuid
 from sqlalchemy import Column, String, Integer, ForeignKey, Table
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.ext.declarative import declarative_base
-
-Base = declarative_base()
+from app.db.database import Base
 
 task_team_association = Table(
     'task_team_association',
@@ -30,4 +28,4 @@ class Task(Base):
     presentation = Column(String)
     fabricationCode = Column(String)
     usefulLife = Column(String)
-    teams = relationship('Team', secondary='task_team_association', back_populates='tasks')
+    teams = relationship('Team', secondary=task_team_association, back_populates='tasks')

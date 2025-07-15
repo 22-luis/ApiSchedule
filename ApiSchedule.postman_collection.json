@@ -50,9 +50,9 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"username\": \"nuevo_usuario\",\n  \"password\": \"password_segura\",\n  \"role\": \"User\",\n  \"state\": \"Activo\",\n  \"teamIds\": []\n}"
+              "raw": "{\n  \"username\": \"nuevo_usuario\",\n  \"password\": \"password_segura\",\n  \"role\": \"user\",\n  \"state\": \"active\",\n  \"teamIds\": []\n}"
             },
-            "url": { "raw": "{{base_url}}/users", "host": ["{{base_url}}"], "path": ["users"] }
+            "url": { "raw": "{{base_url}}/api/v1/users", "host": ["{{base_url}}"], "path": ["api", "v1", "users"] }
           },
           "response": []
         },
@@ -66,9 +66,9 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"username\": \"usuario_editado\",\n  \"password\": \"nueva_password\",\n  \"role\": \"User\",\n  \"state\": \"Activo\",\n  \"teamIds\": [\"{{teamId1}}\"]\n}"
+              "raw": "{\n  \"username\": \"usuario_editado\",\n  \"password\": \"nueva_password\",\n  \"role\": \"user\",\n  \"state\": \"active\",\n  \"teamIds\": [\"{{teamId1}}\"]\n}"
             },
-            "url": { "raw": "{{base_url}}/users/{{userId1}}", "host": ["{{base_url}}"], "path": ["users", "{{userId1}}"] }
+            "url": { "raw": "{{base_url}}/api/v1/users/{{userId1}}", "host": ["{{base_url}}"], "path": ["api", "v1", "users", "{{userId1}}"] }
           },
           "response": []
         },
@@ -79,7 +79,7 @@
             "header": [
               { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
             ],
-            "url": { "raw": "{{base_url}}/users", "host": ["{{base_url}}"], "path": ["users"] }
+            "url": { "raw": "{{base_url}}/api/v1/users", "host": ["{{base_url}}"], "path": ["api", "v1", "users"] }
           },
           "response": []
         },
@@ -90,7 +90,7 @@
             "header": [
               { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
             ],
-            "url": { "raw": "{{base_url}}/users/{{userId1}}", "host": ["{{base_url}}"], "path": ["users", "{{userId1}}"] }
+            "url": { "raw": "{{base_url}}/api/v1/users/{{userId1}}", "host": ["{{base_url}}"], "path": ["api", "v1", "users", "{{userId1}}"] }
           },
           "response": []
         }
@@ -111,7 +111,7 @@
               "mode": "raw",
               "raw": "{\n  \"name\": \"Equipo A\",\n  \"supervisorId\": \"{{supervisorId}}\",\n  \"userIds\": [\"{{userId1}}\", \"{{userId2}}\"]\n}"
             },
-            "url": { "raw": "{{base_url}}/teams", "host": ["{{base_url}}"], "path": ["teams"] }
+            "url": { "raw": "{{base_url}}/api/v1/teams", "host": ["{{base_url}}"], "path": ["api", "v1", "teams"] }
           },
           "response": []
         },
@@ -127,7 +127,7 @@
               "mode": "raw",
               "raw": "{\n  \"name\": \"Equipo Editado\",\n  \"supervisorId\": \"{{supervisorId}}\",\n  \"userIds\": [\"{{userId1}}\", \"{{userId3}}\"]\n}"
             },
-            "url": { "raw": "{{base_url}}/teams/{{teamId1}}", "host": ["{{base_url}}"], "path": ["teams", "{{teamId1}}"] }
+            "url": { "raw": "{{base_url}}/api/v1/teams/{{teamId1}}", "host": ["{{base_url}}"], "path": ["api", "v1", "teams", "{{teamId1}}"] }
           },
           "response": []
         },
@@ -138,7 +138,7 @@
             "header": [
               { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
             ],
-            "url": { "raw": "{{base_url}}/teams", "host": ["{{base_url}}"], "path": ["teams"] }
+            "url": { "raw": "{{base_url}}/api/v1/teams", "host": ["{{base_url}}"], "path": ["api", "v1", "teams"] }
           },
           "response": []
         },
@@ -149,7 +149,7 @@
             "header": [
               { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
             ],
-            "url": { "raw": "{{base_url}}/teams/{{teamId1}}", "host": ["{{base_url}}"], "path": ["teams", "{{teamId1}}"] }
+            "url": { "raw": "{{base_url}}/api/v1/teams/{{teamId1}}", "host": ["{{base_url}}"], "path": ["api", "v1", "teams", "{{teamId1}}"] }
           },
           "response": []
         },
@@ -160,7 +160,7 @@
             "header": [
               { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
             ],
-            "url": { "raw": "{{base_url}}/teams/{{teamId1}}", "host": ["{{base_url}}"], "path": ["teams", "{{teamId1}}"] }
+            "url": { "raw": "{{base_url}}/api/v1/teams/{{teamId1}}", "host": ["{{base_url}}"], "path": ["api", "v1", "teams", "{{teamId1}}"] }
           },
           "response": []
         }
@@ -179,9 +179,9 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"lote\": 123,\n  \"dueDate\": \"2024-07-01T12:00:00\",\n  \"code\": \"ORD-001\",\n  \"description\": \"Orden de prueba\",\n  \"quantity\": 10,\n  \"bin\": 5,\n  \"status\": \"Pending\"\n}"
+              "raw": "{\n  \"lote\": 123,\n  \"dueDate\": \"2024-07-01T12:00:00\",\n  \"code\": \"ORD-001\",\n  \"description\": \"Orden de prueba\",\n  \"quantity\": 10,\n  \"bin\": 5,\n  \"status\": \"pending\"\n}"
             },
-            "url": { "raw": "{{base_url}}/orders", "host": ["{{base_url}}"], "path": ["orders"] }
+            "url": { "raw": "{{base_url}}/api/v1/orders", "host": ["{{base_url}}"], "path": ["api", "v1", "orders"] }
           },
           "response": []
         },
@@ -192,7 +192,7 @@
             "header": [
               { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
             ],
-            "url": { "raw": "{{base_url}}/orders", "host": ["{{base_url}}"], "path": ["orders"] }
+            "url": { "raw": "{{base_url}}/api/v1/orders", "host": ["{{base_url}}"], "path": ["api", "v1", "orders"] }
           },
           "response": []
         },
@@ -203,7 +203,7 @@
             "header": [
               { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
             ],
-            "url": { "raw": "{{base_url}}/orders/{{orderId1}}", "host": ["{{base_url}}"], "path": ["orders", "{{orderId1}}"] }
+            "url": { "raw": "{{base_url}}/api/v1/orders/{{orderId1}}", "host": ["{{base_url}}"], "path": ["api", "v1", "orders", "{{orderId1}}"] }
           },
           "response": []
         }
@@ -224,7 +224,7 @@
               "mode": "raw",
               "raw": "{\n  \"code\": \"T-001\",\n  \"description\": \"Tarea de ejemplo\",\n  \"unit\": \"h\",\n  \"type\": \"Normal\",\n  \"activity\": \"Montaje\",\n  \"quantity\": \"10\",\n  \"minutes\": 60,\n  \"people\": 2,\n  \"performance\": 100,\n  \"material\": \"Material X\",\n  \"presentation\": \"Caja\",\n  \"fabricationCode\": \"F-001\",\n  \"usefulLife\": \"12m\",\n  \"teamIds\": [\"{{teamId1}}\"]\n}"
             },
-            "url": { "raw": "{{base_url}}/tasks", "host": ["{{base_url}}"], "path": ["tasks"] }
+            "url": { "raw": "{{base_url}}/api/v1/tasks", "host": ["{{base_url}}"], "path": ["api", "v1", "tasks"] }
           },
           "response": []
         },
@@ -240,7 +240,7 @@
               "mode": "raw",
               "raw": "{\n  \"description\": \"Tarea editada\",\n  \"teamIds\": [\"{{teamId1}}\", \"{{teamId2}}\"]\n}"
             },
-            "url": { "raw": "{{base_url}}/tasks/{{taskId1}}", "host": ["{{base_url}}"], "path": ["tasks", "{{taskId1}}"] }
+            "url": { "raw": "{{base_url}}/api/v1/tasks/{{taskId1}}", "host": ["{{base_url}}"], "path": ["api", "v1", "tasks", "{{taskId1}}"] }
           },
           "response": []
         },
@@ -251,7 +251,7 @@
             "header": [
               { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
             ],
-            "url": { "raw": "{{base_url}}/tasks", "host": ["{{base_url}}"], "path": ["tasks"] }
+            "url": { "raw": "{{base_url}}/api/v1/tasks", "host": ["{{base_url}}"], "path": ["api", "v1", "tasks"] }
           },
           "response": []
         },
@@ -262,7 +262,7 @@
             "header": [
               { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
             ],
-            "url": { "raw": "{{base_url}}/tasks/{{taskId1}}", "host": ["{{base_url}}"], "path": ["tasks", "{{taskId1}}"] }
+            "url": { "raw": "{{base_url}}/api/v1/tasks/{{taskId1}}", "host": ["{{base_url}}"], "path": ["api", "v1", "tasks", "{{taskId1}}"] }
           },
           "response": []
         },
@@ -273,7 +273,7 @@
             "header": [
               { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
             ],
-            "url": { "raw": "{{base_url}}/tasks/{{taskId1}}", "host": ["{{base_url}}"], "path": ["tasks", "{{taskId1}}"] }
+            "url": { "raw": "{{base_url}}/api/v1/tasks/{{taskId1}}", "host": ["{{base_url}}"], "path": ["api", "v1", "tasks", "{{taskId1}}"] }
           },
           "response": []
         }
@@ -294,7 +294,7 @@
               "mode": "raw",
               "raw": "{\n  \"description\": \"Preparación de ejemplo\",\n  \"minutes\": 30\n}"
             },
-            "url": { "raw": "{{base_url}}/preparations", "host": ["{{base_url}}"], "path": ["preparations"] }
+            "url": { "raw": "{{base_url}}/api/v1/preparations", "host": ["{{base_url}}"], "path": ["api", "v1", "preparations"] }
           },
           "response": []
         },
@@ -310,7 +310,7 @@
               "mode": "raw",
               "raw": "{\n  \"description\": \"Preparación editada\",\n  \"minutes\": 45\n}"
             },
-            "url": { "raw": "{{base_url}}/preparations/{{preparationId1}}", "host": ["{{base_url}}"], "path": ["preparations", "{{preparationId1}}"] }
+            "url": { "raw": "{{base_url}}/api/v1/preparations/{{preparationId1}}", "host": ["{{base_url}}"], "path": ["api", "v1", "preparations", "{{preparationId1}}"] }
           },
           "response": []
         },
@@ -321,7 +321,7 @@
             "header": [
               { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
             ],
-            "url": { "raw": "{{base_url}}/preparations", "host": ["{{base_url}}"], "path": ["preparations"] }
+            "url": { "raw": "{{base_url}}/api/v1/preparations", "host": ["{{base_url}}"], "path": ["api", "v1", "preparations"] }
           },
           "response": []
         },
@@ -332,7 +332,7 @@
             "header": [
               { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
             ],
-            "url": { "raw": "{{base_url}}/preparations/{{preparationId1}}", "host": ["{{base_url}}"], "path": ["preparations", "{{preparationId1}}"] }
+            "url": { "raw": "{{base_url}}/api/v1/preparations/{{preparationId1}}", "host": ["{{base_url}}"], "path": ["api", "v1", "preparations", "{{preparationId1}}"] }
           },
           "response": []
         },
@@ -343,7 +343,7 @@
             "header": [
               { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
             ],
-            "url": { "raw": "{{base_url}}/preparations/{{preparationId1}}", "host": ["{{base_url}}"], "path": ["preparations", "{{preparationId1}}"] }
+            "url": { "raw": "{{base_url}}/api/v1/preparations/{{preparationId1}}", "host": ["{{base_url}}"], "path": ["api", "v1", "preparations", "{{preparationId1}}"] }
           },
           "response": []
         }
@@ -364,7 +364,7 @@
               "mode": "raw",
               "raw": "{\n  \"quantity\": 5,\n  \"minutes\": 120,\n  \"date\": \"2024-07-01T12:00:00\",\n  \"task_id\": \"{{taskId1}}\",\n  \"order_lote\": 123\n}"
             },
-            "url": { "raw": "{{base_url}}/programmings", "host": ["{{base_url}}"], "path": ["programmings"] }
+            "url": { "raw": "{{base_url}}/api/v1/programmings", "host": ["{{base_url}}"], "path": ["api", "v1", "programmings"] }
           },
           "response": []
         }

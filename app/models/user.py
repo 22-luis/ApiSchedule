@@ -6,9 +6,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from app.models.role import UserRole
 from app.models.state import UserState
 from app.models.team import user_team_association
-from sqlalchemy.ext.declarative import declarative_base
-
-Base = declarative_base()
+from app.db.database import Base
 
 class User(Base):
     __tablename__ = 'users'
