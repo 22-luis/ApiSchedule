@@ -29,7 +29,7 @@ def create_team(team: TeamCreate, db: Session = Depends(get_db), current_user: U
 
 @router.delete("/{team_id}", response_model=TeamOut)
 def delete_team(team_id: str, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))):
-    db_team = db.query(Team).filter(Team.id == team_id).all()
+    db_team = db.query(Team).filter(Team.id == team_id).first()
     if not db_team:
         raise HTTPException(status_code=404, detail="Team not found")
     db.delete(db_team)
@@ -39,11 +39,11 @@ def delete_team(team_id: str, db: Session = Depends(get_db), current_user: User 
 @router.patch("/{team_id}", response_model=TeamOut)
 def update_team(team_id: str, team: TeamCreate, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))):
     
-    db_team = db.query(Team).filter(Team.id == team_id).all()
+    db_team = db.query(Team).filter(Team.id == team_id).first()
     if not db_team:
         raise HTTPException(status_code=404, detail="Team not found")
     
-    supervisor = db.query(User).filter(User.id == team.supervisorId, User.state == UserState.ACTIVE).all()
+    supervisor = db.query(User).filter(User.id == team.supervisorId, User.state == UserState.ACTIVE).first()
     if not supervisor:
         raise HTTPException(status_code=400, detail="Supervisor must be an active user")
     
