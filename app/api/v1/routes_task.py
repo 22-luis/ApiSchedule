@@ -37,7 +37,8 @@ def create_task(
         presentation=task.presentation,
         fabricationCode=task.fabricationCode,
         usefulLife=task.usefulLife,
-        teams=teams
+        teams=teams,
+        parent_id=task.parentId
     )
     db.add(db_task)
     db.commit()
@@ -77,6 +78,8 @@ def update_task(
     team_ids = update_data.pop("teamIds", None)
     for field, value in update_data.items():
         setattr(db_task, field, value)
+    if 'parentId' in update_data:
+        db_task.parent_id = update_data['parentId']
     if team_ids is not None:
         teams = db.query(Team).filter(Team.id.in_(team_ids)).all()
         if len(teams) != len(team_ids):

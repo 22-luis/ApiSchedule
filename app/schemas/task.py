@@ -9,15 +9,16 @@ class TaskCreate(BaseModel):
     unit: str
     type: str
     activity: str
-    quantity: str
-    minutes: int
+    quantity: Optional[str] = None
+    minutes: Optional[int] = None
     people: int
-    performance: int
+    performance: Optional[int] = None
     material: str
     presentation: str
-    fabricationCode: str
+    fabricationCode: Optional[str] = None
     usefulLife: str
     teamIds: List[uuid.UUID]  # IDs de los equipos obligatorios
+    parentId: Optional[uuid.UUID] = None
 
 class TaskUpdate(BaseModel):
     code: Optional[str] = None
@@ -34,6 +35,7 @@ class TaskUpdate(BaseModel):
     fabricationCode: Optional[str] = None
     usefulLife: Optional[str] = None
     teamIds: Optional[List[uuid.UUID]] = None
+    parentId: Optional[uuid.UUID] = None
 
 class TaskOut(BaseModel):
     id: uuid.UUID
@@ -42,15 +44,16 @@ class TaskOut(BaseModel):
     unit: str
     type: str
     activity: str
-    quantity: str
-    minutes: int
+    quantity: Optional[str] = None
+    minutes: Optional[int] = None
     people: int
-    performance: int
+    performance: Optional[int] = None
     material: str
     presentation: str
-    fabricationCode: str
+    fabricationCode: Optional[str] = None
     usefulLife: str
     teams: List[TeamOut]
+    parentId: Optional[uuid.UUID] = None
 
     class Config:
         from_attributes = True
