@@ -41,10 +41,10 @@ def create_task(
         preparation_id=task.preparation_id,
         people=task.people,
         performance=task.performance,
-        material=task.material,
-        presentation=task.presentation,
+        material=task.material or "",
+        presentation=task.presentation or "",
         fabricationCode=task.fabricationCode,
-        usefulLife=task.usefulLife,
+        usefulLife=task.usefulLife or "",
         related_task_code=task.related_task_code
     )
     db.add(db_task)
@@ -54,7 +54,15 @@ def create_task(
     programming.tasks.append(db_task)
     db.commit()
     db.refresh(db_task)
-    return db_task
+    # Forzar string vacío en usefulLife y material/presentation en la respuesta
+    response = db_task
+    if response.usefulLife is None:
+        response.usefulLife = ""
+    if response.material is None:
+        response.material = ""
+    if response.presentation is None:
+        response.presentation = ""
+    return response
 
 @router.get("/", response_model=List[TaskOut])
 def get_tasks(

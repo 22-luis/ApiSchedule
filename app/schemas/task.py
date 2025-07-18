@@ -13,7 +13,6 @@ class TaskCreate(BaseModel):
     end_time: datetime
     teamIds: List[uuid.UUID]
     programming_id: uuid.UUID
-
     code_id: Optional[uuid.UUID] = None
     lote: Optional[str] = None
     quantity: Optional[int] = None

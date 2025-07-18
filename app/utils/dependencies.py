@@ -25,17 +25,24 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     return user
 
 def require_roles(*roles):
+    # Aplanar roles en caso de que se pase una lista (por ejemplo, require_roles(["admin", "planner"]))
+    flat_roles = []
+    for r in roles:
+        if isinstance(r, (list, tuple)):
+            flat_roles.extend(r)
+        else:
+            flat_roles.append(r)
     def role_checker(current_user=Depends(get_current_user)):
         # Permitir jerarquía: ADMIN > PLANNER > SUPERVISOR > USER
         hierarchy = {
-            UserRole.ADMIN: 3,
-            UserRole.PLANNER: 2,
-            UserRole.SUPERVISOR: 1,
-            UserRole.USER: 0
+            "admin": 3,
+            "planner": 2,
+            "supervisor": 1,
+            "user": 0
         }
-        user_role = current_user.role
+        user_role = str(current_user.role.value if hasattr(current_user.role, "value") else current_user.role)
         # Si el rol requerido es menor o igual al del usuario, permitir
-        if any(hierarchy[user_role] >= hierarchy[role] for role in roles):
+        if any(hierarchy[user_role] >= hierarchy[str(role)] for role in flat_roles):
             return current_user
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
