@@ -2,9 +2,7 @@ import uuid
 
 from sqlalchemy import Column, Integer, String
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.ext.declarative import declarative_base
-
-Base = declarative_base()
+from app.db.database import Base
 
 class Preparation(Base):
     __tablename__ = 'preparation'

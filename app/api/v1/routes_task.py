@@ -8,6 +8,7 @@ from app.schemas.task import TaskCreate, TaskUpdate, TaskOut
 from app.models.user import User
 from app.utils.dependencies import get_current_user, require_roles
 from app.models.role import UserRole
+from app.models.programming import Programming
 
 # Opción 1: Router con prefijo específico
 router = APIRouter(prefix="/tasks", tags=["tasks"])
@@ -22,24 +23,35 @@ def create_task(
     teams = db.query(Team).filter(Team.id.in_(task.teamIds)).all()
     if len(teams) != len(task.teamIds):
         raise HTTPException(status_code=400, detail="One or more teams not found")
+    # Verificar que la programación existe
+    programming = db.query(Programming).filter(Programming.id == task.programming_id).first()
+    if not programming:
+        raise HTTPException(status_code=404, detail="Programming not found")
     # Crear la tarea
     db_task = Task(
-        code=task.code,
-        description=task.description,
-        unit=task.unit,
-        type=task.type,
-        activity=task.activity,
-        quantity=task.quantity,
         minutes=task.minutes,
+        start_time=task.start_time,
+        end_time=task.end_time,
+        teams=teams,
+        # ...otros campos opcionales...
+        code_id=task.code_id,
+        lote=task.lote,
+        quantity=task.quantity,
+        specification=task.specification,
+        preparation_id=task.preparation_id,
         people=task.people,
         performance=task.performance,
         material=task.material,
         presentation=task.presentation,
         fabricationCode=task.fabricationCode,
         usefulLife=task.usefulLife,
-        teams=teams
+        related_task_code=task.related_task_code
     )
     db.add(db_task)
+    db.commit()
+    db.refresh(db_task)
+    # Asociar la tarea a la programación
+    programming.tasks.append(db_task)
     db.commit()
     db.refresh(db_task)
     return db_task

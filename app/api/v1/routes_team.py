@@ -56,26 +56,33 @@ def delete_team(team_id: str, db: Session = Depends(get_db), current_user: User 
 
 @router.patch("/{team_id}", response_model=TeamOut)
 def update_team(team_id: str, team: TeamCreate, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))):
-    
     db_team = db.query(Team).filter(Team.id == team_id).first()
     if not db_team:
         raise HTTPException(status_code=404, detail="Team not found")
-    
+
     supervisor = db.query(User).filter(User.id == team.supervisorId, User.state == UserState.ACTIVE).first()
     if not supervisor:
         raise HTTPException(status_code=400, detail="Supervisor must be an active user")
-    
+
     # Actualizar campos del equipo
     setattr(db_team, 'name', team.name)
     setattr(db_team, 'supervisorId', team.supervisorId)
-    
+
     if team.userIds is not None:  # user_ids es la lista de IDs de usuarios a asignar
         active_users = db.query(User).filter(User.id.in_(team.userIds), User.state == UserState.ACTIVE).all()
         db_team.users = active_users
-    
+
     db.commit()
     db.refresh(db_team)
-    return db_team
+    supervisor = db.query(User).filter(User.id == db_team.supervisorId).first()
+    supervisor_username = supervisor.username if supervisor else None
+    return {
+        "id": db_team.id,
+        "name": db_team.name,
+        "supervisorId": db_team.supervisorId,
+        "supervisorUsername": supervisor_username,
+        "users": db_team.users,
+    }
 
 @router.get("/", response_model=List[TeamOut])
 def get_teams(db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))):

@@ -1,21 +1,21 @@
+from typing import List, Optional
+from datetime import date
+from uuid import UUID
 from pydantic import BaseModel
-from typing import Optional
-from datetime import datetime
 
-class ProgrammingCreate(BaseModel):
-    quantity: int
-    minutes: int
-    date: datetime
-    task_id: str
-    order_lote: int
+class ProgrammingBase(BaseModel):
+    date: date
+    team_id: UUID
 
-class ProgrammingOut(BaseModel):
-    id: str
-    quantity: int
-    minutes: int
-    date: datetime
-    task_id: str
-    order_lote: int
+class ProgrammingCreate(ProgrammingBase):
+    task_ids: List[int]
+
+class ProgrammingUpdate(BaseModel):
+    task_ids: Optional[List[int]] = None
+
+class ProgrammingRead(ProgrammingBase):
+    id: int
+    tasks: List[UUID]
 
     class Config:
         from_attributes = True

@@ -6,413 +6,279 @@
   },
   "item": [
     {
-      "name": "Auth",
-      "item": [
-        {
-          "name": "Login",
-          "request": {
-            "method": "POST",
-            "header": [],
-            "body": {
-              "mode": "urlencoded",
-              "urlencoded": [
-                { "key": "username", "value": "admin", "type": "text" },
-                { "key": "password", "value": "tu_contraseña", "type": "text" }
-              ]
-            },
-            "url": { "raw": "{{base_url}}/login", "host": ["{{base_url}}"], "path": ["login"] }
-          },
-          "response": []
-        },
-        {
-          "name": "Logout",
-          "request": {
-            "method": "POST",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
-            ],
-            "url": { "raw": "{{base_url}}/logout", "host": ["{{base_url}}"], "path": ["logout"] }
-          },
-          "response": []
-        }
-      ]
-    },
-    {
-      "name": "Usuarios",
-      "item": [
-        {
-          "name": "Crear usuario",
-          "request": {
-            "method": "POST",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
-              { "key": "Content-Type", "value": "application/json", "type": "text" }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"username\": \"nuevo_usuario\",\n  \"password\": \"password_segura\",\n  \"role\": \"admin\",\n  \"state\": \"active\",\n  \"teamIds\": []\n}"
-            },
-            "url": { "raw": "{{base_url}}/api/v1/users", "host": ["{{base_url}}"], "path": ["api", "v1", "users"] }
-          },
-          "response": []
-        },
-        {
-          "name": "Editar usuario",
-          "request": {
-            "method": "PATCH",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
-              { "key": "Content-Type", "value": "application/json", "type": "text" }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"username\": \"usuario_editado\",\n  \"password\": \"nueva_password\",\n  \"role\": \"planner\",\n  \"state\": \"inactive\",\n  \"teamIds\": [\"{{teamId1}}\"]\n}"
-            },
-            "url": { "raw": "{{base_url}}/api/v1/users/{{userId1}}", "host": ["{{base_url}}"], "path": ["api", "v1", "users", "{{userId1}}"] }
-          },
-          "response": []
-        },
-        {
-          "name": "Cambiar estado de usuario",
-          "request": {
-            "method": "PATCH",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
-              { "key": "Content-Type", "value": "application/json", "type": "text" }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"state\": \"inactive\"\n}"
-            },
-            "url": { "raw": "{{base_url}}/api/v1/users/{{userId1}}/state", "host": ["{{base_url}}"], "path": ["api", "v1", "users", "{{userId1}}", "state"] }
-          },
-          "response": []
-        },
-        {
-          "name": "Listar usuarios",
-          "request": {
-            "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
-            ],
-            "url": { "raw": "{{base_url}}/api/v1/users", "host": ["{{base_url}}"], "path": ["api", "v1", "users"] }
-          },
-          "response": []
-        },
-        {
-          "name": "Listar usuarios por rol",
-          "request": {
-            "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
-            ],
-            "url": {
-              "raw": "{{base_url}}/api/v1/users?role=admin",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "users"],
-              "query": [
-                { "key": "role", "value": "admin" }
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Eliminar usuario",
-          "request": {
-            "method": "DELETE",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
-            ],
-            "url": { "raw": "{{base_url}}/api/v1/users/{{userId1}}", "host": ["{{base_url}}"], "path": ["api", "v1", "users", "{{userId1}}"] }
-          },
-          "response": []
-        }
-      ]
-    },
-    {
-      "name": "Equipos",
-      "item": [
-        {
-          "name": "Crear equipo",
-          "request": {
-            "method": "POST",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
-              { "key": "Content-Type", "value": "application/json", "type": "text" }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"Equipo A\",\n  \"supervisorId\": \"{{supervisorId}}\",\n  \"userIds\": [\"{{userId1}}\", \"{{userId2}}\"]\n}"
-            },
-            "url": { "raw": "{{base_url}}/api/v1/teams", "host": ["{{base_url}}"], "path": ["api", "v1", "teams"] }
-          },
-          "response": []
-        },
-        {
-          "name": "Editar equipo",
-          "request": {
-            "method": "PATCH",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
-              { "key": "Content-Type", "value": "application/json", "type": "text" }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"Equipo Editado\",\n  \"supervisorId\": \"{{supervisorId}}\",\n  \"userIds\": [\"{{userId1}}\", \"{{userId3}}\"]\n}"
-            },
-            "url": { "raw": "{{base_url}}/api/v1/teams/{{teamId1}}", "host": ["{{base_url}}"], "path": ["api", "v1", "teams", "{{teamId1}}"] }
-          },
-          "response": []
-        },
-        {
-          "name": "Listar equipos",
-          "request": {
-            "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
-            ],
-            "url": { "raw": "{{base_url}}/api/v1/teams", "host": ["{{base_url}}"], "path": ["api", "v1", "teams"] }
-          },
-          "response": []
-        },
-        {
-          "name": "Obtener equipo por id",
-          "request": {
-            "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
-            ],
-            "url": { "raw": "{{base_url}}/api/v1/teams/{{teamId1}}", "host": ["{{base_url}}"], "path": ["api", "v1", "teams", "{{teamId1}}"] }
-          },
-          "response": [
-            {
-              "name": "Ejemplo de respuesta equipo",
-              "originalRequest": {},
-              "status": "OK",
-              "code": 200,
-              "_postman_previewlanguage": "json",
-              "header": [],
-              "body": "{\n  \"id\": \"uuid-del-equipo\",\n  \"name\": \"Equipo A\",\n  \"supervisorId\": \"uuid-del-supervisor\",\n  \"supervisorUsername\": \"nombre_usuario_supervisor\",\n  \"users\": []\n}"
-            }
+      "name": "Login",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            { "key": "username", "value": "admin", "type": "text" },
+            { "key": "password", "value": "h33r#M91", "type": "text" }
           ]
         },
-        {
-          "name": "Eliminar equipo",
-          "request": {
-            "method": "DELETE",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
-            ],
-            "url": { "raw": "{{base_url}}/api/v1/teams/{{teamId1}}", "host": ["{{base_url}}"], "path": ["api", "v1", "teams", "{{teamId1}}"] }
-          },
-          "response": []
-        }
-      ]
+        "url": { "raw": "{{base_url}}/api/v1/auth/login", "host": ["{{base_url}}"], "path": ["api", "v1", "auth", "login"] }
+      },
+      "response": []
     },
     {
-      "name": "Órdenes",
-      "item": [
-        {
-          "name": "Crear orden",
-          "request": {
-            "method": "POST",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
-              { "key": "Content-Type", "value": "application/json", "type": "text" }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"lote\": 123,\n  \"dueDate\": \"2024-07-01T12:00:00\",\n  \"code\": \"ORD-001\",\n  \"description\": \"Orden de prueba\",\n  \"quantity\": 10,\n  \"bin\": 5,\n  \"status\": \"pending\"\n}"
-            },
-            "url": { "raw": "{{base_url}}/api/v1/orders", "host": ["{{base_url}}"], "path": ["api", "v1", "orders"] }
-          },
-          "response": []
+      "name": "Crear usuario",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"nuevo_usuario\",\n  \"password\": \"password_segura\",\n  \"role\": \"user\",\n  \"state\": \"active\",\n  \"teamIds\": []\n}"
         },
-        {
-          "name": "Listar órdenes",
-          "request": {
-            "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
-            ],
-            "url": { "raw": "{{base_url}}/api/v1/orders", "host": ["{{base_url}}"], "path": ["api", "v1", "orders"] }
-          },
-          "response": []
-        },
-        {
-          "name": "Eliminar orden",
-          "request": {
-            "method": "DELETE",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
-            ],
-            "url": { "raw": "{{base_url}}/api/v1/orders/{{orderId1}}", "host": ["{{base_url}}"], "path": ["api", "v1", "orders", "{{orderId1}}"] }
-          },
-          "response": []
-        }
-      ]
+        "url": { "raw": "{{base_url}}/api/v1/users", "host": ["{{base_url}}"], "path": ["api", "v1", "users"] }
+      },
+      "response": []
     },
     {
-      "name": "Tareas",
-      "item": [
-        {
-          "name": "Crear tarea",
-          "request": {
-            "method": "POST",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
-              { "key": "Content-Type", "value": "application/json", "type": "text" }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"code\": \"T-001\",\n  \"description\": \"Tarea de ejemplo\",\n  \"unit\": \"h\",\n  \"type\": \"Normal\",\n  \"activity\": \"Montaje\",\n  \"quantity\": \"10\",\n  \"minutes\": 60,\n  \"people\": 2,\n  \"performance\": 100,\n  \"material\": \"Material X\",\n  \"presentation\": \"Caja\",\n  \"fabricationCode\": \"F-001\",\n  \"usefulLife\": \"12m\",\n  \"teamIds\": [\"{{teamId1}}\"]\n}"
-            },
-            "url": { "raw": "{{base_url}}/api/v1/tasks", "host": ["{{base_url}}"], "path": ["api", "v1", "tasks"] }
-          },
-          "response": []
-        },
-        {
-          "name": "Editar tarea",
-          "request": {
-            "method": "PATCH",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
-              { "key": "Content-Type", "value": "application/json", "type": "text" }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"description\": \"Tarea editada\",\n  \"teamIds\": [\"{{teamId1}}\", \"{{teamId2}}\"]\n}"
-            },
-            "url": { "raw": "{{base_url}}/api/v1/tasks/{{taskId1}}", "host": ["{{base_url}}"], "path": ["api", "v1", "tasks", "{{taskId1}}"] }
-          },
-          "response": []
-        },
-        {
-          "name": "Listar tareas",
-          "request": {
-            "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
-            ],
-            "url": { "raw": "{{base_url}}/api/v1/tasks", "host": ["{{base_url}}"], "path": ["api", "v1", "tasks"] }
-          },
-          "response": []
-        },
-        {
-          "name": "Obtener tarea por id",
-          "request": {
-            "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
-            ],
-            "url": { "raw": "{{base_url}}/api/v1/tasks/{{taskId1}}", "host": ["{{base_url}}"], "path": ["api", "v1", "tasks", "{{taskId1}}"] }
-          },
-          "response": []
-        },
-        {
-          "name": "Eliminar tarea",
-          "request": {
-            "method": "DELETE",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
-            ],
-            "url": { "raw": "{{base_url}}/api/v1/tasks/{{taskId1}}", "host": ["{{base_url}}"], "path": ["api", "v1", "tasks", "{{taskId1}}"] }
-          },
-          "response": []
+      "name": "Obtener usuarios (filtros)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v1/users?role=admin&state=active",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "users"],
+          "query": [
+            { "key": "role", "value": "admin" },
+            { "key": "state", "value": "active" },
+            { "key": "skip", "value": "0" },
+            { "key": "limit", "value": "10" }
+          ]
         }
-      ]
+      },
+      "response": []
     },
     {
-      "name": "Preparaciones",
-      "item": [
-        {
-          "name": "Crear preparación",
-          "request": {
-            "method": "POST",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
-              { "key": "Content-Type", "value": "application/json", "type": "text" }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"description\": \"Preparación de ejemplo\",\n  \"minutes\": 30\n}"
-            },
-            "url": { "raw": "{{base_url}}/api/v1/preparations", "host": ["{{base_url}}"], "path": ["api", "v1", "preparations"] }
-          },
-          "response": []
+      "name": "Editar usuario",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"usuario_editado\",\n  \"password\": \"nueva_password\",\n  \"role\": \"user\",\n  \"state\": \"inactive\",\n  \"teamIds\": [\"{{teamId1}}\"]\n}"
         },
-        {
-          "name": "Editar preparación",
-          "request": {
-            "method": "PATCH",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
-              { "key": "Content-Type", "value": "application/json", "type": "text" }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"description\": \"Preparación editada\",\n  \"minutes\": 45\n}"
-            },
-            "url": { "raw": "{{base_url}}/api/v1/preparations/{{preparationId1}}", "host": ["{{base_url}}"], "path": ["api", "v1", "preparations", "{{preparationId1}}"] }
-          },
-          "response": []
-        },
-        {
-          "name": "Listar preparaciones",
-          "request": {
-            "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
-            ],
-            "url": { "raw": "{{base_url}}/api/v1/preparations", "host": ["{{base_url}}"], "path": ["api", "v1", "preparations"] }
-          },
-          "response": []
-        },
-        {
-          "name": "Obtener preparación por id",
-          "request": {
-            "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
-            ],
-            "url": { "raw": "{{base_url}}/api/v1/preparations/{{preparationId1}}", "host": ["{{base_url}}"], "path": ["api", "v1", "preparations", "{{preparationId1}}"] }
-          },
-          "response": []
-        },
-        {
-          "name": "Eliminar preparación",
-          "request": {
-            "method": "DELETE",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
-            ],
-            "url": { "raw": "{{base_url}}/api/v1/preparations/{{preparationId1}}", "host": ["{{base_url}}"], "path": ["api", "v1", "preparations", "{{preparationId1}}"] }
-          },
-          "response": []
-        }
-      ]
+        "url": { "raw": "{{base_url}}/api/v1/users/{{userId1}}", "host": ["{{base_url}}"], "path": ["api", "v1", "users", "{{userId1}}"] }
+      },
+      "response": []
     },
     {
-      "name": "Programaciones",
-      "item": [
-        {
-          "name": "Crear programación",
-          "request": {
-            "method": "POST",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
-              { "key": "Content-Type", "value": "application/json", "type": "text" }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"quantity\": 5,\n  \"minutes\": 120,\n  \"date\": \"2024-07-01T12:00:00\",\n  \"task_id\": \"{{taskId1}}\",\n  \"order_lote\": 123\n}"
-            },
-            "url": { "raw": "{{base_url}}/api/v1/programmings", "host": ["{{base_url}}"], "path": ["api", "v1", "programmings"] }
-          },
-          "response": []
-        }
-      ]
+      "name": "Actualizar estado de usuario",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"state\": \"active\"\n}"
+        },
+        "url": { "raw": "{{base_url}}/api/v1/users/{{userId1}}/state", "host": ["{{base_url}}"], "path": ["api", "v1", "users", "{{userId1}}", "state"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Eliminar usuario",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+        ],
+        "url": { "raw": "{{base_url}}/api/v1/users/{{userId1}}", "host": ["{{base_url}}"], "path": ["api", "v1", "users", "{{userId1}}"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Crear equipo",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Equipo A\",\n  \"supervisorId\": \"{{supervisorId}}\",\n  \"userIds\": [\"{{userId1}}\", \"{{userId2}}\"]\n}"
+        },
+        "url": { "raw": "{{base_url}}/api/v1/teams", "host": ["{{base_url}}"], "path": ["api", "v1", "teams"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Obtener equipos",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+        ],
+        "url": { "raw": "{{base_url}}/api/v1/teams", "host": ["{{base_url}}"], "path": ["api", "v1", "teams"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Obtener equipo por ID",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+        ],
+        "url": { "raw": "{{base_url}}/api/v1/teams/{{teamId1}}", "host": ["{{base_url}}"], "path": ["api", "v1", "teams", "{{teamId1}}"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Editar equipo",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Equipo Editado\",\n  \"supervisorId\": \"{{supervisorId}}\",\n  \"userIds\": [\"{{userId1}}\", \"{{userId3}}\"]\n}"
+        },
+        "url": { "raw": "{{base_url}}/api/v1/teams/{{teamId1}}", "host": ["{{base_url}}"], "path": ["api", "v1", "teams", "{{teamId1}}"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Eliminar equipo",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+        ],
+        "url": { "raw": "{{base_url}}/api/v1/teams/{{teamId1}}", "host": ["{{base_url}}"], "path": ["api", "v1", "teams", "{{teamId1}}"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Obtener tareas por equipo",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+        ],
+        "url": { "raw": "{{base_url}}/api/v1/teams/{{teamId1}}/tasks", "host": ["{{base_url}}"], "path": ["api", "v1", "teams", "{{teamId1}}", "tasks"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Crear tarea",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"code\": \"T-001\",\n  \"description\": \"Tarea de ejemplo\",\n  \"unit\": \"pieza\",\n  \"type\": \"tipo1\",\n  \"activity\": \"actividad1\",\n  \"quantity\": \"10\",\n  \"minutes\": 60,\n  \"people\": 2,\n  \"performance\": 100,\n  \"material\": \"material1\",\n  \"presentation\": \"presentacion1\",\n  \"fabricationCode\": \"F-001\",\n  \"usefulLife\": \"12\",\n  \"teamIds\": [\"{{teamId1}}\"]\n}"
+        },
+        "url": { "raw": "{{base_url}}/api/v1/tasks", "host": ["{{base_url}}"], "path": ["api", "v1", "tasks"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Obtener tareas",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+        ],
+        "url": { "raw": "{{base_url}}/api/v1/tasks", "host": ["{{base_url}}"], "path": ["api", "v1", "tasks"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Obtener tarea por ID",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+        ],
+        "url": { "raw": "{{base_url}}/api/v1/tasks/{{taskId1}}", "host": ["{{base_url}}"], "path": ["api", "v1", "tasks", "{{taskId1}}"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Editar tarea",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"description\": \"Tarea editada\",\n  \"quantity\": \"20\"\n}"
+        },
+        "url": { "raw": "{{base_url}}/api/v1/tasks/{{taskId1}}", "host": ["{{base_url}}"], "path": ["api", "v1", "tasks", "{{taskId1}}"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Eliminar tarea",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+        ],
+        "url": { "raw": "{{base_url}}/api/v1/tasks/{{taskId1}}", "host": ["{{base_url}}"], "path": ["api", "v1", "tasks", "{{taskId1}}"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Crear orden",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"lote\": 123,\n  \"code\": \"ORD-001\",\n  \"status\": \"pending\",\n  \"description\": \"Orden de prueba\",\n  \"quantity\": 10,\n  \"bin\": 5,\n  \"dueDate\": \"2024-07-01T12:00:00\"\n}"
+        },
+        "url": { "raw": "{{base_url}}/api/v1/orders", "host": ["{{base_url}}"], "path": ["api", "v1", "orders"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Obtener órdenes",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+        ],
+        "url": { "raw": "{{base_url}}/api/v1/orders", "host": ["{{base_url}}"], "path": ["api", "v1", "orders"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Eliminar orden",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+        ],
+        "url": { "raw": "{{base_url}}/api/v1/orders/{{orderId1}}", "host": ["{{base_url}}"], "path": ["api", "v1", "orders", "{{orderId1}}"] }
+      },
+      "response": []
     }
   ],
   "variable": [
@@ -423,9 +289,7 @@
     { "key": "userId2", "value": "" },
     { "key": "userId3", "value": "" },
     { "key": "teamId1", "value": "" },
-    { "key": "teamId2", "value": "" },
     { "key": "taskId1", "value": "" },
-    { "key": "preparationId1", "value": "" },
     { "key": "orderId1", "value": "" }
   ]
 } 

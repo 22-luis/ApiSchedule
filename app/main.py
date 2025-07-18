@@ -11,6 +11,8 @@ from app.api.v1.routes_team import router as team_router
 from app.api.v1.routes_order import router as order_router
 from app.api.v1.routes_task import router as task_router, nested_router as task_nested_router
 from app.api.v1.routes_preparation import router as preparation_router
+from app.api.v1.routes_code import router as code_router
+from app.api.v1.routes_programming import router as programming_router
 from app.models import user, team, task, order, preparation, programming
 
 app = FastAPI()
@@ -38,6 +40,8 @@ api_router.include_router(order_router, tags=["orders"])
 api_router.include_router(task_router, tags=["tasks"])
 api_router.include_router(task_nested_router, tags=["tasks"])
 api_router.include_router(preparation_router, tags=["preparations"])
+api_router.include_router(code_router, tags=["codes"])
+api_router.include_router(programming_router, tags=["programmings"])
 
 # Incluir el router principal en la app
 app.include_router(api_router)
