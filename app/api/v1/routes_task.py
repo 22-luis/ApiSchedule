@@ -9,6 +9,8 @@ from app.models.user import User
 from app.utils.dependencies import get_current_user, require_roles
 from app.models.role import UserRole
 from app.models.programming import Programming
+from app.models.programming import ProgrammingTask
+from sqlalchemy.orm import joinedload
 
 # Opción 1: Router con prefijo específico
 router = APIRouter(prefix="/tasks", tags=["tasks"])
@@ -33,7 +35,6 @@ def create_task(
         start_time=task.start_time,
         end_time=task.end_time,
         teams=teams,
-        # ...otros campos opcionales...
         code_id=task.code_id,
         lote=task.lote,
         quantity=task.quantity,
@@ -45,24 +46,38 @@ def create_task(
         presentation=task.presentation or "",
         fabricationCode=task.fabricationCode,
         usefulLife=task.usefulLife or "",
-        related_task_code=task.related_task_code
+        related_task_code=task.related_task_code,
+        unit=task.unit,
+        type=task.type,
+        activity=task.activity,
+        description=task.description
     )
     db.add(db_task)
+    db.flush()  # Para asegurar que db_task.id esté disponible
+    # Asociar la tarea a la programación seleccionada usando ProgrammingTask
+    programming_task = ProgrammingTask(
+        programming_id=programming.id,
+        task_id=db_task.id,
+        order=len(programming.programming_tasks) + 1,
+        start_time=db_task.start_time,
+        end_time=db_task.end_time
+    )
+    db.add(programming_task)
     db.commit()
-    db.refresh(db_task)
-    # Asociar la tarea a la programación
-    programming.tasks.append(db_task)
-    db.commit()
-    db.refresh(db_task)
+    # Refresca la tarea con todas las relaciones
+    full_task = db.query(Task).options(
+        joinedload(Task.code),
+        joinedload(Task.preparation),
+        joinedload(Task.teams)
+    ).filter(Task.id == db_task.id).first()
     # Forzar string vacío en usefulLife y material/presentation en la respuesta
-    response = db_task
-    if response.usefulLife is None:
-        response.usefulLife = ""
-    if response.material is None:
-        response.material = ""
-    if response.presentation is None:
-        response.presentation = ""
-    return response
+    if full_task.usefulLife is None:
+        full_task.usefulLife = ""
+    if full_task.material is None:
+        full_task.material = ""
+    if full_task.presentation is None:
+        full_task.presentation = ""
+    return full_task
 
 @router.get("/", response_model=List[TaskOut])
 def get_tasks(
@@ -103,8 +118,13 @@ def update_task(
             raise HTTPException(status_code=400, detail="One or more teams not found")
         db_task.teams = teams
     db.commit()
-    db.refresh(db_task)
-    return db_task
+    # Refresca la tarea con todas las relaciones
+    full_task = db.query(Task).options(
+        joinedload(Task.code),
+        joinedload(Task.preparation),
+        joinedload(Task.teams)
+    ).filter(Task.id == db_task.id).first()
+    return full_task
 
 @router.delete("/{task_id}")
 def delete_task(

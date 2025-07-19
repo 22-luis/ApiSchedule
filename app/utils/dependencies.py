@@ -41,8 +41,9 @@ def require_roles(*roles):
             "user": 0
         }
         user_role = str(current_user.role.value if hasattr(current_user.role, "value") else current_user.role)
-        # Si el rol requerido es menor o igual al del usuario, permitir
-        if any(hierarchy[user_role] >= hierarchy[str(role)] for role in flat_roles):
+        # Convertir todos los roles requeridos a string simple (por ejemplo, 'admin')
+        required_roles = [str(role.value) if hasattr(role, "value") else str(role) for role in flat_roles]
+        if any(hierarchy[user_role] >= hierarchy[role] for role in required_roles):
             return current_user
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

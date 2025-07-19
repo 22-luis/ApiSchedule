@@ -30,4 +30,7 @@ class Task(Base):
     fabricationCode = Column(String, nullable=True)
     usefulLife = Column(String, nullable=True)
     related_task_code = Column(String, nullable=True)
-    
+    unit = Column(String, nullable=True)
+    type = Column(String, nullable=True)
+    activity = Column(String, nullable=True)
+    description = Column(String, nullable=True)

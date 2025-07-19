@@ -9,6 +9,7 @@ from app.db.dependency import get_db
 from app.utils.dependencies import get_current_user, require_roles
 from datetime import date, datetime, timedelta, time
 from uuid import UUID
+from app.schemas.task import TaskOut
 
 router = APIRouter(prefix="/programmings", tags=["programmings"])
 
@@ -27,7 +28,7 @@ def list_programmings(db: Session = Depends(get_db), current_user=Depends(get_cu
     return db.query(Programming).filter(Programming.team_id.in_(team_ids)).all()
 
 # Obtener programación por equipo y fecha (debe ir antes del endpoint por id)
-@router.get("/by_team_date", response_model=ProgrammingRead)
+@router.get("/by_team_date", response_model=dict)
 def get_programming_by_team_date(team_id: str, date: str, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     print("[DEBUG] team_id:", team_id, type(team_id), "date:", date, type(date))
     try:
@@ -38,11 +39,13 @@ def get_programming_by_team_date(team_id: str, date: str, db: Session = Depends(
             raise HTTPException(status_code=404, detail="Programming not found")
         if current_user.role.value not in ("admin", "planner") and not user_belongs_to_team(current_user, team_id):
             raise HTTPException(status_code=403, detail="Not authorized")
+        # Obtener tareas completas
+        tasks = [TaskOut.model_validate(t, from_attributes=True).model_dump() for t in programming.tasks]
         response = {
             "id": programming.id,
             "date": programming.date,
             "team_id": str(programming.team_id) if not isinstance(programming.team_id, UUID) else programming.team_id,
-            "tasks": [str(t.id) if not isinstance(t.id, UUID) else t.id for t in programming.tasks]
+            "tasks": tasks
         }
         print("[DEBUG] response to return:", response)
         return response
