@@ -24,12 +24,14 @@ class ProgrammingRead(ProgrammingBase):
 class ProgrammingTaskOrderIn(BaseModel):
     task_id: UUID
     order: int
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
 
 class ProgrammingTaskOrderOut(BaseModel):
     task_id: UUID
     order: int
-    start_time: datetime
-    end_time: datetime
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
 
 class ProgrammingReorderResponse(BaseModel):
     programming_id: UUID

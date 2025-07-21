@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query, Body
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Body, Request
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from app.models.programming import Programming
@@ -9,7 +9,9 @@ from app.db.dependency import get_db
 from app.utils.dependencies import get_current_user, require_roles
 from datetime import date, datetime, timedelta, time
 from uuid import UUID
+from app.models.programming import ProgrammingTask
 from app.schemas.task import TaskOut
+import sys
 
 router = APIRouter(prefix="/programmings", tags=["programmings"])
 
@@ -39,8 +41,14 @@ def get_programming_by_team_date(team_id: str, date: str, db: Session = Depends(
             raise HTTPException(status_code=404, detail="Programming not found")
         if current_user.role.value not in ("admin", "planner") and not user_belongs_to_team(current_user, team_id):
             raise HTTPException(status_code=403, detail="Not authorized")
-        # Obtener tareas completas
-        tasks = [TaskOut.model_validate(t, from_attributes=True).model_dump() for t in programming.tasks]
+        # Obtener tareas completas con datos de la tabla intermedia
+        tasks = []
+        for pt in sorted(programming.programming_tasks, key=lambda pt: pt.order):
+            t = TaskOut.model_validate(pt.task, from_attributes=True).model_dump()
+            t['start_time'] = pt.start_time
+            t['end_time'] = pt.end_time
+            t['order'] = pt.order
+            tasks.append(t)
         response = {
             "id": programming.id,
             "date": programming.date,
@@ -177,51 +185,83 @@ def remove_task_from_programming(
     } 
 
 @router.put("/{programming_id}/reorder", response_model=ProgrammingReorderResponse)
-def reorder_programming_tasks(
+async def reorder_programming_tasks(
     programming_id: UUID,
+    request: Request,
     tasks_order: list[ProgrammingTaskOrderIn] = Body(...),
     base_time: Optional[str] = Body(None),
     db: Session = Depends(get_db),
     current_user=Depends(require_roles(["admin", "planner"]))
 ):
+    raw_body = await request.body()
+    print("RAW PAYLOAD (antes de parsear):", raw_body)
+    print("PARSED tasks_order:", tasks_order, file=sys.stderr)
     programming = db.query(Programming).get(programming_id)
     if not programming:
         raise HTTPException(status_code=404, detail="Programming not found")
-    # Validar día de la semana
-    programming_date = programming.date
-    weekday = programming_date.weekday()  # 0=lunes, 5=sabado, 6=domingo
-    if weekday == 6:
-        raise HTTPException(status_code=400, detail="No se permite programación los domingos")
-    # Determinar hora base
-    if base_time:
-        base_hour, base_minute = map(int, base_time.split(":"))
-        current_time = datetime.combine(programming_date, time(base_hour, base_minute))
-    else:
-        if weekday == 5:
-            current_time = datetime.combine(programming_date, time(7, 30))
-        else:
-            current_time = datetime.combine(programming_date, time(7, 0))
-    # Mapear tasks por id para acceso rápido
     programming_tasks_map = {pt.task_id: pt for pt in programming.programming_tasks}
     result = []
+    current_time = None
     for item in sorted(tasks_order, key=lambda x: x.order):
         pt = programming_tasks_map.get(item.task_id)
         if not pt:
             raise HTTPException(status_code=404, detail=f"Task {item.task_id} not found in programming")
         pt.order = item.order
-        pt.start_time = current_time
-        # Duración: usa pt.task.minutes o 0 si no está definido
-        duration = getattr(pt.task, "minutes", 0) or 0
-        pt.end_time = current_time + timedelta(minutes=duration)
+        # Si se reciben start_time y end_time, usarlos
+        if item.start_time and item.end_time:
+            pt.start_time = item.start_time if isinstance(item.start_time, datetime) else datetime.fromisoformat(item.start_time)
+            pt.end_time = item.end_time if isinstance(item.end_time, datetime) else datetime.fromisoformat(item.end_time)
+            current_time = pt.end_time
+        else:
+            # Si no, calcular como antes
+            if current_time is None:
+                programming_date = programming.date
+                weekday = programming_date.weekday()
+                if base_time:
+                    base_hour, base_minute = map(int, base_time.split(":"))
+                    current_time = datetime.combine(programming_date, time(base_hour, base_minute))
+                else:
+                    if weekday == 5:
+                        current_time = datetime.combine(programming_date, time(7, 30))
+                    else:
+                        current_time = datetime.combine(programming_date, time(7, 0))
+            pt.start_time = current_time
+            duration = getattr(pt.task, "minutes", 0) or 0
+            pt.end_time = current_time + timedelta(minutes=duration)
+            current_time = pt.end_time
         result.append(ProgrammingTaskOrderOut(
             task_id=pt.task_id,
             order=pt.order,
             start_time=pt.start_time,
             end_time=pt.end_time
         ))
-        current_time = pt.end_time
     db.commit()
+    # Depuración: mostrar los valores actuales en la tabla intermedia
+    refreshed_programming = db.query(Programming).get(programming_id)
+    print('--- ProgrammingTask después de commit ---')
+    if refreshed_programming:
+        for pt in refreshed_programming.programming_tasks:
+            print(f'Task {pt.task_id}: order={pt.order}, start_time={pt.start_time}, end_time={pt.end_time}')
     return ProgrammingReorderResponse(
         programming_id=programming_id,
         tasks=result
     ) 
+
+@router.get("/{programming_id}/last_task", response_model=dict)
+def get_last_task_of_programming(programming_id: UUID, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    programming = db.query(Programming).get(programming_id)
+    if not programming:
+        raise HTTPException(status_code=404, detail="Programming not found")
+    # Buscar la ProgrammingTask con mayor end_time para esa programación
+    last_prog_task = (
+        db.query(ProgrammingTask)
+        .filter(ProgrammingTask.programming_id == programming_id)
+        .order_by(ProgrammingTask.end_time.desc().nullslast())
+        .first()
+    )
+    if not last_prog_task:
+        raise HTTPException(status_code=404, detail="No tasks found for this programming")
+    last_task = db.query(Task).filter(Task.id == last_prog_task.task_id).first()
+    task_out = TaskOut.model_validate(last_task, from_attributes=True).model_dump()
+    task_out['programming_end_time'] = last_prog_task.end_time.isoformat() if last_prog_task.end_time is not None else None
+    return task_out 

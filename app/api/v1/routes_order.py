@@ -22,6 +22,11 @@ def create_orders(
         orders = [orders]
     created_orders = []
     for order in orders:
+        # Verificar si la orden ya existe por el lote
+        existing_order = db.query(order_model.Order).filter(order_model.Order.lote == order.lote).first()
+        if existing_order:
+            # Opcional: podrías loggear que se omitió o manejarlo de otra forma
+            continue  # Omitir si ya existe
         db_order = order_model.Order(
             lote=order.lote,
             dueDate=order.dueDate,

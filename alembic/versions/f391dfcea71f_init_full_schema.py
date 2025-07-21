@@ -52,8 +52,8 @@ def upgrade() -> None:
     op.add_column('task', sa.Column('lote', sa.String(), nullable=True))
     op.add_column('task', sa.Column('specification', sa.String(), nullable=True))
     op.add_column('task', sa.Column('preparation_id', sa.UUID(), nullable=True))
-    op.add_column('task', sa.Column('start_time', sa.DateTime(), nullable=True))
-    op.add_column('task', sa.Column('end_time', sa.DateTime(), nullable=True))
+    op.add_column('task', sa.Column('start_time', sa.DateTime(timezone=True), nullable=True))
+    op.add_column('task', sa.Column('end_time', sa.DateTime(timezone=True), nullable=True))
     op.alter_column('task', 'quantity',
                existing_type=sa.VARCHAR(),
                type_=sa.Integer(),
