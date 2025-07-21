@@ -23,7 +23,7 @@ class Code(Base):
     quantity = Column(String, nullable=True)
     time = Column(Float, nullable=True)
     people = Column(Integer, nullable=True)
-    performance = Column(Integer, nullable=True)
+    performance = Column(Float, nullable=True)
     material = Column(String)
     presentation = Column(String)
     fabricationCode = Column(String, nullable=True)

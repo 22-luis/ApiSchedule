@@ -20,7 +20,7 @@ class TaskCreate(BaseModel):
     specification: Optional[str] = None
     preparation_id: Optional[uuid.UUID] = None
     people: Optional[int] = None
-    performance: Optional[int] = None
+    performance: Optional[float] = None
     material: Optional[str] = None
     presentation: Optional[str] = None
     fabricationCode: Optional[str] = None
@@ -41,7 +41,7 @@ class TaskUpdate(BaseModel):
     specification: Optional[str] = None
     minutes: Optional[int] = None
     people: Optional[int] = None
-    performance: Optional[int] = None
+    performance: Optional[float] = None
     material: Optional[str] = None
     presentation: Optional[str] = None
     fabricationCode: Optional[str] = None
@@ -64,7 +64,7 @@ class TaskOut(BaseModel):
     start_time: Optional[datetime] = None
     end_time: Optional[datetime] = None
     people: Optional[int] = None
-    performance: Optional[int] = None
+    performance: Optional[float] = None
     material: str
     presentation: str
     fabricationCode: Optional[str] = None

@@ -12,7 +12,7 @@ class CodeCreate(BaseModel):
     quantity: Optional[str] = None
     time: Optional[float] = None
     people: Optional[int] = None
-    performance: Optional[int] = None
+    performance: Optional[float] = None
     material: str
     presentation: str
     fabricationCode: Optional[str] = None
@@ -32,7 +32,7 @@ class CodeUpdate(BaseModel):
     quantity: Optional[str] = None
     time: Optional[float] = None
     people: Optional[int] = None
-    performance: Optional[int] = None
+    performance: Optional[float] = None
     material: Optional[str] = None
     presentation: Optional[str] = None
     fabricationCode: Optional[str] = None
@@ -50,7 +50,7 @@ class CodeOut(BaseModel):
     quantity: Optional[str] = None
     time: Optional[float] = None
     people: Optional[int] = None
-    performance: Optional[int] = None
+    performance: Optional[float] = None
     material: str
     presentation: str
     fabricationCode: Optional[str] = None
