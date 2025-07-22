@@ -85,8 +85,12 @@ def update_team(team_id: str, team: TeamCreate, db: Session = Depends(get_db), c
     }
 
 @router.get("/", response_model=List[TeamOut])
-def get_teams(db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))):
-    teams = db.query(Team).all()
+def get_teams(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    from app.models.role import UserRole
+    if current_user.role in (UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR):
+        teams = db.query(Team).all()
+    else:
+        teams = getattr(current_user, 'teams', [])
     result = []
     for t in teams:
         supervisor = db.query(User).filter(User.id == t.supervisorId).first()

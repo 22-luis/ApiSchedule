@@ -70,7 +70,7 @@ def create_code(code: CodeCreate, db: Session = Depends(get_db), current_user: U
     }
 
 @router.get("/", response_model=List[CodeOut])
-def get_codes(db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))):
+def get_codes(db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))):
     codes = db.query(Code).all()
     result = []
     for c in codes:
@@ -123,7 +123,7 @@ def get_lotes_by_code(code: str, db: Session = Depends(get_db)):
     }
 
 @router.get("/{code_id}", response_model=CodeOut)
-def get_code(code_id: uuid.UUID, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))):
+def get_code(code_id: uuid.UUID, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))):
     code = db.query(Code).filter(Code.id == code_id).first()
     if not code:
         raise HTTPException(status_code=404, detail="Code not found")

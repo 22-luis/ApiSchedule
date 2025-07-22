@@ -11,6 +11,8 @@ from datetime import date, datetime, timedelta, time
 from uuid import UUID
 from app.models.programming import ProgrammingTask
 from app.schemas.task import TaskOut
+from app.schemas.programming import ProgrammingTaskReportIn
+from app.models.user import User
 import sys
 
 router = APIRouter(prefix="/programmings", tags=["programmings"])
@@ -18,7 +20,7 @@ router = APIRouter(prefix="/programmings", tags=["programmings"])
 # Helper para verificar si el usuario pertenece al equipo
 
 def user_belongs_to_team(user, team_id):
-    return any(team.id == team_id for team in getattr(user, "teams", []))
+    return any(str(team.id) == str(team_id) for team in getattr(user, "teams", []))
 
 # Listar programaciones (admin/planner: todas, user: solo su equipo)
 @router.get("/", response_model=List[ProgrammingRead])
@@ -275,3 +277,39 @@ def get_last_task_of_programming(programming_id: UUID, db: Session = Depends(get
     task_out = TaskOut.model_validate(last_task, from_attributes=True).model_dump()
     task_out['programming_end_time'] = last_prog_task.end_time.isoformat() if last_prog_task.end_time is not None else None
     return task_out 
+
+@router.post("/{programming_id}/tasks/{task_id}/start_timer")
+def start_task_timer(programming_id: str, task_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    pt = db.query(ProgrammingTask).filter_by(programming_id=programming_id, task_id=task_id).first()
+    if not pt:
+        raise HTTPException(status_code=404, detail="ProgrammingTask not found")
+    # Solo el usuario asignado puede iniciar
+    if pt.completed_by_user_id and pt.completed_by_user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="No autorizado")
+    pt.real_start_time = datetime.utcnow()
+    pt.completed_by_user_id = current_user.id
+    db.commit()
+    return {"ok": True, "real_start_time": pt.real_start_time}
+
+@router.post("/{programming_id}/tasks/{task_id}/stop_timer")
+def stop_task_timer(programming_id: str, task_id: str, data: ProgrammingTaskReportIn = Body(...), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    pt = db.query(ProgrammingTask).filter_by(programming_id=programming_id, task_id=task_id).first()
+    if not pt:
+        raise HTTPException(status_code=404, detail="ProgrammingTask not found")
+    if pt.completed_by_user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="No autorizado")
+    pt.real_end_time = datetime.utcnow()
+    pt.real_quantity = data.real_quantity
+    db.commit()
+    return {"ok": True, "real_end_time": pt.real_end_time, "real_quantity": pt.real_quantity}
+
+@router.post("/{programming_id}/tasks/{task_id}/comment")
+def add_task_comment(programming_id: str, task_id: str, data: ProgrammingTaskReportIn = Body(...), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    pt = db.query(ProgrammingTask).filter_by(programming_id=programming_id, task_id=task_id).first()
+    if not pt:
+        raise HTTPException(status_code=404, detail="ProgrammingTask not found")
+    if pt.completed_by_user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="No autorizado")
+    pt.comment = data.comment
+    db.commit()
+    return {"ok": True, "comment": pt.comment} 

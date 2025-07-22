@@ -25,7 +25,7 @@ def create_preparation(
 @router.get("/", response_model=List[PreparationOut])
 def get_preparations(
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))
 ):
     return db.query(Preparation).all()
 

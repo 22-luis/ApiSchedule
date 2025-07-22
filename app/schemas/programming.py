@@ -26,13 +26,33 @@ class ProgrammingTaskOrderIn(BaseModel):
     order: int
     start_time: Optional[datetime] = None
     end_time: Optional[datetime] = None
+    # Nuevos campos para reporte real
+    real_start_time: Optional[datetime] = None
+    real_end_time: Optional[datetime] = None
+    real_quantity: Optional[int] = None
+    comment: Optional[str] = None
+    completed_by_user_id: Optional[UUID] = None
 
 class ProgrammingTaskOrderOut(BaseModel):
     task_id: UUID
     order: int
     start_time: Optional[datetime] = None
     end_time: Optional[datetime] = None
+    # Nuevos campos para reporte real
+    real_start_time: Optional[datetime] = None
+    real_end_time: Optional[datetime] = None
+    real_quantity: Optional[int] = None
+    comment: Optional[str] = None
+    completed_by_user_id: Optional[UUID] = None
 
 class ProgrammingReorderResponse(BaseModel):
     programming_id: UUID
     tasks: List[ProgrammingTaskOrderOut]
+
+# Esquema para el reporte real del usuario
+class ProgrammingTaskReportIn(BaseModel):
+    real_start_time: Optional[datetime] = None
+    real_end_time: Optional[datetime] = None
+    real_quantity: Optional[int] = None
+    comment: Optional[str] = None
+    completed_by_user_id: Optional[UUID] = None

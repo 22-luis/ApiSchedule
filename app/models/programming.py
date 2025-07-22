@@ -9,8 +9,14 @@ class ProgrammingTask(Base):
     programming_id = Column(UUID(as_uuid=True), ForeignKey("programming.id"), primary_key=True)
     task_id = Column(UUID(as_uuid=True), ForeignKey("task.id"), primary_key=True)
     order = Column(Integer, nullable=False)
-    start_time = Column(DateTime(timezone=True), nullable=True)
-    end_time = Column(DateTime(timezone=True), nullable=True)
+    start_time = Column(DateTime, nullable=True)
+    end_time = Column(DateTime, nullable=True)
+    # Campos para reporte real del usuario
+    real_start_time = Column(DateTime, nullable=True)
+    real_end_time = Column(DateTime, nullable=True)
+    real_quantity = Column(Integer, nullable=True)
+    comment = Column(String, nullable=True)
+    completed_by_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     programming = relationship("Programming", back_populates="programming_tasks")
     task = relationship("Task", back_populates="programming_tasks")
 

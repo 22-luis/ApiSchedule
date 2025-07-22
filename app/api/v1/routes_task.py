@@ -85,7 +85,7 @@ def create_task(
 @router.get("/", response_model=List[TaskOut])
 def get_tasks(
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))
 ):
     tasks = db.query(Task).all()
     return tasks
