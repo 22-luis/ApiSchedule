@@ -10,6 +10,7 @@ from app.utils.dependencies import get_current_user, require_roles
 from app.models.role import UserRole
 from app.models.programming import Programming
 from app.models.programming import ProgrammingTask
+from app.api.v1.replicate_pesado import replicate_task_to_pesado_if_needed
 from sqlalchemy.orm import joinedload
 
 # Opción 1: Router con prefijo específico
@@ -77,6 +78,8 @@ def create_task(
         full_task.material = ""
     if full_task.presentation is None:
         full_task.presentation = ""
+    # Lógica automática para replicar en equipo pesado si aplica
+    replicate_task_to_pesado_if_needed(db, db_task, programming.date)
     return full_task
 
 @router.get("/", response_model=List[TaskOut])

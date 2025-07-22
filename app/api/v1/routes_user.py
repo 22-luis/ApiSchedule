@@ -5,12 +5,17 @@ from app.models.user import User
 from app.schemas.user import UserCreate, UserOut, UserStateUpdate
 from app.db.dependency import get_db
 from typing import List, Optional
+from pydantic import BaseModel
 from app.models.team import Team
 from app.models.state import UserState
 from app.models.role import UserRole
 from app.utils.security import hash_password
 
 router = APIRouter(prefix="/users", tags=["users"])
+
+class UsersPageOut(BaseModel):
+    users: List[UserOut]
+    total: int
 
 @router.post("/", response_model=UserOut)
 def create_user(
@@ -72,13 +77,14 @@ def update_user_state(user_id: str, state_update: UserStateUpdate, db: Session =
     db.refresh(db_user)
     return db_user
 
-@router.get("/", response_model=List[UserOut])
+@router.get("/", response_model=UsersPageOut)
 def get_users(
     db: Session = Depends(get_db), 
     state: Optional[UserState] = Query(default=None, description="State filter"),
     role: Optional[UserRole] = Query(default=None, description="Role filter"),
     skip: int = Query(0, ge=0, description="Skip"),
     limit: int = Query(10, ge=1, le=50, description="Limit"),
+    search: Optional[str] = Query(None, description="Search by username"),
     current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
     ):
     query = db.query(User)
@@ -86,6 +92,9 @@ def get_users(
         query = query.filter(User.state == state)
     if role is not None:
         query = query.filter(User.role == role)
+    if search:
+        query = query.filter(User.username.ilike(f"%{search}%"))
+    total = query.count()
     users = query.offset(skip).limit(limit).all()
     # Mapear manualmente los teamIds
     result = []
@@ -98,5 +107,5 @@ def get_users(
             "state": user.state,
             "teamIds": team_ids
         })
-    return result
+    return {"users": result, "total": total}
 

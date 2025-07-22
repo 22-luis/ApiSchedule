@@ -24,10 +24,20 @@ def user_belongs_to_team(user, team_id):
 @router.get("/", response_model=List[ProgrammingRead])
 def list_programmings(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     if current_user.role.value in ("admin", "planner", "supervisor"):
-        return db.query(Programming).all()
-    # Usuario común: solo las de sus equipos
-    team_ids = [team.id for team in getattr(current_user, "teams", [])]
-    return db.query(Programming).filter(Programming.team_id.in_(team_ids)).all()
+        programmings = db.query(Programming).all()
+    else:
+        team_ids = [team.id for team in getattr(current_user, "teams", [])]
+        programmings = db.query(Programming).filter(Programming.team_id.in_(team_ids)).all()
+    # Serializar correctamente el campo 'tasks' como lista de UUIDs
+    result = []
+    for programming in programmings:
+        result.append({
+            "id": programming.id,
+            "date": programming.date,
+            "team_id": programming.team_id,
+            "tasks": [t.id for t in programming.tasks]
+        })
+    return result
 
 # Obtener programación por equipo y fecha (debe ir antes del endpoint por id)
 @router.get("/by_team_date", response_model=dict)
@@ -225,10 +235,10 @@ async def reorder_programming_tasks(
                         current_time = datetime.combine(programming_date, time(7, 30))
                     else:
                         current_time = datetime.combine(programming_date, time(7, 0))
-            pt.start_time = current_time
-            duration = getattr(pt.task, "minutes", 0) or 0
-            pt.end_time = current_time + timedelta(minutes=duration)
-            current_time = pt.end_time
+        pt.start_time = current_time
+        duration = getattr(pt.task, "minutes", 0) or 0
+        pt.end_time = current_time + timedelta(minutes=duration)
+        current_time = pt.end_time
         result.append(ProgrammingTaskOrderOut(
             task_id=pt.task_id,
             order=pt.order,
