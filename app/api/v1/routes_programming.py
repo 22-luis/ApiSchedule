@@ -14,6 +14,7 @@ from app.schemas.task import TaskOut
 from app.schemas.programming import ProgrammingTaskReportIn
 from app.models.user import User
 import sys
+from pytz import timezone
 
 router = APIRouter(prefix="/programmings", tags=["programmings"])
 
@@ -60,6 +61,10 @@ def get_programming_by_team_date(team_id: str, date: str, db: Session = Depends(
             t['start_time'] = pt.start_time
             t['end_time'] = pt.end_time
             t['order'] = pt.order
+            t['real_start_time'] = getattr(pt, 'real_start_time', None)
+            t['real_end_time'] = getattr(pt, 'real_end_time', None)
+            t['real_quantity'] = getattr(pt, 'real_quantity', None)
+            t['comment'] = getattr(pt, 'comment', None)
             tasks.append(t)
         response = {
             "id": programming.id,
@@ -279,14 +284,22 @@ def get_last_task_of_programming(programming_id: UUID, db: Session = Depends(get
     return task_out 
 
 @router.post("/{programming_id}/tasks/{task_id}/start_timer")
-def start_task_timer(programming_id: str, task_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def start_task_timer(programming_id: str, task_id: str, data: dict = Body(None), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     pt = db.query(ProgrammingTask).filter_by(programming_id=programming_id, task_id=task_id).first()
     if not pt:
         raise HTTPException(status_code=404, detail="ProgrammingTask not found")
     # Solo el usuario asignado puede iniciar
     if pt.completed_by_user_id and pt.completed_by_user_id != current_user.id:
         raise HTTPException(status_code=403, detail="No autorizado")
-    pt.real_start_time = datetime.utcnow()
+    sv_tz = timezone("America/El_Salvador")
+    if data and data.get("real_start_time"):
+        val = data["real_start_time"]
+        if isinstance(val, str):
+            pt.real_start_time = datetime.fromisoformat(val)
+        else:
+            pt.real_start_time = val
+    else:
+        pt.real_start_time = datetime.now(sv_tz)
     pt.completed_by_user_id = current_user.id
     db.commit()
     return {"ok": True, "real_start_time": pt.real_start_time}
@@ -298,7 +311,15 @@ def stop_task_timer(programming_id: str, task_id: str, data: ProgrammingTaskRepo
         raise HTTPException(status_code=404, detail="ProgrammingTask not found")
     if pt.completed_by_user_id != current_user.id:
         raise HTTPException(status_code=403, detail="No autorizado")
-    pt.real_end_time = datetime.utcnow()
+    sv_tz = timezone("America/El_Salvador")
+    if hasattr(data, 'real_end_time') and data.real_end_time:
+        val = data.real_end_time
+        if isinstance(val, str):
+            pt.real_end_time = datetime.fromisoformat(val)
+        else:
+            pt.real_end_time = val
+    else:
+        pt.real_end_time = datetime.now(sv_tz)
     pt.real_quantity = data.real_quantity
     db.commit()
     return {"ok": True, "real_end_time": pt.real_end_time, "real_quantity": pt.real_quantity}

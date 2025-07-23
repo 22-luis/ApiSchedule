@@ -26,9 +26,11 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
         "token_type": "bearer",
         "user": {
             "id": user.id,
-            "username":user.username,
-            "role": user.role
-        }}
+            "username": user.username,
+            "role": user.role,
+            "teamIds": [team.id for team in user.teams]
+        }
+    }
 
 @router.post("/logout")
 def logout(current_user=Depends(get_current_user)):
