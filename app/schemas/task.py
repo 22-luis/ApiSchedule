@@ -70,6 +70,7 @@ class TaskOut(BaseModel):
     fabricationCode: Optional[str] = None
     usefulLife: str
     teams: List[TeamOut]
+    description: Optional[str] = None
 
     class Config:
         from_attributes = True
