@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, Integer, ForeignKey, String, Date, UniqueConstraint
+from sqlalchemy import Column, DateTime, Integer, ForeignKey, String, Date, UniqueConstraint, Boolean
 from sqlalchemy.orm import relationship, backref
 from app.db.database import Base
 from sqlalchemy.dialects.postgresql import UUID
@@ -11,12 +11,12 @@ class ProgrammingTask(Base):
     order = Column(Integer, nullable=False)
     start_time = Column(DateTime, nullable=True)
     end_time = Column(DateTime, nullable=True)
-    # Campos para reporte real del usuario
     real_start_time = Column(DateTime, nullable=True)
     real_end_time = Column(DateTime, nullable=True)
     real_quantity = Column(Integer, nullable=True)
     comment = Column(String, nullable=True)
     completed_by_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    is_completed = Column(Boolean, nullable=True, default=None)
     programming = relationship("Programming", back_populates="programming_tasks")
     task = relationship("Task", back_populates="programming_tasks")
 

@@ -64,6 +64,14 @@ def create_task(
         end_time=db_task.end_time
     )
     db.add(programming_task)
+
+    # Cambiar estado de la orden a 'programada' si corresponde
+    if db_task.lote:
+        from app.models import order as order_model
+        order = db.query(order_model.Order).filter(order_model.Order.lote == db_task.lote).first()
+        if order and order.status == 'pendiente':
+            order.status = 'programada'
+
     db.commit()
     # Refresca la tarea con todas las relaciones
     full_task = db.query(Task).options(

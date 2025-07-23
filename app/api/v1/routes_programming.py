@@ -65,6 +65,7 @@ def get_programming_by_team_date(team_id: str, date: str, db: Session = Depends(
             t['real_end_time'] = getattr(pt, 'real_end_time', None)
             t['real_quantity'] = getattr(pt, 'real_quantity', None)
             t['comment'] = getattr(pt, 'comment', None)
+            t['is_completed'] = getattr(pt, 'is_completed', None)
             tasks.append(t)
         response = {
             "id": programming.id,
@@ -301,6 +302,16 @@ def start_task_timer(programming_id: str, task_id: str, data: dict = Body(None),
     else:
         pt.real_start_time = datetime.now(sv_tz)
     pt.completed_by_user_id = current_user.id
+    # Cambiar estado de la orden a 'en progreso' si corresponde
+    task = pt.task
+    if task and task.lote:
+        from app.models import order as order_model
+        order = db.query(order_model.Order).filter(order_model.Order.lote == task.lote).first()
+        if order and order.status == 'programada':
+            # Verifica si la fecha de la tarea es hoy
+            today = datetime.now().date()
+            if pt.start_time and pt.start_time.date() == today:
+                order.status = 'en progreso'
     db.commit()
     return {"ok": True, "real_start_time": pt.real_start_time}
 
@@ -322,6 +333,14 @@ def stop_task_timer(programming_id: str, task_id: str, data: ProgrammingTaskRepo
         pt.real_end_time = datetime.now(sv_tz)
     pt.real_quantity = data.real_quantity
     db.commit()
+    # Cambiar estado de la orden a 'completado' si corresponde
+    task = pt.task
+    if task and task.lote:
+        from app.models import order as order_model
+        order = db.query(order_model.Order).filter(order_model.Order.lote == task.lote).first()
+        if order:
+            order.status = 'completado'
+    db.commit()
     return {"ok": True, "real_end_time": pt.real_end_time, "real_quantity": pt.real_quantity}
 
 @router.post("/{programming_id}/tasks/{task_id}/comment")
@@ -334,3 +353,14 @@ def add_task_comment(programming_id: str, task_id: str, data: ProgrammingTaskRep
     pt.comment = data.comment
     db.commit()
     return {"ok": True, "comment": pt.comment} 
+
+@router.post("/{programming_id}/tasks/{task_id}/toggle_status")
+def toggle_task_status(programming_id: str, task_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    pt = db.query(ProgrammingTask).filter_by(programming_id=programming_id, task_id=task_id).first()
+    if not pt:
+        raise HTTPException(status_code=404, detail="ProgrammingTask not found")
+    # Alternar el estado
+    pt.is_completed = not bool(pt.is_completed)
+    db.commit()
+    db.refresh(pt)
+    return {"is_completed": pt.is_completed} 
