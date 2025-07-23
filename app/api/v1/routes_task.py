@@ -67,10 +67,15 @@ def create_task(
 
     # Cambiar estado de la orden a 'programada' si corresponde
     if db_task.lote:
-        from app.models import order as order_model
-        order = db.query(order_model.Order).filter(order_model.Order.lote == db_task.lote).first()
-        if order and order.status == 'pendiente':
-            order.status = 'programada'
+        try:
+            lote_int = int(db_task.lote)
+            from app.models import order as order_model
+            order = db.query(order_model.Order).filter(order_model.Order.lote == lote_int).first()
+            if order and order.status == 'pendiente':
+                order.status = 'programada'
+        except (TypeError, ValueError):
+            # Si el lote no es un número válido, no hacer nada
+            pass
 
     db.commit()
     # Refresca la tarea con todas las relaciones

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Body, Request
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from app.models.programming import Programming
 from app.models.task import Task
@@ -56,8 +56,13 @@ def get_programming_by_team_date(team_id: str, date: str, db: Session = Depends(
             raise HTTPException(status_code=403, detail="Not authorized")
         # Obtener tareas completas con datos de la tabla intermedia
         tasks = []
+        # Usar joinedload para traer el objeto code completo
+        task_ids = [pt.task_id for pt in programming.programming_tasks]
+        tasks_with_code = db.query(Task).options(joinedload(Task.code)).filter(Task.id.in_(task_ids)).all()
+        task_map = {t.id: t for t in tasks_with_code}
         for pt in sorted(programming.programming_tasks, key=lambda pt: pt.order):
-            t = TaskOut.model_validate(pt.task, from_attributes=True).model_dump()
+            task_obj = task_map.get(pt.task_id, pt.task)
+            t = TaskOut.model_validate(task_obj, from_attributes=True).model_dump()
             t['start_time'] = pt.start_time
             t['end_time'] = pt.end_time
             t['order'] = pt.order
