@@ -69,6 +69,42 @@ def create_code(code: CodeCreate, db: Session = Depends(get_db), current_user: U
         "teams": teams,
     }
 
+@router.post("/bulk_upload")
+def bulk_upload_codes(codes: list[dict], db: Session = Depends(get_db), current_user=Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))):
+    created = 0
+    errors = []
+    for idx, code_data in enumerate(codes):
+        code_str = code_data.get("code")
+        description = code_data.get("description")
+        if not code_str or not description:
+            errors.append({"row": idx+1, "error": "Falta código o descripción"})
+            continue
+        # Verifica duplicados
+        exists = db.query(Code).filter(Code.code == code_str).first()
+        if exists:
+            errors.append({"row": idx+1, "error": f"Código duplicado: {code_str}"})
+            continue
+        db_code = Code(
+            code=code_str,
+            description=description,
+            unit=code_data.get("unit"),
+            type=code_data.get("type"),
+            activity=code_data.get("activity"),
+            quantity=code_data.get("quantity"),
+            time=code_data.get("time"),
+            people=code_data.get("people"),
+            performance=code_data.get("performance"),
+            material=code_data.get("material"),
+            presentation=code_data.get("presentation"),
+            fabricationCode=code_data.get("fabricationCode"),
+            usefulLife=code_data.get("usefulLife"),
+            related_code_team=code_data.get("related_code_team")
+        )
+        db.add(db_code)
+        created += 1
+    db.commit()
+    return {"created": created, "errors": errors}
+
 @router.get("/", response_model=List[CodeOut])
 def get_codes(db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))):
     codes = db.query(Code).all()
