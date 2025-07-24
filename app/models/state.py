@@ -5,7 +5,7 @@ class UserState(enum.Enum):
     INACTIVE = "inactive"
 
 class OrderStatus(enum.Enum):
-    PENDING = "pending"
-    PROGRAMADA = "programada"
-    IN_PROGRESS = "in_progress"
-    COMPLETED = "completed"
+    pending = "pending"
+    programada = "programada"
+    in_progress = "in_progress"
+    completed = "completed"
