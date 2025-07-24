@@ -230,13 +230,12 @@ async def reorder_programming_tasks(
         if not pt:
             raise HTTPException(status_code=404, detail=f"Task {item.task_id} not found in programming")
         pt.order = item.order
-        # Si se reciben start_time y end_time, usarlos
         if item.start_time and item.end_time:
             pt.start_time = item.start_time if isinstance(item.start_time, datetime) else datetime.fromisoformat(item.start_time)
             pt.end_time = item.end_time if isinstance(item.end_time, datetime) else datetime.fromisoformat(item.end_time)
             current_time = pt.end_time
         else:
-            # Si no, calcular como antes
+            # Solo recalcula si NO se envían los valores
             if current_time is None:
                 programming_date = programming.date
                 weekday = programming_date.weekday()
@@ -248,10 +247,10 @@ async def reorder_programming_tasks(
                         current_time = datetime.combine(programming_date, time(7, 30))
                     else:
                         current_time = datetime.combine(programming_date, time(7, 0))
-        pt.start_time = current_time
-        duration = getattr(pt.task, "minutes", 0) or 0
-        pt.end_time = current_time + timedelta(minutes=duration)
-        current_time = pt.end_time
+            pt.start_time = current_time
+            duration = getattr(pt.task, "minutes", 0) or 0
+            pt.end_time = current_time + timedelta(minutes=duration)
+            current_time = pt.end_time
         result.append(ProgrammingTaskOrderOut(
             task_id=pt.task_id,
             order=pt.order,
