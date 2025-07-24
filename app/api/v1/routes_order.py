@@ -8,6 +8,7 @@ from app.schemas.order import OrderOut
 from app.models.user import User
 from app.utils.dependencies import get_current_user, require_roles
 from app.models.role import UserRole
+from app.schemas.order import OrderStatusUpdate
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
@@ -50,6 +51,16 @@ def delete_order(order_id: str, db: Session = Depends(get_db), current_user: Use
     db.delete(db_order)
     db.commit()
     return {"message": "Order deleted successfully"}
+
+@router.patch("/{order_id}/status")
+def update_order_status(order_id: str, status_update: OrderStatusUpdate, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))):
+    db_order = db.query(order_model.Order).filter(order_model.Order.lote == order_id).first()
+    if not db_order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    db_order.status = status_update.status
+    db.commit()
+    db.refresh(db_order)
+    return db_order
 
 @router.get("/", response_model=List[OrderOut])
 def get_orders(
