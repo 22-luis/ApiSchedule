@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List
 from app.models.code import Code
 from app.models.team import Team
-from app.schemas.code import CodeCreate, CodeUpdate, CodeOut
+from app.schemas.code import CodeCreate, CodeUpdate, CodeOut, CodePageOut
 from app.db.dependency import get_db
 from app.models.user import User
 from app.utils.dependencies import require_roles
@@ -124,9 +124,23 @@ def bulk_upload_codes(codes: list[dict], db: Session = Depends(get_db), current_
     db.commit()
     return {"created": created, "errors": errors}
 
-@router.get("/", response_model=List[CodeOut])
-def get_codes(db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))):
-    codes = db.query(Code).all()
+@router.get("/", response_model=CodePageOut)
+def get_codes(
+    db: Session = Depends(get_db),
+    skip: int = Query(0, ge=0, description="Cuántos registros omitir"),
+    limit: int = Query(20, ge=1, le=100, description="Cantidad máxima de registros a devolver"),
+    search: str = Query(None, description="Buscar por código o descripción"),
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))
+):
+    query = db.query(Code)
+    if search:
+        search_pattern = f"%{search.lower()}%"
+        query = query.filter(
+            (Code.code.ilike(search_pattern)) |
+            (Code.description.ilike(search_pattern))
+        )
+    total = query.count()
+    codes = query.offset(skip).limit(limit).all()
     result = []
     for c in codes:
         teams = [team_to_dict(t, db) for t in c.teams]
@@ -148,7 +162,7 @@ def get_codes(db: Session = Depends(get_db), current_user: User = Depends(requir
             "related_code_team": clean_str(c.related_code_team),
             "teams": teams,
         })
-    return result
+    return {"codes": result, "total": total}
 
 @router.get("/by_code_and_activity")
 def get_code_by_code_and_activity(code: str, activity: str, db: Session = Depends(get_db)):

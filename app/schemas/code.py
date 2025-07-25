@@ -59,4 +59,11 @@ class CodeOut(BaseModel):
     teams: List[TeamOut]
 
     class Config:
+        from_attributes = True
+
+class CodePageOut(BaseModel):
+    codes: List[CodeOut]
+    total: int
+
+    class Config:
         from_attributes = True 
