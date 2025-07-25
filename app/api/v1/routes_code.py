@@ -25,6 +25,25 @@ def team_to_dict(team, db):
         "users": team.users,
     }
 
+def clean_float(value):
+    if value is None:
+        return None
+    if isinstance(value, str):
+        value = value.strip().replace('\xa0', '').replace(' ', '')
+        if value == '' or value == '-':
+            return None
+    try:
+        return float(value)
+    except (ValueError, TypeError):
+        return None
+
+def clean_str(value):
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value.strip()
+    return str(value)
+
 @router.post("/", response_model=CodeOut)
 def create_code(code: CodeCreate, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))):
     db_code = Code(
@@ -85,20 +104,20 @@ def bulk_upload_codes(codes: list[dict], db: Session = Depends(get_db), current_
             errors.append({"row": idx+1, "error": f"Código duplicado: {code_str}"})
             continue
         db_code = Code(
-            code=code_str,
-            description=description,
-            unit=code_data.get("unit"),
-            type=code_data.get("type"),
-            activity=code_data.get("activity"),
-            quantity=code_data.get("quantity"),
-            time=code_data.get("time"),
-            people=code_data.get("people"),
-            performance=code_data.get("performance"),
-            material=code_data.get("material"),
-            presentation=code_data.get("presentation"),
-            fabricationCode=code_data.get("fabricationCode"),
-            usefulLife=code_data.get("usefulLife"),
-            related_code_team=code_data.get("related_code_team")
+            code=clean_str(code_str),
+            description=clean_str(description),
+            unit=clean_str(code_data.get("unit")),
+            type=clean_str(code_data.get("type")),
+            activity=clean_str(code_data.get("activity")),
+            quantity=clean_float(code_data.get("quantity")),
+            time=clean_float(code_data.get("time")),
+            people=clean_float(code_data.get("people")),
+            performance=clean_float(code_data.get("performance")),
+            material=clean_str(code_data.get("material")),
+            presentation=clean_str(code_data.get("presentation")),
+            fabricationCode=clean_str(code_data.get("fabricationCode")),
+            usefulLife=clean_str(code_data.get("usefulLife")),
+            related_code_team=clean_str(code_data.get("related_code_team"))
         )
         db.add(db_code)
         created += 1
@@ -113,20 +132,20 @@ def get_codes(db: Session = Depends(get_db), current_user: User = Depends(requir
         teams = [team_to_dict(t, db) for t in c.teams]
         result.append({
             "id": c.id,
-            "code": c.code,
-            "description": c.description,
-            "unit": c.unit,
-            "type": c.type,
-            "activity": c.activity,
+            "code": clean_str(c.code),
+            "description": clean_str(c.description),
+            "unit": clean_str(c.unit),
+            "type": clean_str(c.type),
+            "activity": clean_str(c.activity),
             "quantity": c.quantity,
             "time": c.time,
             "people": c.people,
             "performance": c.performance,
-            "material": c.material,
-            "presentation": c.presentation,
-            "fabricationCode": c.fabricationCode,
-            "usefulLife": c.usefulLife,
-            "related_code_team": c.related_code_team,
+            "material": clean_str(c.material),
+            "presentation": clean_str(c.presentation),
+            "fabricationCode": clean_str(c.fabricationCode),
+            "usefulLife": clean_str(c.usefulLife),
+            "related_code_team": clean_str(c.related_code_team),
             "teams": teams,
         })
     return result
