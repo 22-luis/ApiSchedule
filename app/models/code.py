@@ -1,3 +1,6 @@
+"""
+Modelo que representa un código predefinido para tareas o productos, con sus atributos y relaciones.
+"""
 import uuid
 
 from sqlalchemy import Column, String, Integer, ForeignKey, Table, Float

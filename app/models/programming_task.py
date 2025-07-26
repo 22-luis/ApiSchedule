@@ -1,3 +1,6 @@
+"""
+Modelo de relación intermedia entre programación y tarea, con información adicional sobre la ejecución de la tarea.
+"""
 import uuid
 from sqlalchemy import Column, Integer, ForeignKey, DateTime
 from sqlalchemy.dialects.postgresql import UUID

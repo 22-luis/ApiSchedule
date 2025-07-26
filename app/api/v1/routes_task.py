@@ -1,3 +1,6 @@
+"""
+Rutas de la API para la gestión de tareas: creación, consulta, actualización y eliminación, así como operaciones relacionadas con equipos y programaciones.
+"""
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.db.dependency import get_db

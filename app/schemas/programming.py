@@ -26,7 +26,7 @@ class ProgrammingTaskOrderIn(BaseModel):
     order: int
     start_time: Optional[datetime] = None
     end_time: Optional[datetime] = None
-    # Nuevos campos para reporte real
+    # Campos para reporte real
     real_start_time: Optional[datetime] = None
     real_end_time: Optional[datetime] = None
     real_quantity: Optional[int] = None
@@ -38,7 +38,7 @@ class ProgrammingTaskOrderOut(BaseModel):
     order: int
     start_time: Optional[datetime] = None
     end_time: Optional[datetime] = None
-    # Nuevos campos para reporte real
+    # Campos para reporte real
     real_start_time: Optional[datetime] = None
     real_end_time: Optional[datetime] = None
     real_quantity: Optional[int] = None

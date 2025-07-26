@@ -1,3 +1,6 @@
+"""
+Modelo que representa una preparación asociada a tareas, con descripción y duración.
+"""
 import uuid
 
 from sqlalchemy import Column, Integer, String

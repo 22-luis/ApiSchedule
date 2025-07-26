@@ -1,3 +1,6 @@
+"""
+Modelo que representa una tarea individual dentro de una programación, incluyendo información relevante para su ejecución y relaciones con otros modelos.
+"""
 import uuid
 
 from sqlalchemy import Column, String, Integer, ForeignKey, Table, DateTime, Float
@@ -9,20 +12,23 @@ from app.models.code import Code
 
 class Task(Base):
     __tablename__ = 'task'
+    # Identificador único de la tarea
     id = Column(UUID, primary_key=True, default=uuid.uuid4)
+    # Referencias y relaciones principales
     code_id = Column(UUID(as_uuid=True), ForeignKey('code.id'), nullable=True)
     code = relationship('Code', backref='tasks')
-    lote = Column(String, nullable=True)
-    quantity = Column(Integer, nullable=True)
-    specification = Column(String, nullable=True)
     preparation_id = Column(UUID(as_uuid=True), ForeignKey('preparation.id'), nullable=True)
     preparation = relationship('Preparation', backref='tasks')
-    minutes = Column(Integer, nullable=True)
-    start_time = Column(DateTime(timezone=True), nullable=True)
-    end_time = Column(DateTime(timezone=True), nullable=True)
     teams = relationship('Team', secondary=task_team_association, back_populates='tasks')
     programmings = relationship("Programming", secondary="programming_task", viewonly=True)
     programming_tasks = relationship("ProgrammingTask", back_populates="task", cascade="all, delete-orphan")
+    # Información principal de la tarea
+    lote = Column(String, nullable=True)
+    quantity = Column(Integer, nullable=True)
+    specification = Column(String, nullable=True)
+    minutes = Column(Integer, nullable=True)
+    start_time = Column(DateTime(timezone=True), nullable=True)
+    end_time = Column(DateTime(timezone=True), nullable=True)
     people = Column(Integer, nullable=True)
     performance = Column(Float, nullable=True)
     material = Column(String, nullable=True)

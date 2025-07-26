@@ -1,3 +1,6 @@
+"""
+Modelo que representa una orden de producción, incluyendo lote, cantidad, estado y fecha de entrega.
+"""
 import uuid
 
 from app.models.state import OrderStatus

@@ -1,3 +1,6 @@
+"""
+Modelos para representar la programación de tareas y su relación con equipos y fechas.
+"""
 from sqlalchemy import Column, DateTime, Integer, ForeignKey, String, Date, UniqueConstraint, Boolean
 from sqlalchemy.orm import relationship, backref
 from app.db.database import Base
