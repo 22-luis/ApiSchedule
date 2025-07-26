@@ -1,3 +1,6 @@
+"""
+Rutas de la API para la gestión de órdenes de producción: creación, actualización de estado, eliminación y consulta con filtros.
+"""
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from app.schemas.order import OrderCreate

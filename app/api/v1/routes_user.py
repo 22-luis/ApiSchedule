@@ -1,3 +1,6 @@
+"""
+Rutas de la API para la gestión de usuarios: creación, actualización, eliminación y consulta con filtros por estado, rol y búsqueda.
+"""
 from fastapi import APIRouter, Depends, HTTPException, Query
 from app.utils.dependencies import get_current_user, require_roles
 from sqlalchemy.orm import Session

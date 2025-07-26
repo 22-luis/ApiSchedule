@@ -1,3 +1,6 @@
+"""
+Rutas de la API para la gestión de programaciones: creación, actualización, reordenamiento de tareas, control de tiempo y reportes de ejecución.
+"""
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Body, Request
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional

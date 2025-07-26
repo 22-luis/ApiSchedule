@@ -1,3 +1,6 @@
+"""
+Rutas de la API para la gestión de equipos: creación, actualización, eliminación y consulta con manejo de supervisores y miembros.
+"""
 from fastapi import APIRouter, Depends, HTTPException, Query
 from app.models import team
 from sqlalchemy.orm import Session

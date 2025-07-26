@@ -1,3 +1,6 @@
+"""
+Rutas de la API para la gestión de preparaciones: creación, actualización, eliminación, consulta y carga masiva de datos.
+"""
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List

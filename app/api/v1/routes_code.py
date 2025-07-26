@@ -1,3 +1,6 @@
+"""
+Rutas de la API para la gestión de códigos predefinidos: creación, actualización, eliminación, consulta con paginación, búsqueda y carga masiva.
+"""
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List

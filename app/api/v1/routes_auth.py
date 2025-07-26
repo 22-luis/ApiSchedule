@@ -1,3 +1,6 @@
+"""
+Rutas de la API para autenticación de usuarios: login y logout con manejo de tokens JWT.
+"""
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from app.utils.dependencies import get_current_user
