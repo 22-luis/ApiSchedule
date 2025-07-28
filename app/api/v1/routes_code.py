@@ -176,12 +176,33 @@ def get_code_by_code_and_activity(code: str, activity: str, db: Session = Depend
 
 @router.get("/by_code/{code}/activity")
 def get_code_activity(code: str, db: Session = Depends(get_db)):
-    code_obj = db.query(Code).filter(Code.code == code).first()
-    if not code_obj:
+    code_objs = db.query(Code).filter(Code.code == code).all()
+    if not code_objs:
         raise HTTPException(status_code=404, detail="Code not found")
+    
+    activities = []
+    for code_obj in code_objs:
+        activities.append({
+            "id": code_obj.id,
+            "activity": getattr(code_obj, "activity", None),
+            "description": getattr(code_obj, "description", None),
+            "unit": getattr(code_obj, "unit", None),
+            "type": getattr(code_obj, "type", None),
+            "quantity": getattr(code_obj, "quantity", None),
+            "time": getattr(code_obj, "time", None),
+            "people": getattr(code_obj, "people", None),
+            "performance": getattr(code_obj, "performance", None),
+            "material": getattr(code_obj, "material", None),
+            "presentation": getattr(code_obj, "presentation", None),
+            "fabricationCode": getattr(code_obj, "fabricationCode", None),
+            "usefulLife": getattr(code_obj, "usefulLife", None),
+            "related_code_team": getattr(code_obj, "related_code_team", None)
+        })
+    
     return {
         "code": code,
-        "activity": getattr(code_obj, "activity", None)
+        "activities": activities,
+        "total_activities": len(activities)
     }
 
 @router.get("/by_code/{code}/lotes")
