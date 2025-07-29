@@ -27,3 +27,8 @@ class OrderOut(BaseModel):
 
 class OrderStatusUpdate(BaseModel):
     status: OrderStatus
+
+# Esquema para respuesta paginada
+class OrderPageOut(BaseModel):
+    orders: list[OrderOut]
+    total: int

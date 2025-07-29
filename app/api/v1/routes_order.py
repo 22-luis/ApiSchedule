@@ -3,15 +3,13 @@ Rutas de la API para la gestión de órdenes de producción: creación, actualiz
 """
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from app.schemas.order import OrderCreate
+from app.schemas.order import OrderCreate, OrderOut, OrderStatusUpdate, OrderPageOut
 from app.models import order as order_model
 from app.db.dependency import get_db
 from typing import List, Union, Optional
-from app.schemas.order import OrderOut
 from app.models.user import User
 from app.utils.dependencies import get_current_user, require_roles
 from app.models.role import UserRole
-from app.schemas.order import OrderStatusUpdate
 from app.models.state import OrderStatus
 
 router = APIRouter(prefix="/orders", tags=["orders"])
@@ -45,7 +43,21 @@ def create_orders(
     db.commit()
     for db_order in created_orders:
         db.refresh(db_order)
-    return created_orders
+    
+    # Serializar las órdenes creadas usando el esquema OrderOut
+    serialized_orders = []
+    for order in created_orders:
+        order_dict = {
+            "lote": order.lote,
+            "code": order.code,
+            "status": order.status.value if hasattr(order.status, 'value') else order.status,
+            "description": order.description,
+            "quantity": order.quantity,
+            "bin": order.bin,
+            "dueDate": order.dueDate.isoformat() if order.dueDate else None
+        }
+        serialized_orders.append(order_dict)
+    return serialized_orders
 
 @router.delete("/{order_id}")
 def delete_order(order_id: str, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))):
@@ -64,13 +76,26 @@ def update_order_status(order_id: str, status_update: OrderStatusUpdate, db: Ses
     db_order.status = status_update.status
     db.commit()
     db.refresh(db_order)
-    return db_order
+    
+    # Serializar la orden actualizada usando el esquema OrderOut
+    order_dict = {
+        "lote": db_order.lote,
+        "code": db_order.code,
+        "status": db_order.status.value if hasattr(db_order.status, 'value') else db_order.status,
+        "description": db_order.description,
+        "quantity": db_order.quantity,
+        "bin": db_order.bin,
+        "dueDate": db_order.dueDate.isoformat() if db_order.dueDate else None
+    }
+    return order_dict
 
-@router.get("/", response_model=List[OrderOut])
+@router.get("/", response_model=OrderPageOut)
 def get_orders(
     status: Optional[OrderStatus] = Query(None, description="Filtrar por status"),
     lote: int = Query(None, description="Filtrar por lote"),
     code: str = Query(None, description="Filtrar por código"),
+    skip: int = Query(0, ge=0, description="Cuántos registros omitir (paginación)"),
+    limit: int = Query(10, ge=1, le=100, description="Cuántos registros devolver (paginación)"),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.PLANNER, UserRole.SUPERVISOR))
 ):
@@ -81,5 +106,21 @@ def get_orders(
         query = query.filter(order_model.Order.lote == lote)
     if code:
         query = query.filter(order_model.Order.code == code)
-    orders = query.all()
-    return orders
+    total = query.count()
+    orders = query.offset(skip).limit(limit).all()
+    
+    # Serializar las órdenes usando el esquema OrderOut
+    serialized_orders = []
+    for order in orders:
+        order_dict = {
+            "lote": order.lote,
+            "code": order.code,
+            "status": order.status.value if hasattr(order.status, 'value') else order.status,
+            "description": order.description,
+            "quantity": order.quantity,
+            "bin": order.bin,
+            "dueDate": order.dueDate.isoformat() if order.dueDate else None
+        }
+        serialized_orders.append(order_dict)
+    
+    return {"orders": serialized_orders, "total": total}
