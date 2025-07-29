@@ -54,9 +54,30 @@ def get_programming_by_team_date(team_id: str, date: str, db: Session = Depends(
         date_obj = datetime.strptime(date, "%Y-%m-%d").date()
         programming = db.query(Programming).filter_by(team_id=team_id, date=date_obj).first()
         if not programming:
-            raise HTTPException(status_code=404, detail="Programming not found")
-        if current_user.role.value not in ("admin", "planner") and not user_belongs_to_team(current_user, team_id):
-            raise HTTPException(status_code=403, detail="Not authorized")
+            # Si no existe la programación, verificar si el usuario puede crearla
+            print(f"[DEBUG] Programming not found - User role: {current_user.role.value}")
+            print(f"[DEBUG] Programming not found - User teams: {[team.id for team in getattr(current_user, 'teams', [])]}")
+            print(f"[DEBUG] Programming not found - Target team_id: {team_id}")
+            print(f"[DEBUG] Programming not found - user_belongs_to_team result: {user_belongs_to_team(current_user, team_id)}")
+            # Simplificar la verificación: si es supervisor, admin o planner, permitir acceso
+            user_role = str(current_user.role.value) if hasattr(current_user.role, "value") else str(current_user.role)
+            if user_role not in ["admin", "planner", "supervisor"] and not user_belongs_to_team(current_user, team_id):
+                raise HTTPException(status_code=403, detail="Not authorized")
+            # Crear la programación automáticamente para usuarios autorizados
+            programming = Programming(date=date_obj, team_id=team_id)
+            db.add(programming)
+            db.commit()
+            db.refresh(programming)
+        else:
+            # Si existe la programación, verificar permisos de acceso
+            print(f"[DEBUG] User role: {current_user.role.value}")
+            print(f"[DEBUG] User teams: {[team.id for team in getattr(current_user, 'teams', [])]}")
+            print(f"[DEBUG] Target team_id: {team_id}")
+            print(f"[DEBUG] user_belongs_to_team result: {user_belongs_to_team(current_user, team_id)}")
+            # Simplificar la verificación: si es supervisor, admin o planner, permitir acceso
+            user_role = str(current_user.role.value) if hasattr(current_user.role, "value") else str(current_user.role)
+            if user_role not in ["admin", "planner", "supervisor"] and not user_belongs_to_team(current_user, team_id):
+                raise HTTPException(status_code=403, detail="Not authorized")
         # Obtener tareas completas con datos de la tabla intermedia
         tasks = []
         # Usar joinedload para traer el objeto code completo
@@ -93,7 +114,9 @@ def get_programming(programming_id: UUID, db: Session = Depends(get_db), current
     programming = db.query(Programming).get(programming_id)
     if not programming:
         raise HTTPException(status_code=404, detail="Programming not found")
-    if current_user.role not in ("admin", "planner") and not user_belongs_to_team(current_user, programming.team_id):
+    # Simplificar la verificación: si es supervisor, admin o planner, permitir acceso
+    user_role = str(current_user.role.value) if hasattr(current_user.role, "value") else str(current_user.role)
+    if user_role not in ["admin", "planner", "supervisor"] and not user_belongs_to_team(current_user, programming.team_id):
         raise HTTPException(status_code=403, detail="Not authorized")
     return {
         "id": programming.id,
@@ -102,8 +125,8 @@ def get_programming(programming_id: UUID, db: Session = Depends(get_db), current
         "tasks": [t.id for t in programming.tasks]
     }
 
-# Crear programación (solo admin/planner)
-@router.post("/", response_model=ProgrammingRead, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_roles(["admin", "planner"]))])
+# Crear programación (admin/planner/supervisor)
+@router.post("/", response_model=ProgrammingRead, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_roles(["admin", "planner", "supervisor"]))])
 def create_programming(data: ProgrammingCreate, db: Session = Depends(get_db)):
     # Verificar restricción única
     exists = db.query(Programming).filter_by(date=data.date, team_id=data.team_id).first()
@@ -116,8 +139,8 @@ def create_programming(data: ProgrammingCreate, db: Session = Depends(get_db)):
     db.refresh(programming)
     return programming
 
-# Editar tareas de una programación (solo admin/planner)
-@router.put("/{programming_id}", response_model=ProgrammingRead, dependencies=[Depends(require_roles(["admin", "planner"]))])
+# Editar tareas de una programación (admin/planner/supervisor)
+@router.put("/{programming_id}", response_model=ProgrammingRead, dependencies=[Depends(require_roles(["admin", "planner", "supervisor"]))])
 def update_programming(programming_id: UUID, data: ProgrammingUpdate, db: Session = Depends(get_db)):
     programming = db.query(Programming).get(programming_id)
     if not programming:
@@ -133,8 +156,8 @@ def update_programming(programming_id: UUID, data: ProgrammingUpdate, db: Sessio
         "tasks": [t.id for t in programming.tasks]
     }
 
-# Eliminar programación (solo admin/planner)
-@router.delete("/{programming_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(require_roles(["admin", "planner"]))])
+# Eliminar programación (admin/planner/supervisor)
+@router.delete("/{programming_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(require_roles(["admin", "planner", "supervisor"]))])
 def delete_programming(programming_id: UUID, db: Session = Depends(get_db)):
     programming = db.query(Programming).get(programming_id)
     if not programming:
@@ -149,8 +172,8 @@ def ensure_programming_by_team_date(team_id: str = Query(...), date: date = Quer
     programming = db.query(Programming).filter_by(team_id=team_id, date=date).first()
     if programming:
         return programming
-    # Solo admin/planner pueden crear
-    if current_user.role.value not in ("admin", "planner"):
+    # Solo admin/planner/supervisor pueden crear
+    if current_user.role.value not in ("admin", "planner", "supervisor"):
         raise HTTPException(status_code=403, detail="Not authorized to create programming")
     programming = Programming(date=date, team_id=team_id)
     db.add(programming)
@@ -168,7 +191,7 @@ def add_task_to_programming(
     programming = db.query(Programming).get(programming_id)
     if not programming:
         raise HTTPException(status_code=404, detail="Programming not found")
-    if current_user.role.value not in ("admin", "planner"):
+    if current_user.role.value not in ("admin", "planner", "supervisor"):
         raise HTTPException(status_code=403, detail="Not authorized")
     task = db.query(Task).get(task_id)
     if not task:
@@ -194,7 +217,7 @@ def remove_task_from_programming(
     programming = db.query(Programming).get(programming_id)
     if not programming:
         raise HTTPException(status_code=404, detail="Programming not found")
-    if current_user.role.value not in ("admin", "planner"):
+    if current_user.role.value not in ("admin", "planner", "supervisor"):
         raise HTTPException(status_code=403, detail="Not authorized")
     task = db.query(Task).get(task_id)
     if not task:
@@ -217,7 +240,7 @@ async def reorder_programming_tasks(
     tasks_order: list[ProgrammingTaskOrderIn] = Body(...),
     base_time: Optional[str] = Body(None),
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles(["admin", "planner"]))
+    current_user=Depends(require_roles(["admin", "planner", "supervisor"]))
 ):
     raw_body = await request.body()
     print("RAW PAYLOAD (antes de parsear):", raw_body)

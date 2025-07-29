@@ -24,12 +24,12 @@ class UsersPageOut(BaseModel):
 def create_user(
     user: UserCreate,
     db: Session = Depends(get_db)
-    ):
+):
     db_user = User(
         username=user.username, 
         password=hash_password(user.password),
         role=user.role
-        )
+    )
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
@@ -103,7 +103,7 @@ def get_users(
     limit: int = Query(10, ge=1, le=50, description="Limit"),
     search: Optional[str] = Query(None, description="Search by username"),
     current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
-    ):
+):
     query = db.query(User)
     if state is not None:
         query = query.filter(User.state == state)

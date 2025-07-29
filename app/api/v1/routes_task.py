@@ -23,7 +23,7 @@ router = APIRouter(prefix="/tasks", tags=["tasks"])
 def create_task(
     task: TaskCreate, 
     db: Session = Depends(get_db), 
-    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
 ):
     # Verificar que los equipos existen
     teams = db.query(Team).filter(Team.id.in_(task.teamIds)).all()
@@ -122,7 +122,7 @@ def update_task(
     task_id: str,
     task_update: TaskUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
 ):
     db_task = db.query(Task).filter(Task.id == task_id).first()
     if not db_task:
@@ -149,7 +149,7 @@ def update_task(
 def delete_task(
     task_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
 ):
     db_task = db.query(Task).filter(Task.id == task_id).first()
     if not db_task:
