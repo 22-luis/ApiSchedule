@@ -40,6 +40,11 @@ def delete_user(user_id: str, db: Session = Depends(get_db), current_user: User 
     db_user = db.query(User).filter(User.id == user_id).first()
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found")
+    
+    # Verificar que el usuario actual puede modificar al usuario objetivo
+    from app.utils.dependencies import check_user_permission_for_target_user
+    check_user_permission_for_target_user(current_user, db_user)
+    
     db.delete(db_user)
     db.commit()
     return {"message": "User deleted successfully"}
@@ -49,6 +54,10 @@ def update_user(user_id: str, user: UserCreate, db: Session = Depends(get_db), c
     db_user = db.query(User).filter(User.id == user_id).first()
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found")
+
+    # Verificar que el usuario actual puede modificar al usuario objetivo
+    from app.utils.dependencies import check_user_permission_for_target_user
+    check_user_permission_for_target_user(current_user, db_user)
 
     past_state = db_user.state
 
@@ -75,6 +84,11 @@ def update_user_state(user_id: str, state_update: UserStateUpdate, db: Session =
     db_user = db.query(User).filter(User.id == user_id).first()
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found")
+    
+    # Verificar que el usuario actual puede modificar al usuario objetivo
+    from app.utils.dependencies import check_user_permission_for_target_user
+    check_user_permission_for_target_user(current_user, db_user)
+    
     setattr(db_user, "state", state_update.state)
     db.commit()
     db.refresh(db_user)

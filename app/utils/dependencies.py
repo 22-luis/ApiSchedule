@@ -50,3 +50,29 @@ def require_roles(*roles):
             detail="You do not have permission to perform this action"
         )
     return role_checker
+
+def check_user_permission_for_target_user(current_user: User, target_user: User):
+    """
+    Verifica si el usuario actual puede modificar al usuario objetivo.
+    Un usuario no puede modificar a otro usuario con rol igual o superior.
+    """
+    hierarchy = {
+        "admin": 3,
+        "planner": 2,
+        "supervisor": 1,
+        "user": 0
+    }
+    
+    current_user_role = str(current_user.role.value if hasattr(current_user.role, "value") else current_user.role)
+    target_user_role = str(target_user.role.value if hasattr(target_user.role, "value") else target_user.role)
+    
+    current_level = hierarchy.get(current_user_role, 0)
+    target_level = hierarchy.get(target_user_role, 0)
+    
+    if current_level <= target_level:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You cannot modify users with equal or higher role than yours"
+        )
+    
+    return True
