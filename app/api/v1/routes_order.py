@@ -6,12 +6,13 @@ from sqlalchemy.orm import Session
 from app.schemas.order import OrderCreate
 from app.models import order as order_model
 from app.db.dependency import get_db
-from typing import List, Union
+from typing import List, Union, Optional
 from app.schemas.order import OrderOut
 from app.models.user import User
 from app.utils.dependencies import get_current_user, require_roles
 from app.models.role import UserRole
 from app.schemas.order import OrderStatusUpdate
+from app.models.state import OrderStatus
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
@@ -67,7 +68,7 @@ def update_order_status(order_id: str, status_update: OrderStatusUpdate, db: Ses
 
 @router.get("/", response_model=List[OrderOut])
 def get_orders(
-    status: str = Query(None, description="Filtrar por status"),
+    status: Optional[OrderStatus] = Query(None, description="Filtrar por status"),
     lote: int = Query(None, description="Filtrar por lote"),
     code: str = Query(None, description="Filtrar por código"),
     db: Session = Depends(get_db),
@@ -75,7 +76,7 @@ def get_orders(
 ):
     query = db.query(order_model.Order)
     if status:
-        query = query.filter(order_model.Order.status == status)
+        query = query.filter(order_model.Order.status == status.value)
     if lote:
         query = query.filter(order_model.Order.lote == lote)
     if code:
