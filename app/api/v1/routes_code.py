@@ -3,7 +3,7 @@ Rutas de la API para la gestión de códigos predefinidos: creación, actualizac
 """
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from app.models.code import Code
 from app.models.team import Team
 from app.schemas.code import CodeCreate, CodeUpdate, CodeOut, CodePageOut
@@ -132,7 +132,7 @@ def get_codes(
     db: Session = Depends(get_db),
     skip: int = Query(0, ge=0, description="Cuántos registros omitir"),
     limit: int = Query(20, ge=1, le=100, description="Cantidad máxima de registros a devolver"),
-    search: str = Query(None, description="Buscar por código o descripción"),
+    search: Optional[str] = Query(None, description="Buscar por código o descripción"),
     current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))
 ):
     query = db.query(Code)
@@ -214,6 +214,49 @@ def get_lotes_by_code(code: str, db: Session = Depends(get_db)):
         "code": code,
         "lotes": [l[0] for l in lotes if l[0] is not None]
     }
+
+@router.get("/activities")
+def get_all_activities(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))
+):
+    """
+    Obtiene todas las actividades únicas de los códigos.
+    """
+    from sqlalchemy import distinct
+    # Obtener actividades únicas y no nulas de la tabla de códigos
+    activities = db.query(distinct(Code.activity)).filter(Code.activity.isnot(None)).all()
+    
+    # Convertir a lista de strings y filtrar valores vacíos
+    activity_list = [activity[0] for activity in activities if activity[0] and activity[0].strip()]
+    
+    # Ordenar alfabéticamente
+    activity_list.sort()
+    
+    return activity_list
+
+@router.get("/lotes")
+def get_all_lotes(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))
+):
+    """
+    Obtiene todos los lotes únicos de las órdenes.
+    """
+    from sqlalchemy import distinct
+    # Obtener lotes únicos y no nulos de la tabla de órdenes
+    lotes = db.query(distinct(Order.lote)).filter(Order.lote.isnot(None)).all()
+    
+    # Convertir a lista de strings y filtrar valores vacíos
+    lote_list = [lote[0] for lote in lotes if lote[0] and str(lote[0]).strip()]
+    
+    # Ordenar numéricamente si es posible, sino alfabéticamente
+    try:
+        lote_list.sort(key=lambda x: int(x) if str(x).isdigit() else x)
+    except:
+        lote_list.sort()
+    
+    return lote_list
 
 @router.get("/{code_id}", response_model=CodeOut)
 def get_code(code_id: uuid.UUID, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))):

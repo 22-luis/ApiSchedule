@@ -23,16 +23,25 @@ router = APIRouter(prefix="/tasks", tags=["tasks"])
 def create_task(
     task: TaskCreate, 
     db: Session = Depends(get_db), 
-    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))
 ):
     # Verificar que los equipos existen
     teams = db.query(Team).filter(Team.id.in_(task.teamIds)).all()
     if len(teams) != len(task.teamIds):
         raise HTTPException(status_code=400, detail="One or more teams not found")
+    
     # Verificar que la programación existe
     programming = db.query(Programming).filter(Programming.id == task.programming_id).first()
     if not programming:
         raise HTTPException(status_code=404, detail="Programming not found")
+    
+    # Si el usuario es USER, verificar que pertenece al equipo de la programación
+    if current_user.role == UserRole.USER:
+        user_team_ids = [str(team.id) for team in current_user.teams]
+        programming_team_id = str(programming.team_id)
+        if programming_team_id not in user_team_ids:
+            raise HTTPException(status_code=403, detail="You can only create tasks for your assigned teams")
+    
     # Crear la tarea
     db_task = Task(
         minutes=task.minutes,
@@ -54,7 +63,8 @@ def create_task(
         unit=task.unit,
         type=task.type,
         activity=task.activity,
-        description=task.description
+        description=task.description,
+        created_by_user_id=current_user.id
     )
     db.add(db_task)
     db.flush()  # Para asegurar que db_task.id esté disponible
@@ -85,7 +95,8 @@ def create_task(
     full_task = db.query(Task).options(
         joinedload(Task.code),
         joinedload(Task.preparation),
-        joinedload(Task.teams)
+        joinedload(Task.teams),
+        joinedload(Task.created_by_user)
     ).filter(Task.id == db_task.id).first()
     # Forzar string vacío en usefulLife y material/presentation en la respuesta
     if full_task.usefulLife is None:

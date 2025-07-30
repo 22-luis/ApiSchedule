@@ -22,6 +22,9 @@ class Task(Base):
     teams = relationship('Team', secondary=task_team_association, back_populates='tasks')
     programmings = relationship("Programming", secondary="programming_task", viewonly=True)
     programming_tasks = relationship("ProgrammingTask", back_populates="task", cascade="all, delete-orphan")
+    # Campo para rastrear quién creó la tarea
+    created_by_user_id = Column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=True)
+    created_by_user = relationship('User', foreign_keys=[created_by_user_id])
     # Información principal de la tarea
     lote = Column(String, nullable=True)
     quantity = Column(Integer, nullable=True)

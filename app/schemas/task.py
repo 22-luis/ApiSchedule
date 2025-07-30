@@ -4,6 +4,7 @@ from typing import Optional, List
 from app.schemas.team import TeamOut
 from app.schemas.code import CodeOut
 from app.schemas.preparation import PreparationOut
+from app.schemas.user import UserOut
 from typing import Optional
 from datetime import datetime
 
@@ -71,6 +72,8 @@ class TaskOut(BaseModel):
     usefulLife: str
     teams: List[TeamOut]
     description: Optional[str] = None
+    created_by_user_id: Optional[uuid.UUID] = None
+    created_by_user: Optional[UserOut] = None
 
     class Config:
         from_attributes = True
