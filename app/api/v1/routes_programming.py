@@ -76,9 +76,12 @@ def get_programming_by_team_date(team_id: str, date: str, db: Session = Depends(
                 raise HTTPException(status_code=403, detail="Not authorized")
         # Obtener tareas completas con datos de la tabla intermedia
         tasks = []
-        # Usar joinedload para traer el objeto code completo
+        # Usar joinedload para traer el objeto code completo y created_by_user
         task_ids = [pt.task_id for pt in programming.programming_tasks]
-        tasks_with_code = db.query(Task).options(joinedload(Task.code)).filter(Task.id.in_(task_ids)).all()
+        tasks_with_code = db.query(Task).options(
+            joinedload(Task.code),
+            joinedload(Task.created_by_user)
+        ).filter(Task.id.in_(task_ids)).all()
         task_map = {t.id: t for t in tasks_with_code}
         for pt in sorted(programming.programming_tasks, key=lambda pt: pt.order):
             task_obj = task_map.get(pt.task_id, pt.task)
@@ -91,6 +94,12 @@ def get_programming_by_team_date(team_id: str, date: str, db: Session = Depends(
             t['real_quantity'] = getattr(pt, 'real_quantity', None)
             t['comment'] = getattr(pt, 'comment', None)
             t['is_completed'] = getattr(pt, 'is_completed', None)
+            
+            # Debug log para verificar datos de created_by_user
+            if task_obj.created_by_user_id:
+                print(f"[DEBUG] Task {task_obj.id}: created_by_user_id={task_obj.created_by_user_id}, created_by_user={task_obj.created_by_user}")
+                print(f"[DEBUG] Task {task_obj.id}: created_by_user.name={getattr(task_obj.created_by_user, 'name', 'None') if task_obj.created_by_user else 'None'}")
+            
             tasks.append(t)
         response = {
             "id": programming.id,

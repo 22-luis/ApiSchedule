@@ -114,7 +114,12 @@ def get_tasks(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))
 ):
-    tasks = db.query(Task).all()
+    tasks = db.query(Task).options(
+        joinedload(Task.code),
+        joinedload(Task.preparation),
+        joinedload(Task.teams),
+        joinedload(Task.created_by_user)
+    ).all()
     return tasks
 
 @router.get("/{task_id}", response_model=TaskOut)
@@ -123,7 +128,12 @@ def get_task(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
 ):
-    task = db.query(Task).filter(Task.id == task_id).first()
+    task = db.query(Task).options(
+        joinedload(Task.code),
+        joinedload(Task.preparation),
+        joinedload(Task.teams),
+        joinedload(Task.created_by_user)
+    ).filter(Task.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     return task
@@ -152,7 +162,8 @@ def update_task(
     full_task = db.query(Task).options(
         joinedload(Task.code),
         joinedload(Task.preparation),
-        joinedload(Task.teams)
+        joinedload(Task.teams),
+        joinedload(Task.created_by_user)
     ).filter(Task.id == db_task.id).first()
     return full_task
 
@@ -183,5 +194,10 @@ def get_tasks_by_team(
     if not team:
         raise HTTPException(status_code=404, detail="Team not found")
     
-    tasks = db.query(Task).filter(Task.team_id == team_id).all()
+    tasks = db.query(Task).options(
+        joinedload(Task.code),
+        joinedload(Task.preparation),
+        joinedload(Task.teams),
+        joinedload(Task.created_by_user)
+    ).filter(Task.team_id == team_id).all()
     return tasks
