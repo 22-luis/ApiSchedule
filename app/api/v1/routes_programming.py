@@ -59,9 +59,7 @@ def get_programming_by_team_date(team_id: str, date: str, db: Session = Depends(
             print(f"[DEBUG] Programming not found - User teams: {[team.id for team in getattr(current_user, 'teams', [])]}")
             print(f"[DEBUG] Programming not found - Target team_id: {team_id}")
             print(f"[DEBUG] Programming not found - user_belongs_to_team result: {user_belongs_to_team(current_user, team_id)}")
-            # Simplificar la verificación: si es supervisor, admin o planner, permitir acceso
-            user_role = str(current_user.role.value) if hasattr(current_user.role, "value") else str(current_user.role)
-            if user_role not in ["admin", "planner", "supervisor"] and not user_belongs_to_team(current_user, team_id):
+            if current_user.role.value not in ("admin", "planner", "supervisor") and not user_belongs_to_team(current_user, team_id):
                 raise HTTPException(status_code=403, detail="Not authorized")
             # Crear la programación automáticamente para usuarios autorizados
             programming = Programming(date=date_obj, team_id=team_id)
@@ -74,9 +72,7 @@ def get_programming_by_team_date(team_id: str, date: str, db: Session = Depends(
             print(f"[DEBUG] User teams: {[team.id for team in getattr(current_user, 'teams', [])]}")
             print(f"[DEBUG] Target team_id: {team_id}")
             print(f"[DEBUG] user_belongs_to_team result: {user_belongs_to_team(current_user, team_id)}")
-            # Simplificar la verificación: si es supervisor, admin o planner, permitir acceso
-            user_role = str(current_user.role.value) if hasattr(current_user.role, "value") else str(current_user.role)
-            if user_role not in ["admin", "planner", "supervisor"] and not user_belongs_to_team(current_user, team_id):
+            if current_user.role.value not in ("admin", "planner", "supervisor") and not user_belongs_to_team(current_user, team_id):
                 raise HTTPException(status_code=403, detail="Not authorized")
         # Obtener tareas completas con datos de la tabla intermedia
         tasks = []
@@ -114,9 +110,7 @@ def get_programming(programming_id: UUID, db: Session = Depends(get_db), current
     programming = db.query(Programming).get(programming_id)
     if not programming:
         raise HTTPException(status_code=404, detail="Programming not found")
-    # Simplificar la verificación: si es supervisor, admin o planner, permitir acceso
-    user_role = str(current_user.role.value) if hasattr(current_user.role, "value") else str(current_user.role)
-    if user_role not in ["admin", "planner", "supervisor"] and not user_belongs_to_team(current_user, programming.team_id):
+    if current_user.role.value not in ("admin", "planner", "supervisor") and not user_belongs_to_team(current_user, programming.team_id):
         raise HTTPException(status_code=403, detail="Not authorized")
     return {
         "id": programming.id,
