@@ -15,6 +15,7 @@ from app.models.programming import Programming
 from app.models.programming import ProgrammingTask
 from app.api.v1.replicate_pesado import replicate_task_to_pesado_if_needed
 from sqlalchemy.orm import joinedload
+from pydantic import BaseModel
 
 # Opción 1: Router con prefijo específico
 router = APIRouter(prefix="/tasks", tags=["tasks"])
@@ -107,6 +108,118 @@ def create_task(
         full_task.presentation = ""
     # Lógica automática para replicar en equipo pesado si aplica
     replicate_task_to_pesado_if_needed(db, db_task, programming.date)
+    return full_task
+
+class DuplicateTaskRequest(BaseModel):
+    lote: str
+
+@router.post("/{task_id}/duplicate", response_model=TaskOut)
+def duplicate_task(
+    task_id: str,
+    request: DuplicateTaskRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))
+):
+    """Duplicate an existing task with a new lote"""
+    # Get the original task
+    original_task = db.query(Task).options(
+        joinedload(Task.code),
+        joinedload(Task.preparation),
+        joinedload(Task.teams),
+        joinedload(Task.created_by_user)
+    ).filter(Task.id == task_id).first()
+    
+    if not original_task:
+        raise HTTPException(status_code=404, detail="Original task not found")
+    
+    # Get the programming through the ProgrammingTask association
+    programming_task_assoc = db.query(ProgrammingTask).filter(ProgrammingTask.task_id == task_id).first()
+    if not programming_task_assoc:
+        raise HTTPException(status_code=404, detail="Task not found in any programming")
+    
+    programming = db.query(Programming).filter(Programming.id == programming_task_assoc.programming_id).first()
+    if not programming:
+        raise HTTPException(status_code=404, detail="Programming not found")
+    
+    # If the user is USER, verify that they belong to the programming team
+    if current_user.role == UserRole.USER:
+        user_team_ids = [str(team.id) for team in current_user.teams]
+        programming_team_id = str(programming.team_id)
+        if programming_team_id not in user_team_ids:
+            raise HTTPException(status_code=403, detail="You can only duplicate tasks for your assigned teams")
+    
+    # Create the duplicated task
+    duplicated_task = Task(
+        minutes=original_task.minutes,
+        start_time=original_task.start_time,
+        end_time=original_task.end_time,
+        teams=original_task.teams,
+        code_id=original_task.code_id,
+        lote=request.lote,  # Use the new lote from request
+        quantity=original_task.quantity,
+        specification=original_task.specification,
+        preparation_id=original_task.preparation_id,
+        people=original_task.people,
+        performance=original_task.performance,
+        material=original_task.material or "",
+        presentation=original_task.presentation or "",
+        fabricationCode=original_task.fabricationCode,
+        usefulLife=original_task.usefulLife or "",
+        related_task_code=original_task.related_task_code,
+        unit=original_task.unit,
+        type=original_task.type,
+        activity=original_task.activity,
+        description=original_task.description,
+        created_by_user_id=current_user.id
+    )
+    db.add(duplicated_task)
+    db.flush()  # To ensure duplicated_task.id is available
+    
+    # Associate the task to the programming using ProgrammingTask
+    # Get the next order number
+    max_order = db.query(ProgrammingTask).filter(ProgrammingTask.programming_id == programming.id).count()
+    programming_task = ProgrammingTask(
+        programming_id=programming.id,
+        task_id=duplicated_task.id,
+        order=max_order + 1,
+        start_time=duplicated_task.start_time,
+        end_time=duplicated_task.end_time
+    )
+    db.add(programming_task)
+    
+    # Change order status to 'programada' if applicable
+    if duplicated_task.lote:
+        try:
+            lote_int = int(duplicated_task.lote)
+            from app.models import order as order_model
+            order = db.query(order_model.Order).filter(order_model.Order.lote == lote_int).first()
+            if order and order.status == 'pendiente':
+                order.status = 'programada'
+        except (TypeError, ValueError):
+            # If the lote is not a valid number, do nothing
+            pass
+    
+    db.commit()
+    
+    # Refresh the task with all relationships
+    full_task = db.query(Task).options(
+        joinedload(Task.code),
+        joinedload(Task.preparation),
+        joinedload(Task.teams),
+        joinedload(Task.created_by_user)
+    ).filter(Task.id == duplicated_task.id).first()
+    
+    # Force empty string in usefulLife and material/presentation in the response
+    if full_task.usefulLife is None:
+        full_task.usefulLife = ""
+    if full_task.material is None:
+        full_task.material = ""
+    if full_task.presentation is None:
+        full_task.presentation = ""
+    
+    # Automatic logic to replicate in heavy team if applicable
+    replicate_task_to_pesado_if_needed(db, full_task, programming.date)
+    
     return full_task
 
 @router.get("/", response_model=List[TaskOut])

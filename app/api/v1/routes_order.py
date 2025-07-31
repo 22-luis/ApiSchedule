@@ -11,6 +11,7 @@ from app.models.user import User
 from app.utils.dependencies import get_current_user, require_roles
 from app.models.role import UserRole
 from app.models.state import OrderStatus
+from app.utils.data_cleaning import clean_order_data
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
@@ -29,11 +30,16 @@ def create_orders(
         existing_order = db.query(order_model.Order).filter(order_model.Order.lote == order.lote).first()
         if existing_order:
             continue  # Omitir si ya existe
+        
+        # Limpiar los datos de la orden
+        order_dict = order.dict()
+        cleaned_order = clean_order_data(order_dict)
+        
         db_order = order_model.Order(
             lote=order.lote,
             dueDate=order.dueDate,
-            code=order.code,
-            description=order.description,
+            code=cleaned_order['code'],
+            description=cleaned_order['description'],
             quantity=order.quantity,
             bin=order.bin,
             status=order.status,
