@@ -106,6 +106,11 @@ def bulk_upload_codes(codes: list[dict], db: Session = Depends(get_db), current_
         if exists:
             errors.append({"row": idx+1, "error": f"Código duplicado: {code_str}"})
             continue
+        
+        # Mapeo de columnas para compatibilidad con Excel (lowercase a camelCase)
+        useful_life = code_data.get("usefulLife") or code_data.get("usefullife")
+        fabrication_code = code_data.get("fabricationCode") or code_data.get("fabricationc")
+        
         db_code = Code(
             code=clean_str(code_str),
             description=clean_str(description),
@@ -118,8 +123,8 @@ def bulk_upload_codes(codes: list[dict], db: Session = Depends(get_db), current_
             performance=clean_float(code_data.get("performance")),
             material=clean_str(code_data.get("material")),
             presentation=clean_str(code_data.get("presentation")),
-            fabricationCode=clean_str(code_data.get("fabricationCode")),
-            usefulLife=clean_str(code_data.get("usefulLife")),
+            fabricationCode=clean_str(fabrication_code),
+            usefulLife=clean_str(useful_life),
             related_code_team=clean_str(code_data.get("related_code_team"))
         )
         db.add(db_code)
