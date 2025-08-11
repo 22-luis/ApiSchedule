@@ -10,8 +10,7 @@ COPY . .
 
 EXPOSE 8080
 
-# Usuario no root para seguridad
 RUN adduser --disabled-password appuser && chown -R appuser /app
 USER appuser
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "$PORT"]
+CMD sh -c 'uvicorn app.main:app --host 0.0.0.0 --port $PORT'
