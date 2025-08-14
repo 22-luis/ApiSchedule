@@ -16,6 +16,7 @@ from app.models.programming import ProgrammingTask
 from app.api.v1.replicate_pesado import replicate_task_to_pesado_if_needed
 from sqlalchemy.orm import joinedload
 from pydantic import BaseModel
+from app.utils.order_status_service import OrderStatusService
 
 # Opción 1: Router con prefijo específico
 router = APIRouter(prefix="/tasks", tags=["tasks"])
@@ -79,17 +80,11 @@ def create_task(
     )
     db.add(programming_task)
 
-    # Cambiar estado de la orden a 'programada' si corresponde
-    if db_task.lote:
-        try:
-            lote_int = int(db_task.lote)
-            from app.models import order as order_model
-            order = db.query(order_model.Order).filter(order_model.Order.lote == lote_int).first()
-            if order and order.status == 'pendiente':
-                order.status = 'programada'
-        except (TypeError, ValueError):
-            # Si el lote no es un número válido, no hacer nada
-            pass
+    # Actualizar estado de la orden usando el servicio centralizado
+    OrderStatusService.update_order_status_for_task_creation(db, db_task)
+    
+    # Verificar si la programación es para hoy y actualizar estado automáticamente
+    OrderStatusService.update_order_status_for_programming_date(db, programming_task)
 
     db.commit()
     # Refresca la tarea con todas las relaciones
@@ -187,17 +182,11 @@ def duplicate_task(
     )
     db.add(programming_task)
     
-    # Change order status to 'programada' if applicable
-    if duplicated_task.lote:
-        try:
-            lote_int = int(duplicated_task.lote)
-            from app.models import order as order_model
-            order = db.query(order_model.Order).filter(order_model.Order.lote == lote_int).first()
-            if order and order.status == 'pendiente':
-                order.status = 'programada'
-        except (TypeError, ValueError):
-            # If the lote is not a valid number, do nothing
-            pass
+    # Actualizar estado de la orden usando el servicio centralizado
+    OrderStatusService.update_order_status_for_task_creation(db, duplicated_task)
+    
+    # Verificar si la programación es para hoy y actualizar estado automáticamente
+    OrderStatusService.update_order_status_for_programming_date(db, programming_task)
     
     db.commit()
     
@@ -289,6 +278,9 @@ def delete_task(
     db_task = db.query(Task).filter(Task.id == task_id).first()
     if not db_task:
         raise HTTPException(status_code=404, detail="Task not found")
+    
+    # Actualizar estado de la orden antes de eliminar la tarea
+    OrderStatusService.update_order_status_for_task_deletion(db, db_task)
     
     db.delete(db_task)
     db.commit()

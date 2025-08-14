@@ -212,7 +212,11 @@ def get_code_activity(code: str, db: Session = Depends(get_db)):
 
 @router.get("/by_code/{code}/lotes")
 def get_lotes_by_code(code: str, db: Session = Depends(get_db)):
-    lotes = db.query(Order.lote).filter(Order.code == code).all()
+    # Solo obtener lotes con estado "pending" (pendiente)
+    lotes = db.query(Order.lote).filter(
+        Order.code == code,
+        Order.status == "pending"
+    ).all()
     if not lotes:
         raise HTTPException(status_code=404, detail="No lotes found for this code")
     return {

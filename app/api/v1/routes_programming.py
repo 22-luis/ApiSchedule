@@ -18,6 +18,7 @@ from app.schemas.programming import ProgrammingTaskReportIn
 from app.models.user import User
 import sys
 from pytz import timezone
+from app.utils.order_status_service import OrderStatusService
 
 router = APIRouter(prefix="/programmings", tags=["programmings"])
 
@@ -335,22 +336,10 @@ def start_task_timer(programming_id: str, task_id: str, data: dict = Body(None),
     else:
         pt.real_start_time = datetime.now(sv_tz)
     pt.completed_by_user_id = current_user.id
-    # Cambiar estado de la orden a 'en progreso' si corresponde
-    task = pt.task
-    if task and task.lote and task.lote != '-':
-        from app.models import order as order_model
-        try:
-            # Convertir el lote de string a integer para la comparación
-            lote_int = int(task.lote)
-            order = db.query(order_model.Order).filter(order_model.Order.lote == lote_int).first()
-            if order and order.status == 'programada':
-                # Verifica si la fecha de la tarea es hoy
-                today = datetime.now().date()
-                if pt.start_time and pt.start_time.date() == today:
-                    order.status = 'en progreso'
-        except (ValueError, TypeError):
-            # Si no se puede convertir a integer, ignorar la actualización del estado
-            pass
+    
+    # Actualizar estado de la orden usando el servicio centralizado
+    OrderStatusService.update_order_status_for_task_start(db, pt)
+    
     db.commit()
     return {"ok": True, "real_start_time": pt.real_start_time}
 
@@ -372,19 +361,10 @@ def stop_task_timer(programming_id: str, task_id: str, data: ProgrammingTaskRepo
         pt.real_end_time = datetime.now(sv_tz)
     pt.real_quantity = data.real_quantity
     db.commit()
-    # Cambiar estado de la orden a 'completado' si corresponde
-    task = pt.task
-    if task and task.lote and task.lote != '-':
-        from app.models import order as order_model
-        try:
-            # Convertir el lote de string a integer para la comparación
-            lote_int = int(task.lote)
-            order = db.query(order_model.Order).filter(order_model.Order.lote == lote_int).first()
-            if order:
-                order.status = 'completado'
-        except (ValueError, TypeError):
-            # Si no se puede convertir a integer, ignorar la actualización del estado
-            pass
+    
+    # Actualizar estado de la orden usando el servicio centralizado
+    OrderStatusService.update_order_status_for_task_completion(db, pt)
+    
     db.commit()
     return {"ok": True, "real_end_time": pt.real_end_time, "real_quantity": pt.real_quantity}
 
@@ -404,8 +384,36 @@ def toggle_task_status(programming_id: str, task_id: str, db: Session = Depends(
     pt = db.query(ProgrammingTask).filter_by(programming_id=programming_id, task_id=task_id).first()
     if not pt:
         raise HTTPException(status_code=404, detail="ProgrammingTask not found")
+    
     # Alternar el estado
     pt.is_completed = not bool(pt.is_completed)
     db.commit()
+    
+    # Actualizar estado de la orden usando el servicio centralizado
+    OrderStatusService.update_order_status_for_task_completion(db, pt)
+    
     db.refresh(pt)
-    return {"is_completed": pt.is_completed} 
+    return {"is_completed": pt.is_completed}
+
+@router.post("/{programming_id}/tasks/{task_id}/reprogram")
+def reprogram_task(
+    programming_id: str, 
+    task_id: str, 
+    new_date: date,
+    db: Session = Depends(get_db), 
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Reprograma una tarea para una nueva fecha y actualiza el estado de la orden correspondiente.
+    """
+    pt = db.query(ProgrammingTask).filter_by(programming_id=programming_id, task_id=task_id).first()
+    if not pt:
+        raise HTTPException(status_code=404, detail="ProgrammingTask not found")
+    
+    # Actualizar estado de la orden antes de reprogramar
+    OrderStatusService.update_order_status_for_task_reprogramming(db, pt, new_date)
+    
+    # Aquí se podría agregar la lógica para mover la tarea a la nueva programación
+    # Por ahora solo actualizamos el estado de la orden
+    
+    return {"message": "Task reprogrammed successfully"} 

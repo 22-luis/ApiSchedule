@@ -95,6 +95,103 @@ def update_order_status(order_id: str, status_update: OrderStatusUpdate, db: Ses
     }
     return order_dict
 
+@router.post("/{order_id}/sync_status")
+def sync_order_status(
+    order_id: str, 
+    db: Session = Depends(get_db), 
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))
+):
+    """
+    Sincroniza el estado de una orden basándose en el estado actual de todas sus tareas.
+    """
+    from app.utils.order_status_service import OrderStatusService
+    
+    try:
+        lote_int = int(order_id)
+        OrderStatusService.sync_order_status_for_lote(db, str(lote_int))
+        
+        # Obtener la orden actualizada
+        order = db.query(order_model.Order).filter(order_model.Order.lote == lote_int).first()
+        if not order:
+            raise HTTPException(status_code=404, detail="Order not found")
+            
+        return {
+            "lote": order.lote,
+            "code": order.code,
+            "status": order.status.value if hasattr(order.status, 'value') else order.status,
+            "description": order.description,
+            "quantity": order.quantity,
+            "bin": order.bin,
+            "dueDate": order.dueDate.isoformat() if order.dueDate else None
+        }
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=400, detail="Invalid order ID format")
+
+@router.post("/sync_all_status")
+def sync_all_orders_status(
+    db: Session = Depends(get_db), 
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))
+):
+    """
+    Sincroniza el estado de todas las órdenes basándose en el estado actual de sus tareas.
+    """
+    from app.utils.order_status_service import OrderStatusService
+    
+    # Obtener todas las órdenes
+    orders = db.query(order_model.Order).all()
+    synced_count = 0
+    
+    for order in orders:
+        try:
+            OrderStatusService.sync_order_status_for_lote(db, str(order.lote))
+            synced_count += 1
+        except Exception as e:
+            print(f"Error syncing order {order.lote}: {e}")
+            continue
+    
+    return {
+        "message": f"Synced {synced_count} out of {len(orders)} orders",
+        "synced_count": synced_count,
+        "total_orders": len(orders)
+    }
+
+@router.post("/update_status_for_today")
+def update_orders_status_for_today(
+    db: Session = Depends(get_db), 
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))
+):
+    """
+    Actualiza automáticamente el estado de las órdenes que tienen tareas programadas para hoy.
+    Cambia de 'pending' o 'programada' a 'in_progress' si la programación es para hoy.
+    """
+    from app.utils.order_status_service import OrderStatusService
+    from app.models.programming import ProgrammingTask
+    from datetime import date
+    
+    today = date.today()
+    updated_count = 0
+    
+    # Obtener todas las programaciones de tareas para hoy
+    today_programming_tasks = db.query(ProgrammingTask).join(
+        ProgrammingTask.programming
+    ).filter(
+        ProgrammingTask.programming.has(date=today)
+    ).all()
+    
+    for pt in today_programming_tasks:
+        try:
+            OrderStatusService.update_order_status_for_programming_date(db, pt)
+            updated_count += 1
+        except Exception as e:
+            print(f"Error updating order status for programming task: {e}")
+            continue
+    
+    return {
+        "message": f"Updated {updated_count} orders for today's programming",
+        "updated_count": updated_count,
+        "total_today_tasks": len(today_programming_tasks)
+    }
+
 @router.get("/", response_model=OrderPageOut)
 def get_orders(
     status: Optional[OrderStatus] = Query(None, description="Filtrar por status"),
