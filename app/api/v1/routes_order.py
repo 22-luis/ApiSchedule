@@ -56,11 +56,11 @@ def create_orders(
         order_dict = {
             "lote": order.lote,
             "code": order.code,
-            "status": order.status.value if hasattr(order.status, 'value') else order.status,
+            "status": order.status,
             "description": order.description,
             "quantity": order.quantity,
             "bin": order.bin,
-            "dueDate": order.dueDate.isoformat() if order.dueDate else None
+            "dueDate": order.dueDate
         }
         serialized_orders.append(order_dict)
     return serialized_orders
@@ -87,11 +87,11 @@ def update_order_status(order_id: str, status_update: OrderStatusUpdate, db: Ses
     order_dict = {
         "lote": db_order.lote,
         "code": db_order.code,
-        "status": db_order.status.value if hasattr(db_order.status, 'value') else db_order.status,
+        "status": db_order.status,
         "description": db_order.description,
         "quantity": db_order.quantity,
         "bin": db_order.bin,
-        "dueDate": db_order.dueDate.isoformat() if db_order.dueDate else None
+        "dueDate": db_order.dueDate
     }
     return order_dict
 
@@ -114,18 +114,76 @@ def sync_order_status(
         order = db.query(order_model.Order).filter(order_model.Order.lote == lote_int).first()
         if not order:
             raise HTTPException(status_code=404, detail="Order not found")
-            
-        return {
+        
+        # Crear respuesta sin usar el esquema para debug
+        response_data = {
             "lote": order.lote,
             "code": order.code,
-            "status": order.status.value if hasattr(order.status, 'value') else order.status,
+            "status": order.status,
             "description": order.description,
             "quantity": order.quantity,
             "bin": order.bin,
-            "dueDate": order.dueDate.isoformat() if order.dueDate else None
+            "dueDate": order.dueDate
+        }
+        
+        print(f"DEBUG - Response data: {response_data}")
+        return response_data
+        
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=400, detail="Invalid order ID format")
+    except Exception as e:
+        print(f"DEBUG - Error in sync_order_status: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error syncing order: {str(e)}")
+
+@router.post("/{order_id}/sync_status_simple")
+def sync_order_status_simple(
+    order_id: str, 
+    db: Session = Depends(get_db), 
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))
+):
+    """
+    Sincroniza el estado de una orden sin validación de esquema (para debug).
+    """
+    from app.utils.order_status_service import OrderStatusService
+    
+    try:
+        lote_int = int(order_id)
+        
+        # Obtener la orden antes de sincronizar
+        order_before = db.query(order_model.Order).filter(order_model.Order.lote == lote_int).first()
+        if not order_before:
+            raise HTTPException(status_code=404, detail="Order not found")
+        
+        status_before = order_before.status
+        
+        # Sincronizar el estado
+        OrderStatusService.sync_order_status_for_lote(db, str(lote_int))
+        
+        # Obtener la orden después de sincronizar
+        order_after = db.query(order_model.Order).filter(order_model.Order.lote == lote_int).first()
+        status_after = order_after.status
+        
+        return {
+            "success": True,
+            "order_id": order_id,
+            "status_before": status_before,
+            "status_after": status_after,
+            "changed": status_before != status_after,
+            "order": {
+                "lote": order_after.lote,
+                "code": order_after.code,
+                "status": order_after.status,
+                "description": order_after.description,
+                "quantity": order_after.quantity,
+                "bin": order_after.bin,
+                "dueDate": order_after.dueDate
+            }
         }
     except (ValueError, TypeError):
         raise HTTPException(status_code=400, detail="Invalid order ID format")
+    except Exception as e:
+        print(f"DEBUG - Error in sync_order_status_simple: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error syncing order: {str(e)}")
 
 @router.post("/sync_all_status")
 def sync_all_orders_status(
@@ -204,7 +262,7 @@ def get_orders(
 ):
     query = db.query(order_model.Order)
     if status:
-        query = query.filter(order_model.Order.status == status.value)
+        query = query.filter(order_model.Order.status == status)
     if lote:
         query = query.filter(order_model.Order.lote == lote)
     if code:
@@ -218,12 +276,61 @@ def get_orders(
         order_dict = {
             "lote": order.lote,
             "code": order.code,
-            "status": order.status.value if hasattr(order.status, 'value') else order.status,
+            "status": order.status,
             "description": order.description,
             "quantity": order.quantity,
             "bin": order.bin,
-            "dueDate": order.dueDate.isoformat() if order.dueDate else None
+            "dueDate": order.dueDate
         }
         serialized_orders.append(order_dict)
     
     return {"orders": serialized_orders, "total": total}
+
+@router.get("/test-sync/{order_id}")
+def test_sync_order_status(
+    order_id: str, 
+    db: Session = Depends(get_db), 
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))
+):
+    """
+    Endpoint de prueba para sincronizar el estado de una orden.
+    """
+    from app.utils.order_status_service import OrderStatusService
+    
+    try:
+        lote_int = int(order_id)
+        
+        # Obtener la orden antes de sincronizar
+        order_before = db.query(order_model.Order).filter(order_model.Order.lote == lote_int).first()
+        if not order_before:
+            raise HTTPException(status_code=404, detail="Order not found")
+        
+        status_before = order_before.status
+        
+        # Sincronizar el estado
+        OrderStatusService.sync_order_status_for_lote(db, str(lote_int))
+        
+        # Obtener la orden después de sincronizar
+        order_after = db.query(order_model.Order).filter(order_model.Order.lote == lote_int).first()
+        status_after = order_after.status
+        
+        return {
+            "success": True,
+            "order_id": order_id,
+            "status_before": status_before.value if hasattr(status_before, 'value') else str(status_before),
+            "status_after": status_after.value if hasattr(status_after, 'value') else str(status_after),
+            "changed": status_before != status_after,
+            "order": {
+                "lote": order_after.lote,
+                "code": order_after.code,
+                "status": order_after.status,
+                "description": order_after.description,
+                "quantity": order_after.quantity,
+                "bin": order_after.bin,
+                "dueDate": order_after.dueDate
+            }
+        }
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=400, detail="Invalid order ID format")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error syncing order: {str(e)}")

@@ -1,7 +1,3 @@
-"""
-Servicio centralizado para manejar los cambios de estado de las órdenes
-según el flujo: pendiente -> programada -> en progreso -> completada
-"""
 from sqlalchemy.orm import Session
 from app.models.order import Order
 from app.models.task import Task

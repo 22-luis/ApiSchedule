@@ -180,7 +180,7 @@ def get_code_by_code_and_activity(code: str, activity: str, db: Session = Depend
     return code_obj
 
 @router.get("/by_code/{code}/activity")
-def get_code_activity(code: str, db: Session = Depends(get_db)):
+def get_code_activity(code: str, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))):
     code_objs = db.query(Code).filter(Code.code == code).all()
     if not code_objs:
         raise HTTPException(status_code=404, detail="Code not found")
@@ -211,7 +211,7 @@ def get_code_activity(code: str, db: Session = Depends(get_db)):
     }
 
 @router.get("/by_code/{code}/lotes")
-def get_lotes_by_code(code: str, db: Session = Depends(get_db)):
+def get_lotes_by_code(code: str, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))):
     # Solo obtener lotes con estado "pending" (pendiente)
     lotes = db.query(Order.lote).filter(
         Order.code == code,

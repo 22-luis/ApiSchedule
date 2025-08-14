@@ -29,7 +29,7 @@ class OrderOut(BaseModel):
     description: str
     quantity: int
     bin: int
-    dueDate: datetime
+    dueDate: Optional[datetime] = None
 
     @field_validator('code', 'description')
     @classmethod
