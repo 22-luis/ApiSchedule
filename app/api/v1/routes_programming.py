@@ -337,14 +337,20 @@ def start_task_timer(programming_id: str, task_id: str, data: dict = Body(None),
     pt.completed_by_user_id = current_user.id
     # Cambiar estado de la orden a 'en progreso' si corresponde
     task = pt.task
-    if task and task.lote:
+    if task and task.lote and task.lote != '-':
         from app.models import order as order_model
-        order = db.query(order_model.Order).filter(order_model.Order.lote == task.lote).first()
-        if order and order.status == 'programada':
-            # Verifica si la fecha de la tarea es hoy
-            today = datetime.now().date()
-            if pt.start_time and pt.start_time.date() == today:
-                order.status = 'en progreso'
+        try:
+            # Convertir el lote de string a integer para la comparación
+            lote_int = int(task.lote)
+            order = db.query(order_model.Order).filter(order_model.Order.lote == lote_int).first()
+            if order and order.status == 'programada':
+                # Verifica si la fecha de la tarea es hoy
+                today = datetime.now().date()
+                if pt.start_time and pt.start_time.date() == today:
+                    order.status = 'en progreso'
+        except (ValueError, TypeError):
+            # Si no se puede convertir a integer, ignorar la actualización del estado
+            pass
     db.commit()
     return {"ok": True, "real_start_time": pt.real_start_time}
 
@@ -368,11 +374,17 @@ def stop_task_timer(programming_id: str, task_id: str, data: ProgrammingTaskRepo
     db.commit()
     # Cambiar estado de la orden a 'completado' si corresponde
     task = pt.task
-    if task and task.lote:
+    if task and task.lote and task.lote != '-':
         from app.models import order as order_model
-        order = db.query(order_model.Order).filter(order_model.Order.lote == task.lote).first()
-        if order:
-            order.status = 'completado'
+        try:
+            # Convertir el lote de string a integer para la comparación
+            lote_int = int(task.lote)
+            order = db.query(order_model.Order).filter(order_model.Order.lote == lote_int).first()
+            if order:
+                order.status = 'completado'
+        except (ValueError, TypeError):
+            # Si no se puede convertir a integer, ignorar la actualización del estado
+            pass
     db.commit()
     return {"ok": True, "real_end_time": pt.real_end_time, "real_quantity": pt.real_quantity}
 
