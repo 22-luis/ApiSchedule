@@ -26,5 +26,13 @@ starlette==0.46.2
 typing-inspection==0.4.1
 typing_extensions==4.14.1
 uvicorn==0.35.0
-python-multipart
-pytz
+python-multipart~=0.0.20
+pytz~=2025.2
+
+pip~=25.1.1
+typing_extensions~=4.14.1
+pydantic_core~=2.33.2
+requests~=2.32.4
+marshmallow~=4.0.0
+environs~=14.3.0
+fastapi_cors~=0.0.6

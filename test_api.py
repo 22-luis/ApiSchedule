@@ -4,7 +4,6 @@ Script para probar la API de códigos
 """
 
 import requests
-import json
 
 # URL base de la API
 BASE_URL = "http://localhost:8000/api/v1"
