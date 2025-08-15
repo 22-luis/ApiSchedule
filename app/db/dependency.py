@@ -1,8 +1,8 @@
-from app.db.session import SessionLocal
+"""
+Dependencias de base de datos para la aplicación.
+Re-exporta las funciones principales para mantener compatibilidad.
+"""
+from app.db.session import get_db, test_database_connection, get_database_info
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+# Re-exportar para mantener compatibilidad con código existente
+__all__ = ["get_db", "test_database_connection", "get_database_info"]

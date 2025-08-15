@@ -1,38 +1,25 @@
-fastapi-cors==0.0.6
-annotated-types==0.7.0
-anyio==4.9.0
-bcrypt>=4.0.0
-cffi==1.17.1
-click==8.2.1
-cryptography==45.0.5
-ecdsa==0.19.1
-fastapi==0.116.0
-greenlet==3.2.3
-h11==0.16.0
-idna==3.10
-passlib>=1.7.4
-psycopg2-binary==2.9.10
-pyasn1==0.6.1
-pycparser==2.22
-pydantic==2.11.7
-pydantic_core==2.33.2
-python-dotenv==1.1.1
-python-jose==3.5.0
-rsa==4.9.1
-six==1.17.0
-sniffio==1.3.1
-SQLAlchemy==2.0.41
-starlette==0.46.2
-typing-inspection==0.4.1
-typing_extensions==4.14.1
-uvicorn==0.35.0
-python-multipart~=0.0.20
-pytz~=2025.2
+# FastAPI y dependencias principales
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
 
-pip~=25.1.1
-typing_extensions~=4.14.1
-pydantic_core~=2.33.2
-requests~=2.32.4
-marshmallow~=4.0.0
-environs~=14.3.0
-fastapi_cors~=0.0.6
+# Base de datos
+SQLAlchemy>=2.0.23
+psycopg2-binary>=2.9.9
+alembic>=1.13.0
+
+# Autenticación y seguridad
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+python-multipart>=0.0.6
+
+# Utilidades
+python-dotenv>=1.0.0
+pytz>=2023.3
+requests>=2.31.0
+
+# Dependencias opcionales para desarrollo
+# pytest>=7.4.0
+# pytest-asyncio>=0.21.0
+# httpx>=0.25.0

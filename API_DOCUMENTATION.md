@@ -19,6 +19,47 @@ Notas:
 
 ---
 
+### Health Check & Info
+
+GET `/health`
+- **Auth**: pública
+- **Respuesta 200**:
+  ```json
+  {
+    "status": "healthy",
+    "app_name": "ApiSchedule",
+    "version": "1.0.0",
+    "environment": "development",
+    "timestamp": 1234567890.123
+  }
+  ```
+
+GET `/info`
+- **Auth**: pública
+- **Respuesta 200**:
+  ```json
+  {
+    "app_name": "ApiSchedule",
+    "version": "1.0.0",
+    "environment": "development",
+    "debug": true,
+    "database_configured": true,
+    "rate_limiting_enabled": true,
+    "cors_origins": ["*"],
+    "working_hours": {
+      "monday_friday": "7:00 - 17:00",
+      "saturday": "7:30 - 17:30",
+      "sunday": "No laboral"
+    }
+  }
+  ```
+
+GET `/rate-limit-stats`
+- **Auth**: pública (solo en desarrollo)
+- **Respuesta 200**: estadísticas de rate limiting
+
+---
+
 ### Auth
 
 POST `/api/v1/auth/login`
@@ -65,12 +106,12 @@ DELETE `/api/v1/users/{user_id}`
 PATCH `/api/v1/users/{user_id}`
 - **Auth**: `admin | planner`
 - **Body (`UserCreate`)**: mismos campos que creación (password reescribe)
-- **Respuesta 200 (`UserOut`)**
+- **Respuesta 200 (`UserOut`)`
 
 PATCH `/api/v1/users/{user_id}/state`
 - **Auth**: `admin | planner`
 - **Body**: `{ "state": "active|inactive" }`
-- **Respuesta 200 (`UserOut`)**
+- **Respuesta 200 (`UserOut`)`
 
 GET `/api/v1/users/`
 - **Auth**: `admin | planner | supervisor`
@@ -106,8 +147,8 @@ DELETE `/api/v1/teams/{team_id}`
 
 PATCH `/api/v1/teams/{team_id}`
 - **Auth**: `admin | planner`
-- **Body (`TeamCreate`)**
-- **Respuesta 200 (`TeamOut`)**
+- **Body (`TeamCreate`)`
+- **Respuesta 200 (`TeamOut`)`
 
 GET `/api/v1/teams/`
 - **Auth**: requiere token
@@ -146,6 +187,50 @@ PATCH `/api/v1/orders/{order_id}/status`
 - **Body**: `{ "status": "pending|programada|in_progress|completed" }`
 - **Respuesta 200**: orden actualizada (mismos campos; `status` como string)
 
+POST `/api/v1/orders/{order_id}/sync_status`
+- **Auth**: `admin | planner`
+- Sincroniza el estado de una orden basándose en el estado actual de todas sus tareas.
+- **Respuesta 200**: orden actualizada con estado sincronizado
+
+POST `/api/v1/orders/{order_id}/sync_status_simple`
+- **Auth**: `admin | planner`
+- Sincroniza el estado de una orden sin validación de esquema (para debug).
+- **Respuesta 200**:
+  ```json
+  {
+    "success": true,
+    "order_id": "123",
+    "status_before": "pending",
+    "status_after": "in_progress",
+    "changed": true,
+    "order": { ... }
+  }
+  ```
+
+POST `/api/v1/orders/sync_all_status`
+- **Auth**: `admin | planner`
+- Sincroniza el estado de todas las órdenes basándose en el estado actual de sus tareas.
+- **Respuesta 200**:
+  ```json
+  {
+    "message": "Synced 50 out of 100 orders",
+    "synced_count": 50,
+    "total_orders": 100
+  }
+  ```
+
+POST `/api/v1/orders/update_status_for_today`
+- **Auth**: `admin | planner`
+- Actualiza automáticamente el estado de las órdenes que tienen tareas programadas para hoy.
+- **Respuesta 200**:
+  ```json
+  {
+    "message": "Updated 10 orders for today's programming",
+    "updated_count": 10,
+    "total_today_tasks": 15
+  }
+  ```
+
 GET `/api/v1/orders/`
 - **Auth**: `planner | supervisor`
 - **Query**:
@@ -157,6 +242,21 @@ GET `/api/v1/orders/`
 - **Respuesta 200**:
   ```json
   { "orders": [ { "lote": 1, "code": "...", "status": "programada", "description": "...", "quantity": 10, "bin": 1, "dueDate": "2024-01-01T00:00:00" } ], "total": 1 }
+  ```
+
+GET `/api/v1/orders/test-sync/{order_id}`
+- **Auth**: `admin | planner`
+- Endpoint de prueba para sincronizar el estado de una orden.
+- **Respuesta 200**:
+  ```json
+  {
+    "success": true,
+    "order_id": "123",
+    "status_before": "pending",
+    "status_after": "in_progress",
+    "changed": true,
+    "order": { ... }
+  }
   ```
 
 ---
@@ -211,12 +311,12 @@ GET `/api/v1/codes/by_code/{code}/lotes`
 
 GET `/api/v1/codes/{code_id}`
 - **Auth**: `admin | planner | supervisor | user`
-- **Respuesta 200 (`CodeOut`)**
+- **Respuesta 200 (`CodeOut`)`
 
 PATCH `/api/v1/codes/{code_id}`
 - **Auth**: `admin | planner`
-- **Body (`CodeUpdate`)**
-- **Respuesta 200 (`CodeOut`)**
+- **Body (`CodeUpdate`)`
+- **Respuesta 200 (`CodeOut`)`
 
 DELETE `/api/v1/codes/{code_id}`
 - **Auth**: `admin | planner`
@@ -242,12 +342,12 @@ GET `/api/v1/preparations/`
 
 GET `/api/v1/preparations/{preparation_id}`
 - **Auth**: `admin | planner | supervisor`
-- **Respuesta 200 (`PreparationOut`)**
+- **Respuesta 200 (`PreparationOut`)`
 
 PATCH `/api/v1/preparations/{preparation_id}`
 - **Auth**: `admin | planner`
-- **Body (`PreparationCreate`)**
-- **Respuesta 200 (`PreparationOut`)**
+- **Body (`PreparationCreate`)`
+- **Respuesta 200 (`PreparationOut`)`
 
 DELETE `/api/v1/preparations/{preparation_id}`
 - **Auth**: `admin | planner`
@@ -268,7 +368,7 @@ POST `/api/v1/tasks/`
 POST `/api/v1/tasks/{task_id}/duplicate`
 - **Auth**: `admin | planner | supervisor | user` (con validación de pertenencia si es `user`)
 - **Body**: `{ "lote": "<string>" }`
-- **Respuesta 200 (`TaskOut`)**
+- **Respuesta 200 (`TaskOut`)`
 
 GET `/api/v1/tasks/`
 - **Auth**: `admin | planner | supervisor | user`
@@ -276,12 +376,12 @@ GET `/api/v1/tasks/`
 
 GET `/api/v1/tasks/{task_id}`
 - **Auth**: `admin | planner | supervisor`
-- **Respuesta 200 (`TaskOut`)**
+- **Respuesta 200 (`TaskOut`)`
 
 PATCH `/api/v1/tasks/{task_id}`
 - **Auth**: `admin | planner | supervisor`
 - **Body (`TaskUpdate`)** (todos los campos opcionales)
-- **Respuesta 200 (`TaskOut`)**
+- **Respuesta 200 (`TaskOut`)`
 
 DELETE `/api/v1/tasks/{task_id}`
 - **Auth**: `admin | planner | supervisor`
@@ -308,17 +408,17 @@ GET `/api/v1/programmings/by_team_date`
 
 GET `/api/v1/programmings/{programming_id}`
 - **Auth**: requiere token y pertenencia o rol elevado
-- **Respuesta 200 (`ProgrammingRead`)**
+- **Respuesta 200 (`ProgrammingRead`)`
 
 POST `/api/v1/programmings/`
 - **Auth**: `admin | planner | supervisor`
 - **Body (`ProgrammingCreate`)**: `{ date, team_id, task_ids: [uuid] }`
-- **Respuesta 201 (`ProgrammingRead`)**
+- **Respuesta 201 (`ProgrammingRead`)`
 
 PUT `/api/v1/programmings/{programming_id}`
 - **Auth**: `admin | planner | supervisor`
-- **Body (`ProgrammingUpdate`)**
-- **Respuesta 200 (`ProgrammingRead`)**
+- **Body (`ProgrammingUpdate`)`
+- **Respuesta 200 (`ProgrammingRead`)`
 
 DELETE `/api/v1/programmings/{programming_id}`
 - **Auth**: `admin | planner | supervisor`
@@ -328,17 +428,17 @@ POST `/api/v1/programmings/ensure_by_team_date`
 - **Auth**: requiere token
 - **Query**: `team_id` (uuid string), `date` (date ISO `YYYY-MM-DD`)
 - Crea si no existe; solo `admin|planner|supervisor` pueden crear.
-- **Respuesta 200 (`ProgrammingRead`)**
+- **Respuesta 200 (`ProgrammingRead`)`
 
 POST `/api/v1/programmings/{programming_id}/add_task`
 - **Auth**: requiere token; solo `admin|planner|supervisor`
 - **Body**: `{ "task_id": "<uuid>" }`
-- **Respuesta 200 (`ProgrammingRead`)**
+- **Respuesta 200 (`ProgrammingRead`)`
 
 POST `/api/v1/programmings/{programming_id}/remove_task`
 - **Auth**: requiere token; solo `admin|planner|supervisor`
 - **Body**: `{ "task_id": "<uuid>" }`
-- **Respuesta 200 (`ProgrammingRead`)**
+- **Respuesta 200 (`ProgrammingRead`)`
 
 PUT `/api/v1/programmings/{programming_id}/reorder`
 - **Auth**: `admin | planner | supervisor`
@@ -368,6 +468,161 @@ POST `/api/v1/programmings/{programming_id}/tasks/{task_id}/toggle_status`
 - **Auth**: requiere token
 - **Respuesta 200**: `{ "is_completed": true|false }`
 
+POST `/api/v1/programmings/{programming_id}/tasks/{task_id}/reprogram`
+- **Auth**: requiere token
+- **Body**: `{ "new_date": "<YYYY-MM-DD>" }`
+- Reprograma una tarea para una nueva fecha y actualiza el estado de la orden correspondiente.
+- **Respuesta 200**: `{ "message": "Task reprogrammed successfully" }`
+
+---
+
+### Calculations
+
+POST `/api/v1/calculations/task-duration`
+- **Auth**: requiere token
+- **Body (`TaskDurationRequest`)**:
+  - `quantity`: int
+  - `productivity`: float
+  - `people`: int
+- **Respuesta 200 (`TaskDurationResponse`)**:
+  ```json
+  {
+    "minutes": 150,
+    "hours": 2.5,
+    "formula": "minutos = (cantidad × productividad × 60) ÷ personas"
+  }
+  ```
+
+GET `/api/v1/calculations/task-duration/simple`
+- **Auth**: requiere token
+- **Query**:
+  - `quantity`: int
+  - `productivity`: float
+  - `people`: int
+- **Respuesta 200**: `{ "minutes": 150 }`
+
+POST `/api/v1/calculations/working-hours`
+- **Auth**: requiere token
+- **Body (`WorkingHoursRequest`)**:
+  - `date`: date (YYYY-MM-DD)
+- **Respuesta 200 (`WorkingHoursResponse`)**:
+  ```json
+  {
+    "start_time": "07:00",
+    "end_time": "17:00",
+    "is_working_day": true,
+    "total_hours": 10
+  }
+  ```
+
+GET `/api/v1/calculations/working-hours/{target_date}`
+- **Auth**: requiere token
+- **Respuesta 200**: mismo formato que POST `/working-hours`
+
+GET `/api/v1/calculations/programming-base-time/{target_date}`
+- **Auth**: requiere token
+- **Respuesta 200**:
+  ```json
+  {
+    "base_time": "07:00:00",
+    "is_working_day": true
+  }
+  ```
+
+POST `/api/v1/calculations/sequential-times`
+- **Auth**: `admin | planner | supervisor`
+- **Body (`SequentialTimesRequest`)**:
+  - `base_date`: date
+  - `base_time`: string (opcional, HH:MM)
+  - `tasks`: lista de objetos con campo `minutes`
+- **Respuesta 200**:
+  ```json
+  {
+    "base_date": "2024-01-01",
+    "base_time": "07:00",
+    "tasks": [
+      {
+        "start_time": "07:00",
+        "end_time": "09:30",
+        "minutes": 150
+      }
+    ]
+  }
+  ```
+
+POST `/api/v1/calculations/validate-task-parameters`
+- **Auth**: requiere token
+- **Query**:
+  - `quantity`: int
+  - `productivity`: float
+  - `people`: int
+- **Respuesta 200**:
+  ```json
+  {
+    "is_valid": true,
+    "errors": []
+  }
+  ```
+
+GET `/api/v1/calculations/formula-info`
+- **Auth**: requiere token
+- **Respuesta 200**: información sobre las fórmulas de cálculo utilizadas
+
+POST `/api/v1/calculations/validate-task-form`
+- **Auth**: requiere token
+- **Body**: `{ "form_data": { ... } }`
+- Valida los datos completos de un formulario de tarea.
+- **Respuesta 200**: resultado de validación
+
+POST `/api/v1/calculations/validate-extra-task`
+- **Auth**: requiere token
+- **Body**:
+  - `description`: string
+  - `minutes`: string
+  - `selected_team`: string
+  - `programming_id`: string
+- **Respuesta 200**: resultado de validación
+
+POST `/api/v1/calculations/task-efficiency`
+- **Auth**: requiere token
+- **Body**:
+  - `planned_minutes`: int
+  - `actual_minutes`: int
+- **Respuesta 200**: cálculo de eficiencia
+
+POST `/api/v1/calculations/team-workload`
+- **Auth**: requiere token
+- **Body**:
+  - `tasks`: lista de tareas
+  - `working_hours`: int (default 8)
+- **Respuesta 200**: cálculo de carga de trabajo del equipo
+
+POST `/api/v1/calculations/format-time-el-salvador`
+- **Auth**: requiere token
+- **Body**: `{ "time_str": "<ISO time>" }`
+- **Respuesta 200**:
+  ```json
+  {
+    "formatted_time": "7:00 AM",
+    "original_time": "07:00:00"
+  }
+  ```
+
+GET `/api/v1/calculations/programming-base-time-utc/{target_date}`
+- **Auth**: requiere token
+- **Respuesta 200**:
+  ```json
+  {
+    "base_time_utc": "2024-01-01T13:00:00Z",
+    "is_working_day": true,
+    "el_salvador_time": "7:00 AM"
+  }
+  ```
+
+GET `/api/v1/calculations/timezone-info`
+- **Auth**: requiere token
+- **Respuesta 200**: información sobre el manejo de zonas horarias
+
 ---
 
 ### Observaciones de integración
@@ -375,3 +630,5 @@ POST `/api/v1/programmings/{programming_id}/tasks/{task_id}/toggle_status`
 - Campos `date`, `datetime` y `time` deben enviarse en formato ISO.
 - En Tasks, `total_time` es requerido por el esquema de entrada aunque la lógica actual no lo utilice.
 - En Orders, algunos cambios de estado automáticos pueden ocurrir al iniciar/detener timers de tareas relacionadas a un `lote`.
+- Los endpoints de cálculos centralizan funciones que anteriormente estaban en el frontend.
+- El sistema maneja automáticamente la replicación de tareas en equipos de tipo 'pesado' cuando se asignan tareas a equipos 'fabricado' o 'molino' con ciertas actividades.
