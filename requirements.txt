@@ -20,6 +20,7 @@ pytz>=2023.3
 requests>=2.31.0
 
 # Dependencias opcionales para desarrollo
-# pytest>=7.4.0
-# pytest-asyncio>=0.21.0
-# httpx>=0.25.0
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+pytest-cov>=4.1.0
+httpx>=0.25.0

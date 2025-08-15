@@ -2,7 +2,7 @@
 
 API para optimización de programación y asignación de tareas en producción de alimentos. Sistema basado en órdenes que gestiona usuarios, roles y equipos, asignando tareas a responsabilidades específicas para una operación eficiente.
 
-## 🚀 Características Principales
+## Características Principales
 
 - **Gestión de Usuarios y Roles**: Sistema de autenticación con roles jerárquicos (admin, planner, supervisor, user)
 - **Gestión de Equipos**: Asignación de usuarios a equipos con supervisores
@@ -11,9 +11,7 @@ API para optimización de programación y asignación de tareas en producción d
 - **Cálculos de Negocio**: Centralización de fórmulas y cálculos de productividad
 - **Sistema de Horarios**: Gestión de horarios de trabajo y zonas horarias
 
-## 🛡️ Seguridad y Configuración
-
-### ✅ Mejoras de Seguridad Implementadas
+## Seguridad y Configuración
 
 - **Configuración basada en Pydantic Settings** con validación automática
 - **Rate Limiting inteligente** por IP y usuario
@@ -22,20 +20,20 @@ API para optimización de programación y asignación de tareas en producción d
 - **Validación de variables críticas** al inicio de la aplicación
 - **Headers de seguridad** y middleware de protección
 
-### 🔧 Configuración por Entorno
+### Configuración por Entorno
 
 - **Desarrollo**: Logging detallado, rate limiting relajado
 - **Producción**: Logging JSON, rate limiting estricto, SSL requerido
 - **Testing**: Configuración optimizada para tests
 
-## 📋 Requisitos
+## Requisitos
 
 - Python 3.8+
 - PostgreSQL 12+
 - FastAPI 0.104.0+
 - SQLAlchemy 2.0.23+
 
-## 🚀 Instalación y Configuración
+## Instalación y Configuración
 
 ### 1. Clonar el repositorio
 
@@ -97,7 +95,7 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
-## 📊 Endpoints de Monitoreo
+## Endpoints de Monitoreo
 
 ### Health Check
 ```http
@@ -114,7 +112,7 @@ GET /info
 GET /rate-limit-stats
 ```
 
-## 🔐 Autenticación
+## Autenticación
 
 La API utiliza autenticación JWT. Para acceder a endpoints protegidos:
 
@@ -129,14 +127,7 @@ curl -X GET "http://localhost:8000/api/v1/users" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
-## 📚 Documentación
-
-- **API Documentation**: `/docs` (Swagger UI)
-- **ReDoc Documentation**: `/redoc`
-- **Configuration Guide**: [CONFIGURATION_GUIDE.md](CONFIGURATION_GUIDE.md)
-- **API Reference**: [API_DOCUMENTATION.md](API_DOCUMENTATION.md)
-
-## 🏗️ Estructura del Proyecto
+## Estructura del Proyecto
 
 ```
 ApiSchedule/
@@ -154,14 +145,14 @@ ApiSchedule/
 └── README.md            # Este archivo
 ```
 
-## 🔒 Roles y Permisos
+## Roles y Permisos
 
 - **admin**: Acceso completo a todas las funcionalidades
 - **planner**: Gestión de órdenes, equipos y programación
 - **supervisor**: Supervisión de equipos y tareas
 - **user**: Ejecución de tareas asignadas
 
-## 🛠️ Desarrollo
+## Desarrollo
 
 ### Ejecutar tests
 
@@ -191,7 +182,7 @@ El sistema de logging está configurado automáticamente:
 - **Producción**: Logs JSON en archivo y consola
 - **Niveles**: DEBUG, INFO, WARNING, ERROR, CRITICAL
 
-## 🚨 Troubleshooting
+## Troubleshooting
 
 ### Error: Variables de entorno críticas faltantes
 
@@ -220,7 +211,7 @@ RATE_LIMIT_REQUESTS_PER_MINUTE=100
 RATE_LIMIT_ENABLED=false
 ```
 
-## 📈 Monitoreo y Observabilidad
+## Monitoreo y Observabilidad
 
 ### Métricas Disponibles
 
@@ -248,7 +239,7 @@ En producción, todos los logs se generan en formato JSON para facilitar el aná
 }
 ```
 
-## 🤝 Contribución
+## Contribución
 
 1. Fork el proyecto
 2. Crear una rama para tu feature (`git checkout -b feature/AmazingFeature`)
@@ -256,16 +247,9 @@ En producción, todos los logs se generan en formato JSON para facilitar el aná
 4. Push a la rama (`git push origin feature/AmazingFeature`)
 5. Abrir un Pull Request
 
-## 📄 Licencia
+## Licencia
 
 Este proyecto está bajo la Licencia MIT. Ver el archivo `LICENSE` para más detalles.
-
-## 📞 Soporte
-
-Para soporte técnico o preguntas:
-- Crear un issue en GitHub
-- Revisar la documentación en `/docs`
-- Consultar la guía de configuración
 
 ---
 
