@@ -123,7 +123,7 @@ class BusinessCalculations:
     """Servicio centralizado para cálculos de negocio"""
     
     @staticmethod
-    def calculate_task_minutes(quantity: int, productivity: float, people: int) -> int:
+    def calculate_task_minutes(quantity: float, productivity: float, people: float) -> int:
         """
         Calcula los minutos de una tarea basado en la fórmula de negocio:
         minutos = (cantidad * productividad * 60) / personas
@@ -324,7 +324,7 @@ class BusinessCalculations:
         return result
     
     @staticmethod
-    def validate_task_parameters(quantity: int, productivity: float, people: int) -> Dict[str, Any]:
+    def validate_task_parameters(quantity: float, productivity: float, people: float) -> Dict[str, Any]:
         """
         Valida los parámetros de una tarea y retorna errores si los hay.
         
@@ -336,16 +336,23 @@ class BusinessCalculations:
         Returns:
             Dict: Diccionario con validación y errores
         """
+        print(f"[DEBUG] validate_task_parameters - Validando: quantity={quantity}, productivity={productivity}, people={people}")
+        
         errors = []
         
         if not quantity or quantity <= 0:
             errors.append("La cantidad debe ser mayor a 0")
+            print(f"[DEBUG] Error: cantidad={quantity} no es válida")
         
         if not productivity or productivity <= 0:
             errors.append("La productividad debe ser mayor a 0")
+            print(f"[DEBUG] Error: productividad={productivity} no es válida")
         
         if not people or people < 1:
             errors.append("El número de personas debe ser mayor a 0")
+            print(f"[DEBUG] Error: people={people} no es válida")
+        
+        print(f"[DEBUG] validate_task_parameters - Errores encontrados: {errors}")
         
         return {
             'is_valid': len(errors) == 0,
