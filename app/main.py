@@ -24,7 +24,15 @@ except ImportError as e:
 
 from app.db.session import engine
 from app.db.database import Base
-from app.utils.exception_handlers import http_exception_handler, validation_exception_handler, generic_exception_handler
+from app.utils.exception_handlers import (
+    http_exception_handler, 
+    validation_exception_handler, 
+    database_exception_handler,
+    circuit_breaker_exception_handler,
+    generic_exception_handler
+)
+from sqlalchemy.exc import SQLAlchemyError
+from app.utils.circuit_breaker import CircuitBreakerOpenError
 
 # Importar logging y rate limiting solo si están disponibles
 try:
@@ -73,10 +81,111 @@ except Exception as e:
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
-    description="API para optimización de programación y asignación de tareas en producción de alimentos",
-    docs_url="/docs" if not settings.is_production else None,
-    redoc_url="/redoc" if not settings.is_production else None,
-    debug=settings.DEBUG
+    description="""
+    # ApiSchedule - API de Gestión de Programaciones
+
+    Sistema completo para la gestión de programaciones, equipos, tareas y órdenes de producción.
+
+    ## Características Principales
+
+    * 🔐 **Autenticación JWT** - Sistema seguro de autenticación
+    * 👥 **Gestión de Usuarios** - Roles y permisos granulares
+    * 🏢 **Gestión de Equipos** - Organización de equipos de trabajo
+    * 📋 **Gestión de Tareas** - Creación y seguimiento de tareas
+    * 📦 **Gestión de Órdenes** - Control de órdenes de producción
+    * 📊 **Códigos Predefinidos** - Catálogo de códigos y actividades
+    * ⏱️ **Rate Limiting** - Protección contra abuso
+    * 📈 **Métricas** - Monitoreo de rendimiento
+    * 🔄 **Circuit Breakers** - Resiliencia ante fallos
+
+    ## Autenticación
+
+    La mayoría de endpoints requieren autenticación JWT. Incluye el token en el header:
+
+    ```
+    Authorization: Bearer <tu_token_jwt>
+    ```
+
+    ## Roles Disponibles
+
+    * **admin** - Acceso completo al sistema
+    * **planner** - Gestión de programaciones y órdenes
+    * **supervisor** - Supervisión de equipos y tareas
+    * **user** - Acceso básico a tareas asignadas
+
+    ## Estados
+
+    * **Usuarios**: `active`, `inactive`
+    * **Órdenes**: `pending`, `programada`, `in_progress`, `completed`
+
+    ## Endpoints de Monitoreo
+
+    * `GET /health` - Estado de salud de la aplicación
+    * `GET /health/detailed` - Información detallada de salud
+    * `GET /info` - Información de la aplicación
+    * `GET /metrics` - Métricas de rendimiento (solo desarrollo)
+    * `GET /circuit-breakers` - Estado de circuit breakers (solo desarrollo)
+    """,
+    docs_url="/docs" if settings.DEBUG else None,
+    redoc_url="/redoc" if settings.DEBUG else None,
+    debug=settings.DEBUG,
+    openapi_tags=[
+        {
+            "name": "auth",
+            "description": "Operaciones de autenticación y autorización"
+        },
+        {
+            "name": "users",
+            "description": "Gestión de usuarios del sistema"
+        },
+        {
+            "name": "teams",
+            "description": "Gestión de equipos de trabajo"
+        },
+        {
+            "name": "tasks",
+            "description": "Gestión de tareas y programaciones"
+        },
+        {
+            "name": "orders",
+            "description": "Gestión de órdenes de producción"
+        },
+        {
+            "name": "codes",
+            "description": "Gestión de códigos predefinidos"
+        },
+        {
+            "name": "preparations",
+            "description": "Gestión de preparaciones"
+        },
+        {
+            "name": "calculations",
+            "description": "Cálculos de negocio y utilidades"
+        }
+    ],
+    contact={
+        "name": "Equipo de Desarrollo ApiSchedule",
+        "email": "desarrollo@apischedule.com",
+    },
+    license_info={
+        "name": "MIT",
+        "url": "https://opensource.org/licenses/MIT",
+    },
+    servers=[
+        {
+            "url": "http://localhost:8000",
+            "description": "Servidor de desarrollo"
+        },
+        {
+            "url": "https://api.apischedule.com",
+            "description": "Servidor de producción"
+        }
+    ] if settings.DEBUG else [
+        {
+            "url": "https://api.apischedule.com",
+            "description": "Servidor de producción"
+        }
+    ]
 )
 
 # Middleware para logging de requests
@@ -181,6 +290,8 @@ if settings.RATE_LIMIT_ENABLED and LOGGING_AVAILABLE:
 # Registro de exception handlers
 app.add_exception_handler(HTTPException, http_exception_handler)
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
+app.add_exception_handler(SQLAlchemyError, database_exception_handler)
+app.add_exception_handler(CircuitBreakerOpenError, circuit_breaker_exception_handler)
 app.add_exception_handler(Exception, generic_exception_handler)
 
 # Registro de routers
@@ -202,14 +313,32 @@ app.include_router(api_router)
 # Endpoint de health check
 @app.get("/health")
 async def health_check():
-    """Endpoint de verificación de salud de la aplicación"""
-    return {
-        "status": "healthy",
-        "app_name": settings.APP_NAME,
-        "version": settings.APP_VERSION,
-        "environment": settings.ENVIRONMENT,
-        "timestamp": time.time()
-    }
+    """
+    Endpoint de verificación de salud de la aplicación.
+    
+    Returns:
+        Dict con el estado de salud básico del sistema
+    """
+    from app.utils.health_checks import get_quick_health_status
+    return await get_quick_health_status()
+
+
+@app.get("/health/detailed")
+async def detailed_health_check():
+    """
+    Endpoint de verificación de salud detallada de la aplicación.
+    
+    Realiza verificaciones completas de:
+    - Conexión a base de datos
+    - Uso de memoria y disco
+    - Estado del rate limiting
+    - Configuración crítica
+    
+    Returns:
+        Dict con el estado de salud completo del sistema
+    """
+    from app.utils.health_checks import get_health_status
+    return await get_health_status()
 
 # Endpoint de información de la aplicación
 @app.get("/info")
@@ -239,6 +368,56 @@ async def rate_limit_stats():
     
     return get_rate_limit_stats()
 
+
+# Endpoint de métricas de performance (solo en desarrollo)
+@app.get("/metrics")
+async def get_metrics():
+    """
+    Endpoint para obtener métricas de performance de la aplicación.
+    
+    Returns:
+        Dict con métricas del sistema, requests, latencia y métricas personalizadas
+    """
+    if settings.is_production:
+        raise HTTPException(status_code=404, detail="Endpoint no disponible en producción")
+    
+    from app.utils.metrics import metrics_collector
+    return metrics_collector.get_all_metrics()
+
+
+# Endpoint de estado de circuit breakers (solo en desarrollo)
+@app.get("/circuit-breakers")
+async def get_circuit_breakers():
+    """
+    Endpoint para obtener el estado de los circuit breakers.
+    
+    Returns:
+        Dict con el estado de todos los circuit breakers
+    """
+    if settings.is_production:
+        raise HTTPException(status_code=404, detail="Endpoint no disponible en producción")
+    
+    from app.utils.circuit_breaker import circuit_breakers
+    return circuit_breakers.get_status()
+
+@app.get("/cache-stats", include_in_schema=False)
+async def get_cache_stats():
+    """Obtiene estadísticas del sistema de caché"""
+    try:
+        from app.utils.cache import cache_manager
+        return cache_manager.get_stats()
+    except ImportError:
+        return {"error": "Sistema de caché no disponible"}
+
+@app.get("/db-pool-info", include_in_schema=False)
+async def get_database_pool_info():
+    """Obtiene información del pool de conexiones de base de datos"""
+    try:
+        from app.db.session import get_database_info
+        return get_database_info()
+    except ImportError:
+        return {"error": "Información de base de datos no disponible"}
+
 # Eventos de la aplicación
 @app.on_event("startup")
 async def startup_event():
@@ -260,6 +439,16 @@ async def startup_event():
         if settings.is_development:
             print(f"⚠️  Error inicializando base de datos: {e}")
             print("   Asegúrate de que PostgreSQL esté ejecutándose y configurado correctamente")
+    
+    # Inicializar sistema de métricas
+    try:
+        from app.utils.metrics import start_system_metrics_collector
+        start_system_metrics_collector()
+        logger.info("Sistema de métricas inicializado correctamente")
+    except Exception as e:
+        logger.error(f"Error inicializando sistema de métricas: {e}")
+        if settings.is_development:
+            print(f"⚠️  Error inicializando métricas: {e}")
 
 @app.on_event("shutdown")
 async def shutdown_event():

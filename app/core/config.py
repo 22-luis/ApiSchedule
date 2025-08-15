@@ -48,6 +48,20 @@ class Settings(BaseSettings):
     # Configuración de rate limiting
     RATE_LIMIT_ENABLED: bool = Field(default=True, description="Habilitar rate limiting")
     RATE_LIMIT_REQUESTS_PER_MINUTE: int = Field(default=1200, ge=1, description="Requests por minuto")
+    RATE_LIMIT_USE_REDIS: bool = Field(default=False, description="Usar Redis para rate limiting")
+    
+    # Configuración de Redis (opcional)
+    REDIS_HOST: str = Field(default="localhost", description="Host de Redis")
+    REDIS_PORT: int = Field(default=6379, description="Puerto de Redis")
+    REDIS_DB: int = Field(default=0, description="Base de datos de Redis")
+    REDIS_PASSWORD: Optional[str] = Field(default=None, description="Contraseña de Redis")
+
+    # Configuración de pool de conexiones de base de datos
+    DB_POOL_SIZE: int = Field(default=10, description="Tamaño del pool de conexiones")
+    DB_MAX_OVERFLOW: int = Field(default=20, description="Conexiones adicionales permitidas")
+    DB_POOL_RECYCLE: int = Field(default=3600, description="Reciclar conexiones cada N segundos")
+    DB_POOL_TIMEOUT: int = Field(default=30, description="Timeout para obtener conexión del pool")
+    DB_POOL_PRE_PING: bool = Field(default=True, description="Verificar conexiones antes de usar")
     
     # Configuración de zona horaria
     DEFAULT_TIMEZONE: str = Field(default="America/El_Salvador", description="Zona horaria por defecto")
@@ -93,18 +107,58 @@ class Settings(BaseSettings):
     
     @validator("SECRET_KEY")
     def validate_secret_key(cls, v):
-        """Valida que la clave secreta tenga la longitud mínima"""
+        """
+        Valida que la clave secreta cumpla con los requisitos de seguridad.
+        
+        Args:
+            v: Valor de SECRET_KEY a validar
+            
+        Returns:
+            str: SECRET_KEY validado
+            
+        Raises:
+            ValueError: Si la SECRET_KEY no cumple los requisitos de seguridad
+        """
+        # Verificar longitud mínima
         if len(v) < 32:
-            print("⚠️  ADVERTENCIA: SECRET_KEY debe tener al menos 32 caracteres")
-            print("   La aplicación puede no funcionar correctamente en producción")
+            raise ValueError("SECRET_KEY debe tener al menos 32 caracteres para seguridad")
+        
+        # Verificar que no sea el valor por defecto en producción
+        if v == "default-secret-key-change-in-production":
+            raise ValueError("SECRET_KEY no puede ser el valor por defecto en producción")
+        
+        # Verificar que contenga caracteres variados (opcional pero recomendado)
+        if len(set(v)) < 16:
+            print("⚠️  ADVERTENCIA: SECRET_KEY debería contener caracteres más variados")
+        
         return v
     
     @validator("POSTGRES_PASSWORD")
     def validate_postgres_password(cls, v):
-        """Valida que la contraseña de PostgreSQL no esté vacía"""
-        if not v or v == "password":
-            print("⚠️  ADVERTENCIA: POSTGRES_PASSWORD no puede estar vacía o ser 'password'")
-            print("   La aplicación puede no funcionar correctamente")
+        """
+        Valida que la contraseña de PostgreSQL cumpla con los requisitos de seguridad.
+        
+        Args:
+            v: Valor de POSTGRES_PASSWORD a validar
+            
+        Returns:
+            str: POSTGRES_PASSWORD validado
+            
+        Raises:
+            ValueError: Si la contraseña no cumple los requisitos de seguridad
+        """
+        # Verificar que no esté vacía
+        if not v:
+            raise ValueError("POSTGRES_PASSWORD no puede estar vacía")
+        
+        # Verificar que no sea el valor por defecto
+        if v == "password":
+            raise ValueError("POSTGRES_PASSWORD no puede ser 'password'")
+        
+        # Verificar longitud mínima
+        if len(v) < 8:
+            raise ValueError("POSTGRES_PASSWORD debe tener al menos 8 caracteres")
+        
         return v
     
     class Config:
@@ -122,21 +176,30 @@ settings = Settings()
 class DevelopmentSettings(Settings):
     """Configuración para desarrollo"""
     DEBUG: bool = True
-    LOG_LEVEL: str = "DEBUG"
-    CORS_ORIGINS_STR: str = "http://localhost:3000,http://localhost:8080,http://127.0.0.1:3000"
-    RATE_LIMIT_REQUESTS_PER_MINUTE: int = 600  # 10 requests por segundo en desarrollo
-    SQLALCHEMY_ECHO: bool = False  # Desactivar logs SQL en desarrollo por defecto
-    SQLALCHEMY_LOG_LEVEL: str = "WARNING"  # Solo warnings y errores de SQLAlchemy
-
+    ENVIRONMENT: str = "development"
+    RATE_LIMIT_REQUESTS_PER_MINUTE: int = 1200
+    SQLALCHEMY_ECHO: bool = False
+    SQLALCHEMY_LOG_LEVEL: str = "WARNING"
+    
+    # Configuración de pool optimizada para desarrollo
+    DB_POOL_SIZE: int = 5
+    DB_MAX_OVERFLOW: int = 10
+    DB_POOL_RECYCLE: int = 7200  # 2 horas
+    DB_POOL_TIMEOUT: int = 20
 
 class ProductionSettings(Settings):
     """Configuración para producción"""
     DEBUG: bool = False
-    LOG_LEVEL: str = "WARNING"
-    POSTGRES_SSL_MODE: str = "require"
-    RATE_LIMIT_REQUESTS_PER_MINUTE: int = 30
-    SQLALCHEMY_ECHO: bool = False  # Nunca mostrar queries SQL en producción
-    SQLALCHEMY_LOG_LEVEL: str = "ERROR"  # Solo errores críticos de SQLAlchemy
+    ENVIRONMENT: str = "production"
+    RATE_LIMIT_REQUESTS_PER_MINUTE: int = 300
+    SQLALCHEMY_ECHO: bool = False
+    SQLALCHEMY_LOG_LEVEL: str = "ERROR"
+    
+    # Configuración de pool optimizada para producción
+    DB_POOL_SIZE: int = 20
+    DB_MAX_OVERFLOW: int = 30
+    DB_POOL_RECYCLE: int = 1800  # 30 minutos
+    DB_POOL_TIMEOUT: int = 30
 
 
 class TestingSettings(Settings):

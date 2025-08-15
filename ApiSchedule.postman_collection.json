@@ -2,9 +2,37 @@
   "info": {
     "_postman_id": "b1e1e1e1-1234-5678-9abc-def012345678",
     "name": "ApiSchedule Collection",
+    "description": "Colección completa de endpoints para la API de ApiSchedule",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{base_url}}/health", "host": ["{{base_url}}"], "path": ["health"] }
+      },
+      "response": []
+    },
+    {
+      "name": "App Info",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{base_url}}/info", "host": ["{{base_url}}"], "path": ["info"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Rate Limit Stats",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{base_url}}/rate-limit-stats", "host": ["{{base_url}}"], "path": ["rate-limit-stats"] }
+      },
+      "response": []
+    },
     {
       "name": "Login",
       "request": {
@@ -18,6 +46,17 @@
           ]
         },
         "url": { "raw": "{{base_url}}/api/v1/auth/login", "host": ["{{base_url}}"], "path": ["api", "v1", "auth", "login"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Logout",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+        ],
+        "url": { "raw": "{{base_url}}/api/v1/auth/logout", "host": ["{{base_url}}"], "path": ["api", "v1", "auth", "logout"] }
       },
       "response": []
     },
@@ -232,6 +271,17 @@
       "response": []
     },
     {
+      "name": "Duplicar tarea",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+        ],
+        "url": { "raw": "{{base_url}}/api/v1/tasks/{{taskId1}}/duplicate", "host": ["{{base_url}}"], "path": ["api", "v1", "tasks", "{{taskId1}}", "duplicate"] }
+      },
+      "response": []
+    },
+    {
       "name": "Eliminar tarea",
       "request": {
         "method": "DELETE",
@@ -279,6 +329,713 @@
         "url": { "raw": "{{base_url}}/api/v1/orders/{{orderId1}}", "host": ["{{base_url}}"], "path": ["api", "v1", "orders", "{{orderId1}}"] }
       },
       "response": []
+    },
+    {
+      "name": "Actualizar estado de orden",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"in_progress\"\n}"
+        },
+        "url": { "raw": "{{base_url}}/api/v1/orders/{{orderId1}}/status", "host": ["{{base_url}}"], "path": ["api", "v1", "orders", "{{orderId1}}", "status"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Sincronizar estado de orden",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+        ],
+        "url": { "raw": "{{base_url}}/api/v1/orders/{{orderId1}}/sync_status", "host": ["{{base_url}}"], "path": ["api", "v1", "orders", "{{orderId1}}", "sync_status"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Sincronizar todas las órdenes",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+        ],
+        "url": { "raw": "{{base_url}}/api/v1/orders/sync_all_status", "host": ["{{base_url}}"], "path": ["api", "v1", "orders", "sync_all_status"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Actualizar órdenes para hoy",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+        ],
+        "url": { "raw": "{{base_url}}/api/v1/orders/update_status_for_today", "host": ["{{base_url}}"], "path": ["api", "v1", "orders", "update_status_for_today"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Crear programación",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"date\": \"2024-01-15\",\n  \"team_id\": \"{{teamId1}}\"\n}"
+        },
+        "url": { "raw": "{{base_url}}/api/v1/programmings", "host": ["{{base_url}}"], "path": ["api", "v1", "programmings"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Obtener programaciones",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+        ],
+        "url": { "raw": "{{base_url}}/api/v1/programmings", "host": ["{{base_url}}"], "path": ["api", "v1", "programmings"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Obtener programación por equipo y fecha",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v1/programmings/by_team_date?team_id={{teamId1}}&date=2024-01-15",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "programmings", "by_team_date"],
+          "query": [
+            { "key": "team_id", "value": "{{teamId1}}" },
+            { "key": "date", "value": "2024-01-15" }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Obtener programación por ID",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+        ],
+        "url": { "raw": "{{base_url}}/api/v1/programmings/{{programmingId1}}", "host": ["{{base_url}}"], "path": ["api", "v1", "programmings", "{{programmingId1}}"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Actualizar programación",
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"date\": \"2024-01-16\",\n  \"team_id\": \"{{teamId1}}\"\n}"
+        },
+        "url": { "raw": "{{base_url}}/api/v1/programmings/{{programmingId1}}", "host": ["{{base_url}}"], "path": ["api", "v1", "programmings", "{{programmingId1}}"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Eliminar programación",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+        ],
+        "url": { "raw": "{{base_url}}/api/v1/programmings/{{programmingId1}}", "host": ["{{base_url}}"], "path": ["api", "v1", "programmings", "{{programmingId1}}"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Asegurar programación por equipo y fecha",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"date\": \"2024-01-15\",\n  \"team_id\": \"{{teamId1}}\"\n}"
+        },
+        "url": { "raw": "{{base_url}}/api/v1/programmings/ensure_by_team_date", "host": ["{{base_url}}"], "path": ["api", "v1", "programmings", "ensure_by_team_date"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Agregar tarea a programación",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"task_id\": \"{{taskId1}}\"\n}"
+        },
+        "url": { "raw": "{{base_url}}/api/v1/programmings/{{programmingId1}}/add_task", "host": ["{{base_url}}"], "path": ["api", "v1", "programmings", "{{programmingId1}}", "add_task"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Remover tarea de programación",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"task_id\": \"{{taskId1}}\"\n}"
+        },
+        "url": { "raw": "{{base_url}}/api/v1/programmings/{{programmingId1}}/remove_task", "host": ["{{base_url}}"], "path": ["api", "v1", "programmings", "{{programmingId1}}", "remove_task"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Reordenar tareas en programación",
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "[\n  {\n    \"task_id\": \"{{taskId1}}\",\n    \"order\": 1\n  },\n  {\n    \"task_id\": \"{{taskId2}}\",\n    \"order\": 2\n  }\n]"
+        },
+        "url": { "raw": "{{base_url}}/api/v1/programmings/{{programmingId1}}/reorder", "host": ["{{base_url}}"], "path": ["api", "v1", "programmings", "{{programmingId1}}", "reorder"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Obtener última tarea de programación",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+        ],
+        "url": { "raw": "{{base_url}}/api/v1/programmings/{{programmingId1}}/last_task", "host": ["{{base_url}}"], "path": ["api", "v1", "programmings", "{{programmingId1}}", "last_task"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Iniciar timer de tarea",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+        ],
+        "url": { "raw": "{{base_url}}/api/v1/programmings/{{programmingId1}}/tasks/{{taskId1}}/start_timer", "host": ["{{base_url}}"], "path": ["api", "v1", "programmings", "{{programmingId1}}", "tasks", "{{taskId1}}", "start_timer"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Detener timer de tarea",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"real_quantity\": 95,\n  \"comment\": \"Tarea completada exitosamente\"\n}"
+        },
+        "url": { "raw": "{{base_url}}/api/v1/programmings/{{programmingId1}}/tasks/{{taskId1}}/stop_timer", "host": ["{{base_url}}"], "path": ["api", "v1", "programmings", "{{programmingId1}}", "tasks", "{{taskId1}}", "stop_timer"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Agregar comentario a tarea",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"comment\": \"Comentario de ejemplo\"\n}"
+        },
+        "url": { "raw": "{{base_url}}/api/v1/programmings/{{programmingId1}}/tasks/{{taskId1}}/comment", "host": ["{{base_url}}"], "path": ["api", "v1", "programmings", "{{programmingId1}}", "tasks", "{{taskId1}}", "comment"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Cambiar estado de tarea",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+        ],
+        "url": { "raw": "{{base_url}}/api/v1/programmings/{{programmingId1}}/tasks/{{taskId1}}/toggle_status", "host": ["{{base_url}}"], "path": ["api", "v1", "programmings", "{{programmingId1}}", "tasks", "{{taskId1}}", "toggle_status"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Reprogramar tarea",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"new_programming_id\": \"{{programmingId2}}\"\n}"
+        },
+        "url": { "raw": "{{base_url}}/api/v1/programmings/{{programmingId1}}/tasks/{{taskId1}}/reprogram", "host": ["{{base_url}}"], "path": ["api", "v1", "programmings", "{{programmingId1}}", "tasks", "{{taskId1}}", "reprogram"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Crear código",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"code\": \"COD-001\",\n  \"description\": \"Código de ejemplo\",\n  \"unit\": \"pieza\",\n  \"type\": \"tipo1\",\n  \"activity\": \"actividad1\",\n  \"quantity\": \"100\",\n  \"time\": 0.5,\n  \"people\": 2,\n  \"performance\": 100,\n  \"material\": \"material1\",\n  \"presentation\": \"presentacion1\",\n  \"fabricationCode\": \"F-001\",\n  \"usefulLife\": \"12\",\n  \"related_code_team\": \"EQUIPO-A\",\n  \"teamIds\": [\"{{teamId1}}\"]\n}"
+        },
+        "url": { "raw": "{{base_url}}/api/v1/codes", "host": ["{{base_url}}"], "path": ["api", "v1", "codes"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Carga masiva de códigos",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "[\n  {\n    \"code\": \"COD-001\",\n    \"description\": \"Código 1\",\n    \"unit\": \"pieza\",\n    \"type\": \"tipo1\",\n    \"activity\": \"actividad1\",\n    \"quantity\": \"100\",\n    \"time\": 0.5,\n    \"people\": 2,\n    \"performance\": 100,\n    \"material\": \"material1\",\n    \"presentation\": \"presentacion1\",\n    \"fabricationCode\": \"F-001\",\n    \"usefulLife\": \"12\"\n  },\n  {\n    \"code\": \"COD-002\",\n    \"description\": \"Código 2\",\n    \"unit\": \"pieza\",\n    \"type\": \"tipo2\",\n    \"activity\": \"actividad2\",\n    \"quantity\": \"200\",\n    \"time\": 0.3,\n    \"people\": 1,\n    \"performance\": 95,\n    \"material\": \"material2\",\n    \"presentation\": \"presentacion2\",\n    \"fabricationCode\": \"F-002\",\n    \"usefulLife\": \"6\"\n  }\n]"
+        },
+        "url": { "raw": "{{base_url}}/api/v1/codes/bulk_upload", "host": ["{{base_url}}"], "path": ["api", "v1", "codes", "bulk_upload"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Obtener códigos",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v1/codes?skip=0&limit=20&search=codigo",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "codes"],
+          "query": [
+            { "key": "skip", "value": "0" },
+            { "key": "limit", "value": "20" },
+            { "key": "search", "value": "codigo" }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Obtener código por código y actividad",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/codes/by_code_and_activity?code=COD-001&activity=actividad1",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "codes", "by_code_and_activity"],
+          "query": [
+            { "key": "code", "value": "COD-001" },
+            { "key": "activity", "value": "actividad1" }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Obtener actividades por código",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{base_url}}/api/v1/codes/by_code/COD-001/activity", "host": ["{{base_url}}"], "path": ["api", "v1", "codes", "by_code", "COD-001", "activity"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Obtener lotes por código",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{base_url}}/api/v1/codes/by_code/COD-001/lotes", "host": ["{{base_url}}"], "path": ["api", "v1", "codes", "by_code", "COD-001", "lotes"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Obtener código por ID",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+        ],
+        "url": { "raw": "{{base_url}}/api/v1/codes/{{codeId1}}", "host": ["{{base_url}}"], "path": ["api", "v1", "codes", "{{codeId1}}"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Editar código",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"description\": \"Código editado\",\n  \"quantity\": \"150\"\n}"
+        },
+        "url": { "raw": "{{base_url}}/api/v1/codes/{{codeId1}}", "host": ["{{base_url}}"], "path": ["api", "v1", "codes", "{{codeId1}}"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Eliminar código",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+        ],
+        "url": { "raw": "{{base_url}}/api/v1/codes/{{codeId1}}", "host": ["{{base_url}}"], "path": ["api", "v1", "codes", "{{codeId1}}"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Crear preparación",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Preparación de ejemplo\",\n  \"description\": \"Descripción de la preparación\",\n  \"steps\": [\"Paso 1\", \"Paso 2\", \"Paso 3\"],\n  \"duration\": 30,\n  \"equipment\": [\"Equipo 1\", \"Equipo 2\"],\n  \"materials\": [\"Material 1\", \"Material 2\"]\n}"
+        },
+        "url": { "raw": "{{base_url}}/api/v1/preparations", "host": ["{{base_url}}"], "path": ["api", "v1", "preparations"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Carga masiva de preparaciones",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "[\n  {\n    \"name\": \"Preparación 1\",\n    \"description\": \"Descripción 1\",\n    \"steps\": [\"Paso 1\"],\n    \"duration\": 15,\n    \"equipment\": [\"Equipo 1\"],\n    \"materials\": [\"Material 1\"]\n  },\n  {\n    \"name\": \"Preparación 2\",\n    \"description\": \"Descripción 2\",\n    \"steps\": [\"Paso 1\", \"Paso 2\"],\n    \"duration\": 25,\n    \"equipment\": [\"Equipo 2\"],\n    \"materials\": [\"Material 2\"]\n  }\n]"
+        },
+        "url": { "raw": "{{base_url}}/api/v1/preparations/bulk_upload", "host": ["{{base_url}}"], "path": ["api", "v1", "preparations", "bulk_upload"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Obtener preparaciones",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+        ],
+        "url": { "raw": "{{base_url}}/api/v1/preparations", "host": ["{{base_url}}"], "path": ["api", "v1", "preparations"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Obtener preparación por ID",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+        ],
+        "url": { "raw": "{{base_url}}/api/v1/preparations/{{preparationId1}}", "host": ["{{base_url}}"], "path": ["api", "v1", "preparations", "{{preparationId1}}"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Editar preparación",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Preparación editada\",\n  \"duration\": 45\n}"
+        },
+        "url": { "raw": "{{base_url}}/api/v1/preparations/{{preparationId1}}", "host": ["{{base_url}}"], "path": ["api", "v1", "preparations", "{{preparationId1}}"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Eliminar preparación",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+        ],
+        "url": { "raw": "{{base_url}}/api/v1/preparations/{{preparationId1}}", "host": ["{{base_url}}"], "path": ["api", "v1", "preparations", "{{preparationId1}}"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Calcular duración de tarea",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"quantity\": 100,\n  \"productivity\": 0.5,\n  \"people\": 2\n}"
+        },
+        "url": { "raw": "{{base_url}}/api/v1/calculations/task-duration", "host": ["{{base_url}}"], "path": ["api", "v1", "calculations", "task-duration"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Calcular minutos de tarea (simple)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v1/calculations/task-duration/simple?quantity=100&productivity=0.5&people=2",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "calculations", "task-duration", "simple"],
+          "query": [
+            { "key": "quantity", "value": "100" },
+            { "key": "productivity", "value": "0.5" },
+            { "key": "people", "value": "2" }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Obtener horas de trabajo",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"date\": \"2024-01-15\"\n}"
+        },
+        "url": { "raw": "{{base_url}}/api/v1/calculations/working-hours", "host": ["{{base_url}}"], "path": ["api", "v1", "calculations", "working-hours"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Obtener horas de trabajo por fecha",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+        ],
+        "url": { "raw": "{{base_url}}/api/v1/calculations/working-hours/2024-01-15", "host": ["{{base_url}}"], "path": ["api", "v1", "calculations", "working-hours", "2024-01-15"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Obtener hora base de programación",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+        ],
+        "url": { "raw": "{{base_url}}/api/v1/calculations/programming-base-time/2024-01-15", "host": ["{{base_url}}"], "path": ["api", "v1", "calculations", "programming-base-time", "2024-01-15"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Calcular tiempos secuenciales",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"base_date\": \"2024-01-15\",\n  \"base_time\": \"07:00\",\n  \"tasks\": [\n    {\n      \"id\": \"{{taskId1}}\",\n      \"minutes\": 120\n    },\n    {\n      \"id\": \"{{taskId2}}\",\n      \"minutes\": 90\n    }\n  ]\n}"
+        },
+        "url": { "raw": "{{base_url}}/api/v1/calculations/sequential-times", "host": ["{{base_url}}"], "path": ["api", "v1", "calculations", "sequential-times"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Validar parámetros de tarea",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v1/calculations/validate-task-parameters?quantity=100&productivity=0.5&people=2",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "calculations", "validate-task-parameters"],
+          "query": [
+            { "key": "quantity", "value": "100" },
+            { "key": "productivity", "value": "0.5" },
+            { "key": "people", "value": "2" }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Obtener información de fórmulas",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+        ],
+        "url": { "raw": "{{base_url}}/api/v1/calculations/formula-info", "host": ["{{base_url}}"], "path": ["api", "v1", "calculations", "formula-info"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Validar formulario de tarea",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"form_data\": {\n    \"code\": \"COD-001\",\n    \"description\": \"Tarea de ejemplo\",\n    \"quantity\": \"100\",\n    \"minutes\": 120,\n    \"people\": 2\n  }\n}"
+        },
+        "url": { "raw": "{{base_url}}/api/v1/calculations/validate-task-form", "host": ["{{base_url}}"], "path": ["api", "v1", "calculations", "validate-task-form"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Validar tarea extra",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"description\": \"Tarea extra\",\n  \"minutes\": \"60\",\n  \"selected_team\": \"{{teamId1}}\",\n  \"programming_id\": \"{{programmingId1}}\"\n}"
+        },
+        "url": { "raw": "{{base_url}}/api/v1/calculations/validate-extra-task", "host": ["{{base_url}}"], "path": ["api", "v1", "calculations", "validate-extra-task"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Calcular eficiencia de tarea",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"planned_minutes\": 120,\n  \"actual_minutes\": 110\n}"
+        },
+        "url": { "raw": "{{base_url}}/api/v1/calculations/task-efficiency", "host": ["{{base_url}}"], "path": ["api", "v1", "calculations", "task-efficiency"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Calcular carga de trabajo de equipo",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"tasks\": [\n    {\n      \"minutes\": 120,\n      \"people\": 2\n    },\n    {\n      \"minutes\": 90,\n      \"people\": 1\n    }\n  ],\n  \"working_hours\": 8\n}"
+        },
+        "url": { "raw": "{{base_url}}/api/v1/calculations/team-workload", "host": ["{{base_url}}"], "path": ["api", "v1", "calculations", "team-workload"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Formatear tiempo El Salvador",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"time_str\": \"2024-01-15T07:00:00Z\"\n}"
+        },
+        "url": { "raw": "{{base_url}}/api/v1/calculations/format-time-el-salvador", "host": ["{{base_url}}"], "path": ["api", "v1", "calculations", "format-time-el-salvador"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Obtener hora base UTC",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+        ],
+        "url": { "raw": "{{base_url}}/api/v1/calculations/programming-base-time-utc/2024-01-15", "host": ["{{base_url}}"], "path": ["api", "v1", "calculations", "programming-base-time-utc", "2024-01-15"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Obtener información de zona horaria",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+        ],
+        "url": { "raw": "{{base_url}}/api/v1/calculations/timezone-info", "host": ["{{base_url}}"], "path": ["api", "v1", "calculations", "timezone-info"] }
+      },
+      "response": []
     }
   ],
   "variable": [
@@ -289,7 +1046,13 @@
     { "key": "userId2", "value": "" },
     { "key": "userId3", "value": "" },
     { "key": "teamId1", "value": "" },
+    { "key": "teamId2", "value": "" },
     { "key": "taskId1", "value": "" },
-    { "key": "orderId1", "value": "" }
+    { "key": "taskId2", "value": "" },
+    { "key": "orderId1", "value": "" },
+    { "key": "programmingId1", "value": "" },
+    { "key": "programmingId2", "value": "" },
+    { "key": "codeId1", "value": "" },
+    { "key": "preparationId1", "value": "" }
   ]
 } 

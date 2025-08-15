@@ -65,15 +65,43 @@ class RateLimiter:
                 del blocked_dict[identifier]
         return False
     
-    def check_rate_limit(self, request: Request, 
-                        max_requests: int = None,
-                        window_seconds: int = 60,
-                        block_duration: int = 300) -> Tuple[bool, Dict]:
+    def check_rate_limit(
+        self, 
+        request: Request, 
+        max_requests: int = None,
+        window_seconds: int = 60,
+        block_duration: int = 300
+    ) -> Tuple[bool, Dict]:
         """
-        Verifica si la request está dentro de los límites de velocidad
+        Verifica si la request está dentro de los límites de velocidad configurados.
+        
+        Esta función implementa rate limiting por IP y por usuario autenticado.
+        Los usuarios autenticados tienen límites más estrictos (mitad del límite por IP).
+        
+        Args:
+            request: Objeto Request de FastAPI que contiene información de la petición
+            max_requests: Máximo número de requests permitidas en la ventana de tiempo.
+                         Si es None, usa el valor de configuración RATE_LIMIT_REQUESTS_PER_MINUTE
+            window_seconds: Ventana de tiempo en segundos para contar requests (default: 60)
+            block_duration: Duración del bloqueo en segundos cuando se excede el límite (default: 300)
         
         Returns:
-            Tuple[bool, Dict]: (is_allowed, rate_limit_info)
+            Tuple[bool, Dict]: 
+                - bool: True si la request está permitida, False si está bloqueada
+                - Dict: Información detallada del rate limiting:
+                    - enabled: bool - Si el rate limiting está habilitado
+                    - blocked: bool - Si el identificador está bloqueado
+                    - exceeded: bool - Si se excedió el límite
+                    - type: str - Tipo de límite ("ip" o "user")
+                    - identifier: str - IP o ID de usuario
+                    - requests: int - Número actual de requests
+                    - limit: int - Límite configurado
+                    - retry_after: int - Segundos antes de poder hacer nuevas requests
+        
+        Example:
+            >>> is_allowed, info = rate_limiter.check_rate_limit(request)
+            >>> if not is_allowed:
+            ...     raise HTTPException(status_code=429, detail="Rate limit exceeded")
         """
         if not settings.RATE_LIMIT_ENABLED:
             return True, {"enabled": False}

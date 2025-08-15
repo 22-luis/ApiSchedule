@@ -13,19 +13,17 @@ logger = get_logger("database")
 # Configurar engine con parámetros optimizados
 engine_kwargs = {
     "echo": settings.SQLALCHEMY_ECHO,  # Controlar logs SQL desde configuración
-    "pool_pre_ping": True,   # Verificar conexiones antes de usar
-    "pool_recycle": 3600,    # Reciclar conexiones cada hora
-    "pool_size": 10,         # Tamaño del pool de conexiones
-    "max_overflow": 20,      # Conexiones adicionales permitidas
+    "pool_pre_ping": settings.DB_POOL_PRE_PING,   # Verificar conexiones antes de usar
+    "pool_recycle": settings.DB_POOL_RECYCLE,    # Reciclar conexiones cada hora
+    "pool_size": settings.DB_POOL_SIZE,         # Tamaño del pool de conexiones
+    "max_overflow": settings.DB_MAX_OVERFLOW,      # Conexiones adicionales permitidas
+    "pool_timeout": settings.DB_POOL_TIMEOUT,      # Timeout para obtener conexión
 }
 
 # Configuraciones específicas por entorno
 if settings.is_production:
-    engine_kwargs.update({
-        "pool_size": 20,
-        "max_overflow": 30,
-        "pool_recycle": 1800,  # Reciclar cada 30 minutos en producción
-    })
+    # La configuración de producción ya está en settings
+    pass
 elif settings.ENVIRONMENT == "testing":
     engine_kwargs.update({
         "poolclass": StaticPool,  # Pool estático para testing

@@ -15,6 +15,23 @@ import uuid
 from app.models.task import Task
 from app.models.order import Order
 
+# Importar sistema de caché
+try:
+    from app.utils.cache import cache_response, invalidate_cache
+    CACHE_AVAILABLE = True
+except ImportError:
+    CACHE_AVAILABLE = False
+    # Decoradores dummy si el caché no está disponible
+    def cache_response(*args, **kwargs):
+        def decorator(func):
+            return func
+        return decorator
+    
+    def invalidate_cache(*args, **kwargs):
+        def decorator(func):
+            return func
+        return decorator
+
 router = APIRouter(prefix="/codes", tags=["codes"])
 
 def team_to_dict(team, db):
@@ -48,6 +65,7 @@ def clean_str(value):
     return str(value)
 
 @router.post("/", response_model=CodeOut)
+@invalidate_cache(pattern="codes")  # Invalidar caché de códigos
 def create_code(code: CodeCreate, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))):
     db_code = Code(
         code=code.code,
@@ -92,6 +110,7 @@ def create_code(code: CodeCreate, db: Session = Depends(get_db), current_user: U
     }
 
 @router.post("/bulk_upload")
+@invalidate_cache(pattern="codes")  # Invalidar caché de códigos
 def bulk_upload_codes(codes: list[dict], db: Session = Depends(get_db), current_user=Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))):
     created = 0
     errors = []
@@ -133,6 +152,7 @@ def bulk_upload_codes(codes: list[dict], db: Session = Depends(get_db), current_
     return {"created": created, "errors": errors}
 
 @router.get("/", response_model=CodePageOut)
+@cache_response(ttl=300, key_fields=["skip", "limit", "search"])  # Cache por 5 minutos
 def get_codes(
     db: Session = Depends(get_db),
     skip: int = Query(0, ge=0, description="Cuántos registros omitir"),
@@ -173,6 +193,7 @@ def get_codes(
     return {"codes": result, "total": total}
 
 @router.get("/by_code_and_activity")
+@cache_response(ttl=600, key_fields=["code", "activity"])  # Cache por 10 minutos
 def get_code_by_code_and_activity(code: str, activity: str, db: Session = Depends(get_db)):
     code_obj = db.query(Code).filter(Code.code == code, Code.activity == activity).first()
     if not code_obj:
@@ -180,6 +201,7 @@ def get_code_by_code_and_activity(code: str, activity: str, db: Session = Depend
     return code_obj
 
 @router.get("/by_code/{code}/activity")
+@cache_response(ttl=600, key_fields=["code"])  # Cache por 10 minutos
 def get_code_activity(code: str, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))):
     code_objs = db.query(Code).filter(Code.code == code).all()
     if not code_objs:
@@ -211,6 +233,7 @@ def get_code_activity(code: str, db: Session = Depends(get_db), current_user: Us
     }
 
 @router.get("/by_code/{code}/lotes")
+@cache_response(ttl=300, key_fields=["code"])  # Cache por 5 minutos
 def get_lotes_by_code(code: str, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))):
     # Solo obtener lotes con estado "pending" (pendiente)
     lotes = db.query(Order.lote).filter(
@@ -225,6 +248,7 @@ def get_lotes_by_code(code: str, db: Session = Depends(get_db), current_user: Us
     }
 
 @router.get("/{code_id}", response_model=CodeOut)
+@cache_response(ttl=600, key_fields=["code_id"])  # Cache por 10 minutos
 def get_code(code_id: uuid.UUID, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))):
     code = db.query(Code).filter(Code.id == code_id).first()
     if not code:
@@ -250,6 +274,7 @@ def get_code(code_id: uuid.UUID, db: Session = Depends(get_db), current_user: Us
     }
 
 @router.patch("/{code_id}", response_model=CodeOut)
+@invalidate_cache(pattern="codes")  # Invalidar caché de códigos
 def update_code(code_id: uuid.UUID, code_update: CodeUpdate, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))):
     db_code = db.query(Code).filter(Code.id == code_id).first()
     if not db_code:
@@ -284,6 +309,7 @@ def update_code(code_id: uuid.UUID, code_update: CodeUpdate, db: Session = Depen
     }
 
 @router.delete("/{code_id}")
+@invalidate_cache(pattern="codes")  # Invalidar caché de códigos
 def delete_code(code_id: uuid.UUID, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))):
     db_code = db.query(Code).filter(Code.id == code_id).first()
     if not db_code:
