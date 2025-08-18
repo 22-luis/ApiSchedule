@@ -240,8 +240,8 @@ def get_lotes_by_code(code: str, db: Session = Depends(get_db), current_user: Us
         Order.code == code,
         Order.status == "pending"
     ).all()
-    if not lotes:
-        raise HTTPException(status_code=404, detail="No lotes found for this code")
+    
+    # Devolver respuesta vacía en lugar de error 404 cuando no hay lotes
     return {
         "code": code,
         "lotes": [l[0] for l in lotes if l[0] is not None]

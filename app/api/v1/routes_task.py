@@ -252,6 +252,10 @@ def update_task(
         raise HTTPException(status_code=404, detail="Task not found")
     update_data = task_update.dict(exclude_unset=True)
     team_ids = update_data.pop("teamIds", None)
+    
+    # Verificar si se están actualizando los tiempos
+    updating_times = 'start_time' in update_data or 'end_time' in update_data
+    
     for field, value in update_data.items():
         setattr(db_task, field, value)
     if team_ids is not None:
@@ -259,6 +263,16 @@ def update_task(
         if len(teams) != len(team_ids):
             raise HTTPException(status_code=400, detail="One or more teams not found")
         db_task.teams = teams
+    
+    # Si se están actualizando los tiempos, también actualizar ProgrammingTask
+    if updating_times:
+        programming_tasks = db.query(ProgrammingTask).filter(ProgrammingTask.task_id == task_id).all()
+        for pt in programming_tasks:
+            if 'start_time' in update_data:
+                pt.start_time = update_data['start_time']
+            if 'end_time' in update_data:
+                pt.end_time = update_data['end_time']
+    
     db.commit()
     # Refresca la tarea con todas las relaciones
     full_task = db.query(Task).options(
