@@ -1,7 +1,6 @@
 import uuid
 from pydantic import BaseModel
 from typing import List, Optional
-from app.schemas.team import TeamOut
 
 class CodeCreate(BaseModel):
     code: str
@@ -17,8 +16,6 @@ class CodeCreate(BaseModel):
     presentation: str
     fabricationCode: Optional[str] = None
     usefulLife: str
-    related_code_team: Optional[str] = None
-    teamIds: Optional[List[uuid.UUID]] = None
 
     class Config:
         from_attributes = True
@@ -37,8 +34,6 @@ class CodeUpdate(BaseModel):
     presentation: Optional[str] = None
     fabricationCode: Optional[str] = None
     usefulLife: Optional[str] = None
-    related_code_team: Optional[str] = None
-    teamIds: Optional[List[uuid.UUID]] = None
 
 class CodeOut(BaseModel):
     id: uuid.UUID
@@ -55,8 +50,6 @@ class CodeOut(BaseModel):
     presentation: str
     fabricationCode: Optional[str] = None
     usefulLife: str
-    related_code_team: Optional[str] = None
-    teams: List[TeamOut]
 
     class Config:
         from_attributes = True

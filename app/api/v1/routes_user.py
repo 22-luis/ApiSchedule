@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from app.utils.dependencies import get_current_user, require_roles
 from sqlalchemy.orm import Session
 from app.models.user import User
-from app.schemas.user import UserCreate, UserOut, UserStateUpdate
+from app.schemas.user import UserCreate, UserOut, UserStateUpdate, UserUpdate
 from app.db.dependency import get_db
 from typing import List, Optional
 from pydantic import BaseModel
@@ -36,7 +36,7 @@ def create_user(
     return db_user
 
 @router.delete("/{user_id}")
-def delete_user(user_id: str, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))):
+def delete_user(user_id: str, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN))):
     db_user = db.query(User).filter(User.id == user_id).first()
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -50,7 +50,7 @@ def delete_user(user_id: str, db: Session = Depends(get_db), current_user: User 
     return {"message": "User deleted successfully"}
 
 @router.patch("/{user_id}", response_model=UserOut)
-def update_user(user_id: str, user: UserCreate, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))):
+def update_user(user_id: str, user: UserUpdate, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN))):
     db_user = db.query(User).filter(User.id == user_id).first()
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -63,7 +63,8 @@ def update_user(user_id: str, user: UserCreate, db: Session = Depends(get_db), c
 
     # Usar setattr para evitar errores de tipo
     setattr(db_user, "username", user.username)
-    if user.password:
+    # Solo actualizar la contraseña si se proporciona una nueva
+    if user.password is not None and user.password.strip():
         setattr(db_user, "password", hash_password(user.password))
     setattr(db_user, "role", user.role)
     setattr(db_user, "state", user.state)

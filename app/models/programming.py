@@ -1,8 +1,6 @@
-"""
-Modelos para representar la programación de tareas y su relación con equipos y fechas.
-"""
-from sqlalchemy import Column, DateTime, Integer, ForeignKey, String, Date, UniqueConstraint, Boolean
-from sqlalchemy.orm import relationship, backref
+from sqlalchemy import Column, DateTime, Integer, ForeignKey, String, Date, UniqueConstraint, Boolean, Enum
+from sqlalchemy.orm import relationship
+from app.models.state import ProgrammingStatus
 from app.db.database import Base
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
@@ -27,6 +25,7 @@ class Programming(Base):
     __tablename__ = "programming"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     date = Column(Date, nullable=False)
+    status = Column(Enum(ProgrammingStatus), nullable=False, default=ProgrammingStatus.available)
     team_id = Column(UUID(as_uuid=True), ForeignKey("teams.id"), nullable=False)
     team = relationship("Team", back_populates="programmings")
     programming_tasks = relationship("ProgrammingTask", back_populates="programming", cascade="all, delete-orphan")

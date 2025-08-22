@@ -3,17 +3,9 @@ Modelo que representa un código predefinido para tareas o productos, con sus at
 """
 import uuid
 
-from sqlalchemy import Column, String, Integer, ForeignKey, Table, Float
-from sqlalchemy.orm import relationship
+from sqlalchemy import Column, String, Integer, Float
 from sqlalchemy.dialects.postgresql import UUID
 from app.db.database import Base
-
-code_team_association = Table(
-    'code_team_association',
-    Base.metadata,
-    Column('code_id', UUID(as_uuid=True), ForeignKey('code.id')),
-    Column('team_id', UUID(as_uuid=True), ForeignKey('teams.id'))
-)
 
 class Code(Base):
     __tablename__ = 'code'
@@ -31,5 +23,3 @@ class Code(Base):
     presentation = Column(String)
     fabricationCode = Column(String, nullable=True)
     usefulLife = Column(String)
-    related_code_team = Column(String, nullable=True)
-    teams = relationship('Team', secondary=code_team_association, back_populates='codes')

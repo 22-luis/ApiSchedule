@@ -91,24 +91,47 @@ def validation_exception_handler(request: Request, exc: RequestValidationError):
     
     # Procesar errores de validación para mensajes más claros
     processed_errors = []
+    has_password_error = False
+    
     for error in exc.errors():
         field_path = " -> ".join(str(loc) for loc in error["loc"])
+        
+        # Mejorar mensajes específicos para errores de contraseña
+        if "password" in field_path.lower():
+            has_password_error = True
+            if error["type"] == "string_too_short":
+                error_message = "La contraseña debe tener al menos 6 caracteres"
+            elif error["type"] == "missing":
+                error_message = "La contraseña es requerida para crear un nuevo usuario"
+            else:
+                error_message = error["msg"]
+        else:
+            error_message = error["msg"]
+        
         processed_errors.append({
             "field": field_path,
-            "message": error["msg"],
+            "message": error_message,
             "type": error["type"],
             "value": error.get("input")
         })
+    
+    # Determinar mensaje principal y sugerencia basado en los errores
+    if has_password_error:
+        main_message = "Error de validación en los datos"
+        suggestion = "Para actualizar un usuario sin cambiar la contraseña, deja el campo de contraseña vacío"
+    else:
+        main_message = "Error de validación en los datos de entrada"
+        suggestion = "Verifica que todos los campos requeridos estén presentes y tengan el formato correcto"
     
     response_content = {
         "error": {
             "type": "validation_error",
             "code": 422,
-            "message": "Error de validación en los datos de entrada",
+            "message": main_message,
             "error_id": error_id,
             "timestamp": str(uuid.uuid1().time),
             "validation_errors": processed_errors,
-            "suggestion": "Verifica que todos los campos requeridos estén presentes y tengan el formato correcto"
+            "suggestion": suggestion
         }
     }
     

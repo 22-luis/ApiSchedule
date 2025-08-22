@@ -66,10 +66,10 @@ class TaskOut(BaseModel):
     end_time: Optional[datetime] = None
     people: Optional[int] = None
     performance: Optional[float] = None
-    material: str
-    presentation: str
+    material: Optional[str] = None
+    presentation: Optional[str] = None
     fabricationCode: Optional[str] = None
-    usefulLife: str
+    usefulLife: Optional[str] = None
     teams: List[TeamOut]
     description: Optional[str] = None
     created_by_user_id: Optional[uuid.UUID] = None

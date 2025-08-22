@@ -4,7 +4,6 @@ from sqlalchemy import Column, String, ForeignKey, Table
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from app.db.database import Base
-from app.models.code import code_team_association
 
 # Tabla de asociación para Task y Team
 
@@ -29,5 +28,4 @@ class Team(Base):
     supervisorId = Column(UUID(as_uuid=True), ForeignKey("users.id"))
     users = relationship("User", secondary=user_team_association, back_populates="teams")
     tasks = relationship('Task', secondary=task_team_association, back_populates='teams')
-    codes = relationship('Code', secondary=code_team_association, back_populates='teams')
     programmings = relationship("Programming", back_populates="team")

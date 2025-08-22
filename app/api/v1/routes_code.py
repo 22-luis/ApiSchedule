@@ -5,7 +5,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List
 from app.models.code import Code
-from app.models.team import Team
 from app.schemas.code import CodeCreate, CodeUpdate, CodeOut, CodePageOut
 from app.db.dependency import get_db
 from app.models.user import User
@@ -34,16 +33,7 @@ except ImportError:
 
 router = APIRouter(prefix="/codes", tags=["codes"])
 
-def team_to_dict(team, db):
-    supervisor = db.query(User).filter(User.id == team.supervisorId).first()
-    supervisor_username = supervisor.username if supervisor else None
-    return {
-        "id": team.id,
-        "name": team.name,
-        "supervisorId": team.supervisorId,
-        "supervisorUsername": supervisor_username,
-        "users": team.users,
-    }
+
 
 def clean_float(value):
     if value is None:
@@ -80,16 +70,11 @@ def create_code(code: CodeCreate, db: Session = Depends(get_db), current_user: U
         material=code.material,
         presentation=code.presentation,
         fabricationCode=code.fabricationCode,
-        usefulLife=code.usefulLife,
-        related_code_team=code.related_code_team
+        usefulLife=code.usefulLife
     )
-    if code.teamIds:
-        teams = db.query(Team).filter(Team.id.in_(code.teamIds)).all()
-        db_code.teams = teams
     db.add(db_code)
     db.commit()
     db.refresh(db_code)
-    teams = [team_to_dict(t, db) for t in db_code.teams]
     return {
         "id": db_code.id,
         "code": db_code.code,
@@ -105,8 +90,6 @@ def create_code(code: CodeCreate, db: Session = Depends(get_db), current_user: U
         "presentation": db_code.presentation,
         "fabricationCode": db_code.fabricationCode,
         "usefulLife": db_code.usefulLife,
-        "related_code_team": db_code.related_code_team,
-        "teams": teams,
     }
 
 @router.post("/bulk_upload")
@@ -143,8 +126,7 @@ def bulk_upload_codes(codes: list[dict], db: Session = Depends(get_db), current_
             material=clean_str(code_data.get("material")),
             presentation=clean_str(code_data.get("presentation")),
             fabricationCode=clean_str(fabrication_code),
-            usefulLife=clean_str(useful_life),
-            related_code_team=clean_str(code_data.get("related_code_team"))
+            usefulLife=clean_str(useful_life)
         )
         db.add(db_code)
         created += 1
@@ -171,7 +153,6 @@ def get_codes(
     codes = query.offset(skip).limit(limit).all()
     result = []
     for c in codes:
-        teams = [team_to_dict(t, db) for t in c.teams]
         result.append({
             "id": c.id,
             "code": clean_str(c.code),
@@ -187,8 +168,6 @@ def get_codes(
             "presentation": clean_str(c.presentation),
             "fabricationCode": clean_str(c.fabricationCode),
             "usefulLife": clean_str(c.usefulLife),
-            "related_code_team": clean_str(c.related_code_team),
-            "teams": teams,
         })
     return {"codes": result, "total": total}
 
@@ -222,8 +201,7 @@ def get_code_activity(code: str, db: Session = Depends(get_db), current_user: Us
             "material": getattr(code_obj, "material", None),
             "presentation": getattr(code_obj, "presentation", None),
             "fabricationCode": getattr(code_obj, "fabricationCode", None),
-            "usefulLife": getattr(code_obj, "usefulLife", None),
-            "related_code_team": getattr(code_obj, "related_code_team", None)
+            "usefulLife": getattr(code_obj, "usefulLife", None)
         })
     
     return {
@@ -253,7 +231,6 @@ def get_code(code_id: uuid.UUID, db: Session = Depends(get_db), current_user: Us
     code = db.query(Code).filter(Code.id == code_id).first()
     if not code:
         raise HTTPException(status_code=404, detail="Code not found")
-    teams = [team_to_dict(t, db) for t in code.teams]
     return {
         "id": code.id,
         "code": code.code,
@@ -269,8 +246,6 @@ def get_code(code_id: uuid.UUID, db: Session = Depends(get_db), current_user: Us
         "presentation": code.presentation,
         "fabricationCode": code.fabricationCode,
         "usefulLife": code.usefulLife,
-        "related_code_team": code.related_code_team,
-        "teams": teams,
     }
 
 @router.patch("/{code_id}", response_model=CodeOut)
@@ -280,15 +255,10 @@ def update_code(code_id: uuid.UUID, code_update: CodeUpdate, db: Session = Depen
     if not db_code:
         raise HTTPException(status_code=404, detail="Code not found")
     update_data = code_update.dict(exclude_unset=True)
-    team_ids = update_data.pop("teamIds", None)
     for field, value in update_data.items():
         setattr(db_code, field, value)
-    if team_ids is not None:
-        teams = db.query(Team).filter(Team.id.in_(team_ids)).all()
-        db_code.teams = teams
     db.commit()
     db.refresh(db_code)
-    teams = [team_to_dict(t, db) for t in db_code.teams]
     return {
         "id": db_code.id,
         "code": db_code.code,
@@ -304,8 +274,6 @@ def update_code(code_id: uuid.UUID, code_update: CodeUpdate, db: Session = Depen
         "presentation": db_code.presentation,
         "fabricationCode": db_code.fabricationCode,
         "usefulLife": db_code.usefulLife,
-        "related_code_team": db_code.related_code_team,
-        "teams": teams,
     }
 
 @router.delete("/{code_id}")

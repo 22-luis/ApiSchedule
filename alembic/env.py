@@ -13,6 +13,7 @@ from app.models.task import Task
 from app.models.order import Order
 from app.models.code import Code
 from app.models.preparation import Preparation
+from app.models.programming import Programming, ProgrammingTask
 
 target_metadata = Base.metadata
 

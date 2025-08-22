@@ -12,3 +12,8 @@ class OrderStatus(enum.Enum):
     programada = "programada"
     in_progress = "in_progress"
     completed = "completed"
+    
+class ProgrammingStatus(enum.Enum):
+    available = "available"
+    unavailable = "unavailable"
+    
