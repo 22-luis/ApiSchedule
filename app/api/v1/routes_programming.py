@@ -19,6 +19,7 @@ from app.models.user import User
 import sys
 from pytz import timezone
 from app.utils.order_status_service import OrderStatusService
+from app.utils.programming_availability import update_programming_availability, update_all_programmings_availability_for_date
 
 router = APIRouter(prefix="/programmings", tags=["programmings"])
 
@@ -203,6 +204,10 @@ def add_task_to_programming(
     if task not in programming.tasks:
         programming.tasks.append(task)
         db.commit()
+        
+        # Update programming availability after adding task
+        update_programming_availability(db, programming)
+        
         db.refresh(programming)
     return {
         "id": programming.id,
@@ -229,6 +234,10 @@ def remove_task_from_programming(
     if task in programming.tasks:
         programming.tasks.remove(task)
         db.commit()
+        
+        # Update programming availability after removing task
+        update_programming_availability(db, programming)
+        
         db.refresh(programming)
     return {
         "id": programming.id,
@@ -288,6 +297,10 @@ async def reorder_programming_tasks(
             end_time=pt.end_time
         ))
     db.commit()
+    
+    # Update programming availability after reordering tasks
+    update_programming_availability(db, programming)
+    
     # Depuración: mostrar los valores actuales en la tabla intermedia
     refreshed_programming = db.query(Programming).get(programming_id)
     print('--- ProgrammingTask después de commit ---')
@@ -416,4 +429,44 @@ def reprogram_task(
     # Aquí se podría agregar la lógica para mover la tarea a la nueva programación
     # Por ahora solo actualizamos el estado de la orden
     
-    return {"message": "Task reprogrammed successfully"} 
+    return {"message": "Task reprogrammed successfully"}
+
+
+@router.post("/{programming_id}/check_availability")
+def check_programming_availability(
+    programming_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["admin", "planner", "supervisor"]))
+):
+    """
+    Manually check and update programming availability based on the last task's end time.
+    """
+    programming = db.query(Programming).get(programming_id)
+    if not programming:
+        raise HTTPException(status_code=404, detail="Programming not found")
+    
+    # Update programming availability
+    status_changed = update_programming_availability(db, programming)
+    
+    return {
+        "programming_id": programming_id,
+        "current_status": programming.status.value,
+        "status_changed": status_changed
+    }
+
+
+@router.post("/check_availability_by_date")
+def check_programmings_availability_by_date(
+    target_date: date,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["admin", "planner", "supervisor"]))
+):
+    """
+    Check and update availability for all programmings on a specific date.
+    """
+    results = update_all_programmings_availability_for_date(db, target_date)
+    
+    return {
+        "target_date": target_date.isoformat(),
+        "results": results
+    } 

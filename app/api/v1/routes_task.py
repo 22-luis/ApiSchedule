@@ -17,6 +17,7 @@ from app.api.v1.replicate_pesado import replicate_task_to_pesado_if_needed
 from sqlalchemy.orm import joinedload
 from pydantic import BaseModel
 from app.utils.order_status_service import OrderStatusService
+from app.utils.programming_availability import update_programming_availability_by_task
 
 # Opción 1: Router con prefijo específico
 router = APIRouter(prefix="/tasks", tags=["tasks"])
@@ -103,6 +104,10 @@ def create_task(
         full_task.presentation = ""
     # Lógica automática para replicar en equipo pesado si aplica
     replicate_task_to_pesado_if_needed(db, db_task, programming.date)
+    
+    # Update programming availability based on the new task
+    update_programming_availability_by_task(db, str(db_task.id))
+    
     return full_task
 
 class DuplicateTaskRequest(BaseModel):
@@ -209,6 +214,9 @@ def duplicate_task(
     # Automatic logic to replicate in heavy team if applicable
     replicate_task_to_pesado_if_needed(db, full_task, programming.date)
     
+    # Update programming availability based on the new task
+    update_programming_availability_by_task(db, str(duplicated_task.id))
+    
     return full_task
 
 @router.get("/", response_model=List[TaskOut])
@@ -274,6 +282,11 @@ def update_task(
                 pt.end_time = update_data['end_time']
     
     db.commit()
+    
+    # Update programming availability if times were changed
+    if updating_times:
+        update_programming_availability_by_task(db, task_id)
+    
     # Refresca la tarea con todas las relaciones
     full_task = db.query(Task).options(
         joinedload(Task.code),
@@ -295,6 +308,9 @@ def delete_task(
     
     # Actualizar estado de la orden antes de eliminar la tarea
     OrderStatusService.update_order_status_for_task_deletion(db, db_task)
+    
+    # Update programming availability before deleting the task
+    update_programming_availability_by_task(db, task_id)
     
     db.delete(db_task)
     db.commit()
