@@ -1,322 +1,220 @@
 """
-Tests for programming availability functionality.
+Tests para el endpoint de programaciones disponibles por equipo
 """
 import pytest
-from datetime import datetime, time, date, timedelta
+from datetime import date, timedelta
+from uuid import uuid4
+from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
-from app.models.programming import Programming, ProgrammingTask
-from app.models.task import Task
+from app.models.programming import Programming, ProgrammingStatus
 from app.models.team import Team
-from app.models.state import ProgrammingStatus
-from app.utils.programming_availability import (
-    get_team_type,
-    get_cutoff_time_for_team,
-    check_programming_availability,
-    update_programming_availability
-)
+from app.models.user import User, UserRole
+from app.models.state import UserState
 
 
-class TestProgrammingAvailability:
+class TestAvailableProgrammingsForTeam:
+    """Tests para el endpoint GET /programmings/team/{team_uuid}/available"""
     
-    def test_get_team_type(self):
-        """Test team type detection based on team name."""
-        # Test pesado team
-        pesado_team = Team(name="Pesado Principal")
-        assert get_team_type(pesado_team) == "pesado"
-        
-        # Test fabricado team
-        fabricado_team = Team(name="Fabricado 1")
-        assert get_team_type(fabricado_team) == "fabricado"
-        
-        # Test molino team
-        molino_team = Team(name="Molino 2")
-        assert get_team_type(molino_team) == "molino"
-        
-        # Test other team
-        other_team = Team(name="Otro Equipo")
-        assert get_team_type(other_team) == "otro"
-    
-    def test_get_cutoff_time_for_team(self):
-        """Test cutoff time determination based on team type."""
-        # Test pesado team cutoff time
-        pesado_team = Team(name="Pesado Principal")
-        assert get_cutoff_time_for_team(pesado_team) == time(17, 40)
-        
-        # Test other team cutoff time
-        other_team = Team(name="Fabricado 1")
-        assert get_cutoff_time_for_team(other_team) == time(14, 40)
-    
-    def test_check_programming_availability_with_no_tasks(self, db: Session):
-        """Test availability check when programming has no tasks."""
-        team = Team(name="Test Team")
+    def test_get_available_programmings_existing(self, client: TestClient, db: Session, admin_user: User):
+        """Test obtener programaciones disponibles cuando existen"""
+        # Crear equipo
+        team = Team(id=uuid4(), name="Equipo Test")
         db.add(team)
         db.commit()
         
-        programming = Programming(
-            date=date.today(),
+        # Crear programaciones disponibles
+        today = date.today()
+        tomorrow = today + timedelta(days=1)
+        
+        programming1 = Programming(
+            id=uuid4(),
+            date=today,
             team_id=team.id,
             status=ProgrammingStatus.available
         )
-        db.add(programming)
+        programming2 = Programming(
+            id=uuid4(),
+            date=tomorrow,
+            team_id=team.id,
+            status=ProgrammingStatus.available
+        )
+        
+        db.add_all([programming1, programming2])
         db.commit()
         
-        # Should be available when no tasks
-        assert check_programming_availability(db, programming) == True
+        # Hacer request
+        response = client.get(
+            f"/programmings/team/{team.id}/available",
+            headers={"Authorization": f"Bearer {admin_user.token}"}
+        )
+        
+        assert response.status_code == 200
+        data = response.json()
+        
+        assert data["team_id"] == str(team.id)
+        assert data["team_name"] == team.name
+        assert len(data["available_programmings"]) == 2
+        
+        # Verificar que las fechas están en orden
+        dates = [p["date"] for p in data["available_programmings"]]
+        assert dates == [today.isoformat(), tomorrow.isoformat()]
     
-    def test_check_programming_availability_with_early_task(self, db: Session):
-        """Test availability check when last task ends before cutoff time."""
-        team = Team(name="Test Team")
+    def test_get_available_programmings_no_future(self, client: TestClient, db: Session, admin_user: User):
+        """Test crear programación automáticamente cuando no hay programaciones futuras"""
+        # Crear equipo
+        team = Team(id=uuid4(), name="Equipo Test")
         db.add(team)
         db.commit()
         
-        programming = Programming(
-            date=date.today(),
+        # Crear programación pasada
+        yesterday = date.today() - timedelta(days=1)
+        past_programming = Programming(
+            id=uuid4(),
+            date=yesterday,
             team_id=team.id,
             status=ProgrammingStatus.available
         )
-        db.add(programming)
+        
+        db.add(past_programming)
         db.commit()
         
-        # Create a task that ends at 14:00 (before 14:40 cutoff)
-        task = Task(description="Test Task")
-        db.add(task)
-        db.commit()
-        
-        programming_task = ProgrammingTask(
-            programming_id=programming.id,
-            task_id=task.id,
-            order=1,
-            end_time=datetime.combine(date.today(), time(14, 0))
+        # Hacer request
+        response = client.get(
+            f"/programmings/team/{team.id}/available",
+            headers={"Authorization": f"Bearer {admin_user.token}"}
         )
-        db.add(programming_task)
-        db.commit()
         
-        # Should be available when task ends before cutoff
-        assert check_programming_availability(db, programming) == True
+        assert response.status_code == 200
+        data = response.json()
+        
+        assert data["team_id"] == str(team.id)
+        assert data["team_name"] == team.name
+        assert len(data["available_programmings"]) == 1
+        
+        # Verificar que se creó una programación para hoy
+        new_date = data["available_programmings"][0]["date"]
+        assert new_date == date.today().isoformat()
     
-    def test_check_programming_availability_with_late_task(self, db: Session):
-        """Test availability check when last task ends after cutoff time."""
-        team = Team(name="Test Team")
+    def test_get_available_programmings_no_programmings(self, client: TestClient, db: Session, admin_user: User):
+        """Test crear programación cuando no hay ninguna programación"""
+        # Crear equipo
+        team = Team(id=uuid4(), name="Equipo Test")
         db.add(team)
         db.commit()
         
-        programming = Programming(
-            date=date.today(),
-            team_id=team.id,
-            status=ProgrammingStatus.available
+        # Hacer request
+        response = client.get(
+            f"/programmings/team/{team.id}/available",
+            headers={"Authorization": f"Bearer {admin_user.token}"}
         )
-        db.add(programming)
-        db.commit()
         
-        # Create a task that ends at 15:00 (after 14:40 cutoff + 5 min buffer)
-        task = Task(description="Test Task")
-        db.add(task)
-        db.commit()
+        assert response.status_code == 200
+        data = response.json()
         
-        programming_task = ProgrammingTask(
-            programming_id=programming.id,
-            task_id=task.id,
-            order=1,
-            end_time=datetime.combine(date.today(), time(15, 0))
-        )
-        db.add(programming_task)
-        db.commit()
+        assert data["team_id"] == str(team.id)
+        assert data["team_name"] == team.name
+        assert len(data["available_programmings"]) == 1
         
-        # Should be unavailable when task ends after cutoff + buffer
-        assert check_programming_availability(db, programming) == False
+        # Verificar que se creó una programación para mañana
+        tomorrow = date.today() + timedelta(days=1)
+        new_date = data["available_programmings"][0]["date"]
+        assert new_date == tomorrow.isoformat()
     
-    def test_check_programming_availability_with_pesado_team(self, db: Session):
-        """Test availability check with pesado team (17:40 cutoff)."""
-        team = Team(name="Pesado Principal")
+    def test_get_available_programmings_team_not_found(self, client: TestClient, admin_user: User):
+        """Test error cuando el equipo no existe"""
+        fake_team_id = uuid4()
+        
+        response = client.get(
+            f"/programmings/team/{fake_team_id}/available",
+            headers={"Authorization": f"Bearer {admin_user.token}"}
+        )
+        
+        assert response.status_code == 404
+        assert "Team not found" in response.json()["detail"]
+    
+    def test_get_available_programmings_unauthorized(self, client: TestClient, db: Session, regular_user: User):
+        """Test error cuando el usuario no tiene permisos"""
+        # Crear equipo
+        team = Team(id=uuid4(), name="Equipo Test")
         db.add(team)
         db.commit()
         
-        programming = Programming(
-            date=date.today(),
-            team_id=team.id,
-            status=ProgrammingStatus.available
+        response = client.get(
+            f"/programmings/team/{team.id}/available",
+            headers={"Authorization": f"Bearer {regular_user.token}"}
         )
-        db.add(programming)
-        db.commit()
         
-        # Create a task that ends at 18:00 (after 17:40 cutoff + 5 min buffer)
-        task = Task(description="Test Task")
-        db.add(task)
-        db.commit()
-        
-        programming_task = ProgrammingTask(
-            programming_id=programming.id,
-            task_id=task.id,
-            order=1,
-            end_time=datetime.combine(date.today(), time(18, 0))
-        )
-        db.add(programming_task)
-        db.commit()
-        
-        # Should be unavailable when task ends after pesado cutoff + buffer
-        assert check_programming_availability(db, programming) == False
+        assert response.status_code == 403
+        assert "Not authorized" in response.json()["detail"]
     
-    def test_update_programming_availability(self, db: Session):
-        """Test updating programming status based on availability check."""
-        team = Team(name="Test Team")
+    def test_get_available_programmings_only_available_status(self, client: TestClient, db: Session, admin_user: User):
+        """Test que solo devuelve programaciones con estado available"""
+        # Crear equipo
+        team = Team(id=uuid4(), name="Equipo Test")
         db.add(team)
         db.commit()
         
-        programming = Programming(
-            date=date.today(),
+        # Crear programaciones con diferentes estados
+        today = date.today()
+        
+        available_programming = Programming(
+            id=uuid4(),
+            date=today,
             team_id=team.id,
             status=ProgrammingStatus.available
         )
-        db.add(programming)
-        db.commit()
         
-        # Create a task that ends late
-        task = Task(description="Test Task")
-        db.add(task)
-        db.commit()
-        
-        programming_task = ProgrammingTask(
-            programming_id=programming.id,
-            task_id=task.id,
-            order=1,
-            end_time=datetime.combine(date.today(), time(15, 0))
-        )
-        db.add(programming_task)
-        db.commit()
-        
-        # Update availability - should change status to unavailable
-        status_changed = update_programming_availability(db, programming)
-        assert status_changed == True
-        assert programming.status == ProgrammingStatus.unavailable
-    
-    def test_update_programming_availability_bidirectional(self, db: Session):
-        """Test bidirectional status changes based on task end time."""
-        team = Team(name="Test Team")
-        db.add(team)
-        db.commit()
-        
-        programming = Programming(
-            date=date.today(),
+        unavailable_programming = Programming(
+            id=uuid4(),
+            date=today + timedelta(days=1),
             team_id=team.id,
-            status=ProgrammingStatus.available
+            status=ProgrammingStatus.unavailable
         )
-        db.add(programming)
+        
+        db.add_all([available_programming, unavailable_programming])
         db.commit()
         
-        # Create a task that ends late (15:00 - after cutoff)
-        task = Task(description="Test Task")
-        db.add(task)
-        db.commit()
-        
-        programming_task = ProgrammingTask(
-            programming_id=programming.id,
-            task_id=task.id,
-            order=1,
-            end_time=datetime.combine(date.today(), time(15, 0))
+        # Hacer request
+        response = client.get(
+            f"/programmings/team/{team.id}/available",
+            headers={"Authorization": f"Bearer {admin_user.token}"}
         )
-        db.add(programming_task)
-        db.commit()
         
-        # Should change to unavailable
-        status_changed = update_programming_availability(db, programming)
-        assert status_changed == True
-        assert programming.status == ProgrammingStatus.unavailable
+        assert response.status_code == 200
+        data = response.json()
         
-        # Now change the task end time to be early (14:00 - before cutoff)
-        programming_task.end_time = datetime.combine(date.today(), time(14, 0))
-        db.commit()
-        
-        # Should change back to available
-        status_changed = update_programming_availability(db, programming)
-        assert status_changed == True
-        assert programming.status == ProgrammingStatus.available
-    
-    def test_update_programming_availability_pesado_bidirectional(self, db: Session):
-        """Test bidirectional status changes for pesado team."""
-        team = Team(name="Pesado Principal")
-        db.add(team)
-        db.commit()
-        
-        programming = Programming(
-            date=date.today(),
-            team_id=team.id,
-            status=ProgrammingStatus.available
-        )
-        db.add(programming)
-        db.commit()
-        
-        # Create a task that ends late (18:00 - after pesado cutoff)
-        task = Task(description="Test Task")
-        db.add(task)
-        db.commit()
-        
-        programming_task = ProgrammingTask(
-            programming_id=programming.id,
-            task_id=task.id,
-            order=1,
-            end_time=datetime.combine(date.today(), time(18, 0))
-        )
-        db.add(programming_task)
-        db.commit()
-        
-        # Should change to unavailable
-        status_changed = update_programming_availability(db, programming)
-        assert status_changed == True
-        assert programming.status == ProgrammingStatus.unavailable
-        
-        # Now change the task end time to be early (17:00 - before pesado cutoff)
-        programming_task.end_time = datetime.combine(date.today(), time(17, 0))
-        db.commit()
-        
-        # Should change back to available
-        status_changed = update_programming_availability(db, programming)
-        assert status_changed == True
-        assert programming.status == ProgrammingStatus.available
-    
-    def test_update_programming_availability_edge_cases(self, db: Session):
-        """Test edge cases around the cutoff times."""
-        team = Team(name="Test Team")
-        db.add(team)
-        db.commit()
-        
-        programming = Programming(
-            date=date.today(),
-            team_id=team.id,
-            status=ProgrammingStatus.available
-        )
-        db.add(programming)
-        db.commit()
-        
-        # Test exactly at cutoff time (14:40) - should be available
-        task1 = Task(description="Test Task 1")
-        db.add(task1)
-        db.commit()
-        
-        programming_task1 = ProgrammingTask(
-            programming_id=programming.id,
-            task_id=task1.id,
-            order=1,
-            end_time=datetime.combine(date.today(), time(14, 40))
-        )
-        db.add(programming_task1)
-        db.commit()
-        
-        status_changed = update_programming_availability(db, programming)
-        assert status_changed == False  # No change needed
-        assert programming.status == ProgrammingStatus.available
-        
-        # Test at cutoff + 5 minutes (14:45) - should still be available
-        programming_task1.end_time = datetime.combine(date.today(), time(14, 45))
-        db.commit()
-        
-        status_changed = update_programming_availability(db, programming)
-        assert status_changed == False  # No change needed
-        assert programming.status == ProgrammingStatus.available
-        
-        # Test at cutoff + 6 minutes (14:46) - should be unavailable
-        programming_task1.end_time = datetime.combine(date.today(), time(14, 46))
-        db.commit()
-        
-        status_changed = update_programming_availability(db, programming)
-        assert status_changed == True
-        assert programming.status == ProgrammingStatus.unavailable
+        # Solo debe devolver la programación disponible
+        assert len(data["available_programmings"]) == 1
+        assert data["available_programmings"][0]["date"] == today.isoformat()
+
+
+@pytest.fixture
+def admin_user(db: Session) -> User:
+    """Fixture para crear un usuario administrador"""
+    user = User(
+        id=uuid4(),
+        name="Admin User",
+        email="admin@test.com",
+        role=UserRole.admin,
+        state=UserState.ACTIVE
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@pytest.fixture
+def regular_user(db: Session) -> User:
+    """Fixture para crear un usuario regular"""
+    user = User(
+        id=uuid4(),
+        name="Regular User",
+        email="user@test.com",
+        role=UserRole.user,
+        state=UserState.ACTIVE
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user

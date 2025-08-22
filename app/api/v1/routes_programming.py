@@ -7,7 +7,7 @@ from typing import List, Optional
 from app.models.programming import Programming
 from app.models.task import Task
 from app.models.team import Team
-from app.schemas.programming import ProgrammingCreate, ProgrammingRead, ProgrammingUpdate, ProgrammingTaskOrderIn, ProgrammingReorderResponse, ProgrammingTaskOrderOut
+from app.schemas.programming import ProgrammingCreate, ProgrammingRead, ProgrammingUpdate, ProgrammingTaskOrderIn, ProgrammingReorderResponse, ProgrammingTaskOrderOut, AvailableProgrammingResponse, AvailableProgrammingItem
 from app.db.dependency import get_db
 from app.utils.dependencies import get_current_user, require_roles
 from datetime import date, datetime, timedelta, time
@@ -20,6 +20,7 @@ import sys
 from pytz import timezone
 from app.utils.order_status_service import OrderStatusService
 from app.utils.programming_availability import update_programming_availability, update_all_programmings_availability_for_date
+from app.models.programming import ProgrammingStatus
 
 router = APIRouter(prefix="/programmings", tags=["programmings"])
 
@@ -470,3 +471,213 @@ def check_programmings_availability_by_date(
         "target_date": target_date.isoformat(),
         "results": results
     } 
+
+@router.get("/team/{team_uuid}/available", response_model=AvailableProgrammingResponse)
+def get_available_programmings_for_team(
+    team_uuid: UUID,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    """
+    Obtiene las programaciones con estado 'available' para un equipo específico,
+    desde la fecha actual hacia adelante. Si no existen programaciones futuras,
+    crea una programación para el día siguiente a la última programación existente.
+    
+    Args:
+        team_uuid: UUID del equipo
+        db: Sesión de base de datos
+        current_user: Usuario autenticado
+        
+    Returns:
+        Lista de programaciones disponibles con id, nombre del equipo y fecha
+    """
+    # Verificar que el equipo existe
+    team = db.query(Team).filter(Team.id == team_uuid).first()
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+    
+    # Verificar permisos del usuario
+    if current_user.role.value not in ("admin", "planner", "supervisor") and not user_belongs_to_team(current_user, team_uuid):
+        raise HTTPException(status_code=403, detail="Not authorized to access this team")
+    
+    # Obtener la fecha actual
+    current_date = date.today()
+    
+    # Buscar programaciones disponibles desde la fecha actual
+    available_programmings = (
+        db.query(Programming)
+        .filter(
+            Programming.team_id == team_uuid,
+            Programming.date >= current_date,
+            Programming.status == ProgrammingStatus.available
+        )
+        .order_by(Programming.date)
+        .all()
+    )
+    
+    # Si no hay programaciones futuras disponibles, buscar la última programación del equipo
+    if not available_programmings:
+        last_programming = (
+            db.query(Programming)
+            .filter(Programming.team_id == team_uuid)
+            .order_by(Programming.date.desc())
+            .first()
+        )
+        
+        # Si no hay ninguna programación, crear una para mañana
+        if not last_programming:
+            next_date = current_date + timedelta(days=1)
+        else:
+            # Crear una programación para el día siguiente a la última
+            next_date = last_programming.date + timedelta(days=1)
+        
+        # Crear la nueva programación
+        new_programming = Programming(
+            date=next_date,
+            team_id=team_uuid,
+            status=ProgrammingStatus.available
+        )
+        db.add(new_programming)
+        db.commit()
+        db.refresh(new_programming)
+        
+        # Agregar la nueva programación a la lista
+        available_programmings = [new_programming]
+    
+    # Preparar la respuesta usando el schema
+    available_items = []
+    for programming in available_programmings:
+        available_items.append(AvailableProgrammingItem(
+            id=str(programming.id),
+            team_name=team.name,
+            date=programming.date.isoformat()
+        ))
+    
+    return AvailableProgrammingResponse(
+        team_id=str(team_uuid),
+        team_name=team.name,
+        available_programmings=available_items
+    )
+
+@router.get("/team/{team_uuid}/available-only", response_model=AvailableProgrammingResponse)
+def get_only_available_programmings_for_team(
+    team_uuid: UUID,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    """
+    Obtiene SOLO las programaciones existentes con estado 'available' para un equipo específico,
+    desde la fecha actual hacia adelante. NO crea nuevas programaciones automáticamente.
+    
+    Args:
+        team_uuid: UUID del equipo
+        db: Sesión de base de datos
+        current_user: Usuario autenticado
+        
+    Returns:
+        Lista de programaciones disponibles existentes con id, nombre del equipo y fecha
+    """
+    # Verificar que el equipo existe
+    team = db.query(Team).filter(Team.id == team_uuid).first()
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+    
+    # Verificar permisos del usuario
+    if current_user.role.value not in ("admin", "planner", "supervisor") and not user_belongs_to_team(current_user, team_uuid):
+        raise HTTPException(status_code=403, detail="Not authorized to access this team")
+    
+    # Obtener la fecha actual
+    current_date = date.today()
+    
+    # Buscar programaciones disponibles desde la fecha actual
+    available_programmings = (
+        db.query(Programming)
+        .filter(
+            Programming.team_id == team_uuid,
+            Programming.date >= current_date,
+            Programming.status == ProgrammingStatus.available
+        )
+        .order_by(Programming.date)
+        .all()
+    )
+    
+    # Preparar la respuesta usando el schema
+    available_items = []
+    for programming in available_programmings:
+        available_items.append(AvailableProgrammingItem(
+            id=str(programming.id),
+            team_name=team.name,
+            date=programming.date.isoformat()
+        ))
+    
+    return AvailableProgrammingResponse(
+        team_id=str(team_uuid),
+        team_name=team.name,
+        available_programmings=available_items
+    )
+
+@router.post("/team/{team_uuid}/create-next-available", response_model=AvailableProgrammingItem)
+def create_next_available_programming_for_team(
+    team_uuid: UUID,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_roles(["admin", "planner", "supervisor"]))
+):
+    """
+    Crea una nueva programación disponible para el día siguiente a la última programación existente del equipo.
+    Solo para administradores, planners y supervisores.
+    
+    Args:
+        team_uuid: UUID del equipo
+        db: Sesión de base de datos
+        current_user: Usuario autenticado (debe ser admin/planner/supervisor)
+        
+    Returns:
+        La nueva programación creada
+    """
+    # Verificar que el equipo existe
+    team = db.query(Team).filter(Team.id == team_uuid).first()
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+    
+    # Buscar la última programación del equipo
+    last_programming = (
+        db.query(Programming)
+        .filter(Programming.team_id == team_uuid)
+        .order_by(Programming.date.desc())
+        .first()
+    )
+    
+    # Determinar la fecha para la nueva programación
+    if not last_programming:
+        next_date = date.today() + timedelta(days=1)
+    else:
+        next_date = last_programming.date + timedelta(days=1)
+    
+    # Verificar que no exista ya una programación para esa fecha
+    existing_programming = (
+        db.query(Programming)
+        .filter(Programming.team_id == team_uuid, Programming.date == next_date)
+        .first()
+    )
+    
+    if existing_programming:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Programming already exists for team {team.name} on date {next_date}"
+        )
+    
+    # Crear la nueva programación
+    new_programming = Programming(
+        date=next_date,
+        team_id=team_uuid,
+        status=ProgrammingStatus.available
+    )
+    db.add(new_programming)
+    db.commit()
+    db.refresh(new_programming)
+    
+    return AvailableProgrammingItem(
+        id=str(new_programming.id),
+        team_name=team.name,
+        date=new_programming.date.isoformat()
+    ) 

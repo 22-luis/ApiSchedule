@@ -632,3 +632,126 @@ GET `/api/v1/calculations/timezone-info`
 - En Orders, algunos cambios de estado automáticos pueden ocurrir al iniciar/detener timers de tareas relacionadas a un `lote`.
 - Los endpoints de cálculos centralizan funciones que anteriormente estaban en el frontend.
 - El sistema maneja automáticamente la replicación de tareas en equipos de tipo 'pesado' cuando se asignan tareas a equipos 'fabricado' o 'molino' con ciertas actividades.
+
+## Endpoints de Programación
+
+### Obtener Programaciones Disponibles por Equipo
+
+**Endpoint:** `GET /programmings/team/{team_uuid}/available`
+
+**Descripción:** Obtiene las programaciones con estado 'available' para un equipo específico, desde la fecha actual hacia adelante. Si no existen programaciones futuras, crea automáticamente una programación para el día siguiente a la última programación existente.
+
+**Parámetros:**
+- `team_uuid` (UUID, requerido): ID del equipo para el cual buscar programaciones disponibles
+
+**Permisos requeridos:**
+- Usuarios con rol `admin`, `planner`, o `supervisor` pueden acceder a cualquier equipo
+- Usuarios regulares solo pueden acceder a equipos a los que pertenecen
+
+**Respuesta exitosa (200):**
+```json
+{
+  "team_id": "uuid-del-equipo",
+  "team_name": "Nombre del Equipo",
+  "available_programmings": [
+    {
+      "id": "uuid-de-la-programacion",
+      "team_name": "Nombre del Equipo",
+      "date": "2024-01-15"
+    }
+  ]
+}
+```
+
+**Respuestas de error:**
+- `404 Not Found`: El equipo no existe
+- `403 Forbidden`: El usuario no tiene permisos para acceder al equipo
+
+**Ejemplo de uso:**
+```bash
+curl -X GET "http://localhost:8000/programmings/team/123e4567-e89b-12d3-a456-426614174000/available" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+**Comportamiento especial:**
+- Si no existen programaciones futuras disponibles, el sistema automáticamente crea una nueva programación para el día siguiente a la última programación existente del equipo
+- Si el equipo no tiene ninguna programación, se crea una programación para mañana
+- Solo se devuelven programaciones con estado 'available' (disponible)
+- Las fechas se devuelven en formato ISO (YYYY-MM-DD)
+
+---
+
+### Obtener Solo Programaciones Disponibles Existentes
+
+**Endpoint:** `GET /programmings/team/{team_uuid}/available-only`
+
+**Descripción:** Obtiene SOLO las programaciones existentes con estado 'available' para un equipo específico, desde la fecha actual hacia adelante. NO crea nuevas programaciones automáticamente.
+
+**Parámetros:**
+- `team_uuid` (UUID, requerido): ID del equipo para el cual buscar programaciones disponibles
+
+**Permisos requeridos:**
+- Usuarios con rol `admin`, `planner`, o `supervisor` pueden acceder a cualquier equipo
+- Usuarios regulares solo pueden acceder a equipos a los que pertenecen
+
+**Respuesta exitosa (200):**
+```json
+{
+  "team_id": "uuid-del-equipo",
+  "team_name": "Nombre del Equipo",
+  "available_programmings": [
+    {
+      "id": "uuid-de-la-programacion",
+      "team_name": "Nombre del Equipo",
+      "date": "2024-01-15"
+    }
+  ]
+}
+```
+
+**Ejemplo de uso:**
+```bash
+curl -X GET "http://localhost:8000/programmings/team/123e4567-e89b-12d3-a456-426614174000/available-only" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+---
+
+### Crear Nueva Programación Disponible
+
+**Endpoint:** `POST /programmings/team/{team_uuid}/create-next-available`
+
+**Descripción:** Crea una nueva programación disponible para el día siguiente a la última programación existente del equipo. Solo para administradores, planners y supervisores.
+
+**Parámetros:**
+- `team_uuid` (UUID, requerido): ID del equipo para el cual crear la programación
+
+**Permisos requeridos:**
+- Solo usuarios con rol `admin`, `planner`, o `supervisor`
+
+**Respuesta exitosa (200):**
+```json
+{
+  "id": "uuid-de-la-nueva-programacion",
+  "team_name": "Nombre del Equipo",
+  "date": "2024-01-16"
+}
+```
+
+**Respuestas de error:**
+- `404 Not Found`: El equipo no existe
+- `403 Forbidden`: El usuario no tiene permisos para crear programaciones
+- `400 Bad Request`: Ya existe una programación para la fecha calculada
+
+**Ejemplo de uso:**
+```bash
+curl -X POST "http://localhost:8000/programmings/team/123e4567-e89b-12d3-a456-426614174000/create-next-available" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+**Comportamiento:**
+- Busca la última programación del equipo
+- Calcula la fecha para la nueva programación (día siguiente a la última)
+- Si no hay programaciones previas, crea una para mañana
+- Verifica que no exista ya una programación para esa fecha
+- Crea la nueva programación con estado 'available'

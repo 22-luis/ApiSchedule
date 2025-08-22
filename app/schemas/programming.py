@@ -56,3 +56,14 @@ class ProgrammingTaskReportIn(BaseModel):
     real_quantity: Optional[int] = None
     comment: Optional[str] = None
     completed_by_user_id: Optional[UUID] = None
+
+# Schema para programaciones disponibles por equipo
+class AvailableProgrammingItem(BaseModel):
+    id: str
+    team_name: str
+    date: str
+
+class AvailableProgrammingResponse(BaseModel):
+    team_id: str
+    team_name: str
+    available_programmings: List[AvailableProgrammingItem]
