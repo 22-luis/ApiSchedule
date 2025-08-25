@@ -49,8 +49,8 @@ class Settings:
     DEFAULT_TIMEZONE: str = os.getenv("DEFAULT_TIMEZONE", "America/El_Salvador")
     
     # Configuración de horarios de trabajo
-    WORKING_HOURS_MONDAY_FRIDAY: str = os.getenv("WORKING_HOURS_MONDAY_FRIDAY", "07:00-17:00")
-    WORKING_HOURS_SATURDAY: str = os.getenv("WORKING_HOURS_SATURDAY", "07:30-17:30")
+    WORKING_HOURS_MONDAY_FRIDAY: str = os.getenv("WORKING_HOURS_MONDAY_FRIDAY", "07:00-16:00")
+    WORKING_HOURS_SATURDAY: str = os.getenv("WORKING_HOURS_SATURDAY", "07:30-11:30")
     WORKING_HOURS_SUNDAY: str = os.getenv("WORKING_HOURS_SUNDAY", "00:00-00:00")
     
     @property

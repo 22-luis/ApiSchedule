@@ -12,6 +12,7 @@ from app.models.state import UserState
 from app.schemas.team import TeamCreate, TeamOut
 from app.utils.dependencies import get_current_user, require_roles
 from app.models.role import UserRole
+from app.core.task_config import get_most_suitable_weighing_team
 
 router = APIRouter(prefix="/teams", tags=["teams"])
 
@@ -123,3 +124,28 @@ def get_team(team_id: str, db: Session = Depends(get_db), current_user: User = D
         "supervisorUsername": supervisor_username,
         "users": users
     }
+
+
+@router.get("/weighing/most-suitable")
+def get_most_suitable_weighing_team_endpoint(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))
+):
+    """
+    Obtiene el equipo más idóneo para actividades de pesado.
+    
+    Returns:
+        Información del equipo más idóneo para pesado con ID y nombre
+    """
+    try:
+        print(f"[DEBUG] get_most_suitable_weighing_team_endpoint: Iniciando búsqueda de equipo más idóneo para pesado")
+        
+        result = get_most_suitable_weighing_team(db)
+        
+        print(f"[DEBUG] get_most_suitable_weighing_team_endpoint: Resultado obtenido - {result}")
+        
+        return result
+        
+    except Exception as e:
+        print(f"[DEBUG] get_most_suitable_weighing_team_endpoint: Error - {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error obteniendo equipo más idóneo para pesado: {str(e)}")

@@ -179,6 +179,62 @@ def get_code_by_code_and_activity(code: str, activity: str, db: Session = Depend
         raise HTTPException(status_code=404, detail="Code not found with given code and activity")
     return code_obj
 
+@router.get("/by_code_and_activity_details")
+@cache_response(ttl=600, key_fields=["code", "activity"])  # Cache por 10 minutos
+def get_activity_details_by_code_and_activity(
+    code: str, 
+    activity: str, 
+    db: Session = Depends(get_db), 
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))
+):
+    """
+    Obtiene los datos detallados de una actividad específica basándose en el código y la actividad.
+    
+    Args:
+        code: Código del producto
+        activity: Nombre de la actividad
+        
+    Returns:
+        Datos detallados de la actividad incluyendo specification, people, performance, material, etc.
+    """
+    print(f"[DEBUG] get_activity_details_by_code_and_activity: Buscando código '{code}' y actividad '{activity}'")
+    
+    code_obj = db.query(Code).filter(Code.code == code, Code.activity == activity).first()
+    
+    if not code_obj:
+        print(f"[DEBUG] get_activity_details_by_code_and_activity: No se encontró código '{code}' con actividad '{activity}'")
+        raise HTTPException(status_code=404, detail=f"No se encontró código '{code}' con actividad '{activity}'")
+    
+    # Obtener todos los campos solicitados
+    activity_details = {
+        "id": str(code_obj.id),
+        "code": code_obj.code,
+        "activity": code_obj.activity,
+        "specification": getattr(code_obj, "specification", None),  # Campo que puede no existir
+        "people": code_obj.people,
+        "performance": code_obj.performance,
+        "material": code_obj.material,
+        "presentation": code_obj.presentation,
+        "fabricationCode": code_obj.fabricationCode,
+        "usefulLife": code_obj.usefulLife,
+        "unit": code_obj.unit,
+        "type": code_obj.type,
+        "description": code_obj.description,
+        "quantity": code_obj.quantity,
+        "time": code_obj.time
+    }
+    
+    print(f"[DEBUG] get_activity_details_by_code_and_activity: Encontrados datos para código '{code}' y actividad '{activity}'")
+    print(f"[DEBUG] get_activity_details_by_code_and_activity: Datos - {activity_details}")
+    
+    return {
+        "success": True,
+        "code": code,
+        "activity": activity,
+        "activity_details": activity_details,
+        "message": f"Datos obtenidos exitosamente para código '{code}' y actividad '{activity}'"
+    }
+
 @router.get("/by_code/{code}/activity")
 @cache_response(ttl=600, key_fields=["code"])  # Cache por 10 minutos
 def get_code_activity(code: str, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))):

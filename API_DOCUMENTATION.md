@@ -175,7 +175,42 @@ POST `/api/v1/orders/`
   - `quantity`: int
   - `bin`: int
   - `dueDate`: datetime (ISO)
-- **Respuesta 200**: lista de órdenes creadas (objetos con los mismos campos de entrada, `status` como string)
+- **Respuesta 200**: 
+  ```json
+  {
+    "created_orders": [{"lote": 123, "quantity": 100, "code": "PROD-001"}],
+    "summary": {"total_orders": 1, "total_quantity": 100, "unique_codes": 1},
+    "activities_data": {
+      "activities_by_code": {
+        "PROD-001": {
+          "code": "PROD-001",
+          "activities": [
+            {
+              "id": "uuid1",
+              "activity": "FABRICACION",
+              "description": "Producto 1 - Fabricación",
+              "unit": "pieza",
+              "type": "tipo1",
+              "quantity": "100",
+              "time": 60.0,
+              "people": 2,
+              "performance": 100.0,
+              "material": "material1",
+              "presentation": "presentacion1",
+              "fabricationCode": "FAB-001",
+              "usefulLife": "12"
+            }
+          ],
+          "total_activities": 1,
+          "found": true
+        }
+      },
+      "total_codes_processed": 1,
+      "codes_processed": ["PROD-001"]
+    },
+    "message": "Se crearon 1 órdenes exitosamente con sus actividades"
+  }
+  ```
 
 DELETE `/api/v1/orders/{order_id}`
 - `order_id`: lote (string/int)
@@ -256,6 +291,127 @@ GET `/api/v1/orders/test-sync/{order_id}`
     "status_after": "in_progress",
     "changed": true,
     "order": { ... }
+  }
+  ```
+
+POST `/api/v1/orders/extract-data`
+- **Auth**: `admin | planner`
+- Extrae datos de órdenes específicas por sus lotes.
+- **Body**: `{"order_ids": [12345, 12346, 12347]}`
+- **Respuesta 200**:
+  ```json
+  {
+    "extracted_orders": [{"lote": 12345, "code": "PROD-001", "status": "pending", "description": "Producto 1", "quantity": 100, "bin": 1, "dueDate": "2024-01-15T00:00:00", "created_at": null, "metadata": {"is_new": true, "extraction_timestamp": "now"}}],
+    "processing_data": [{"lote": 12345, "code": "PROD-001", "status": "pending", "description": "Producto 1", "quantity": 100, "bin": 1, "dueDate": "2024-01-15T00:00:00", "processing_info": {"can_be_programmed": true, "requires_attention": false, "is_completed": false}}],
+    "summary": {"total_orders": 1, "status_summary": {"pending": 1}, "total_quantity": 100, "unique_codes": 1, "codes": ["PROD-001"]},
+    "requested_lotes": [12345, 12346, 12347],
+    "found_lotes": [12345],
+    "missing_lotes": [12346, 12347]
+  }
+  ```
+
+GET `/api/v1/orders/extract-recent`
+- **Auth**: `admin | planner`
+- Extrae datos de las órdenes más recientes.
+- **Query**:
+  - `limit`: int (1-100, default 10)
+  - `status`: `pending|programada|in_progress|completed` (opcional)
+- **Respuesta 200**:
+  ```json
+  {
+    "extracted_orders": [{"lote": 12350, "quantity": 50, "code": "PROD-005"}],
+    "summary": {"total_orders": 1, "total_quantity": 50, "unique_codes": 1},
+    "limit": 5,
+    "status_filter": "pending",
+    "message": "Se extrajeron 1 órdenes recientes"
+  }
+  ```
+
+POST `/api/v1/orders/extract-with-activities`
+- **Auth**: `admin | planner`
+- Extrae datos de órdenes específicas y obtiene las actividades para cada código.
+- **Body**: `{"order_ids": [12345, 12346, 12347]}`
+- **Respuesta 200**:
+  ```json
+  {
+    "extracted_orders": [{"lote": 12345, "quantity": 100, "code": "PROD-001"}],
+    "summary": {"total_orders": 1, "total_quantity": 100, "unique_codes": 1},
+    "activities_data": {
+      "activities_by_code": {
+        "PROD-001": {
+          "code": "PROD-001",
+          "activities": [
+            {
+              "id": "uuid1",
+              "activity": "FABRICACION",
+              "description": "Producto 1 - Fabricación",
+              "unit": "pieza",
+              "type": "tipo1",
+              "quantity": "100",
+              "time": 60.0,
+              "people": 2,
+              "performance": 100.0,
+              "material": "material1",
+              "presentation": "presentacion1",
+              "fabricationCode": "FAB-001",
+              "usefulLife": "12"
+            }
+          ],
+          "total_activities": 1,
+          "found": true
+        }
+      },
+      "total_codes_processed": 1,
+      "codes_processed": ["PROD-001"]
+    },
+    "requested_lotes": [12345, 12346, 12347],
+    "found_lotes": [12345],
+    "missing_lotes": [12346, 12347]
+  }
+  ```
+
+GET `/api/v1/orders/extract-recent-with-activities`
+- **Auth**: `admin | planner`
+- Extrae datos de las órdenes más recientes y obtiene las actividades para cada código.
+- **Query**:
+  - `limit`: int (1-100, default 10)
+  - `status`: `pending|programada|in_progress|completed` (opcional)
+- **Respuesta 200**:
+  ```json
+  {
+    "extracted_orders": [{"lote": 12350, "quantity": 50, "code": "PROD-005"}],
+    "summary": {"total_orders": 1, "total_quantity": 50, "unique_codes": 1},
+    "activities_data": {
+      "activities_by_code": {
+        "PROD-005": {
+          "code": "PROD-005",
+          "activities": [
+            {
+              "id": "uuid3",
+              "activity": "FABRICACION",
+              "description": "Producto 5 - Fabricación",
+              "unit": "kg",
+              "type": "tipo2",
+              "quantity": "50",
+              "time": 45.0,
+              "people": 3,
+              "performance": 95.0,
+              "material": "material3",
+              "presentation": "presentacion3",
+              "fabricationCode": "FAB-005",
+              "usefulLife": "6"
+            }
+          ],
+          "total_activities": 1,
+          "found": true
+        }
+      },
+      "total_codes_processed": 1,
+      "codes_processed": ["PROD-005"]
+    },
+    "limit": 5,
+    "status_filter": "pending",
+    "message": "Se extrajeron 1 órdenes recientes con sus actividades"
   }
   ```
 
@@ -755,3 +911,304 @@ curl -X POST "http://localhost:8000/programmings/team/123e4567-e89b-12d3-a456-42
 - Si no hay programaciones previas, crea una para mañana
 - Verifica que no exista ya una programación para esa fecha
 - Crea la nueva programación con estado 'available'
+
+---
+
+## Nuevos Endpoints de Equipos de Pesado
+
+### Obtener Equipo Más Idóneo para Pesado
+
+**Endpoint:** `GET /api/v1/orders/weighing/most-suitable-team`
+
+**Descripción:** Obtiene el equipo más idóneo para actividades de pesado.
+
+**Permisos requeridos:**
+- Usuarios con rol `admin`, `planner`, `supervisor`, o `user`
+
+**Respuesta exitosa (200):**
+```json
+{
+  "success": true,
+  "message": "Equipo más idóneo para pesado encontrado: Pesado Principal",
+  "weighing_teams": [
+    {
+      "id": "team1",
+      "name": "Pesado Principal",
+      "is_most_suitable": true
+    },
+    {
+      "id": "team2",
+      "name": "Pesado 1",
+      "is_most_suitable": false
+    }
+  ],
+  "most_suitable_team": {
+    "id": "team1",
+    "name": "Pesado Principal",
+    "supervisor_id": "supervisor1"
+  },
+  "total_weighing_teams": 2
+}
+```
+
+**Respuestas de error:**
+- `500 Internal Server Error`: Error al obtener equipos de pesado
+
+**Ejemplo de uso:**
+```bash
+curl -X GET "http://localhost:8000/api/v1/orders/weighing/most-suitable-team" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+### Obtener Equipo Más Idóneo para Pesado (Endpoint de Equipos)
+
+**Endpoint:** `GET /api/v1/teams/weighing/most-suitable`
+
+**Descripción:** Obtiene el equipo más idóneo para actividades de pesado desde el endpoint de equipos.
+
+**Permisos requeridos:**
+- Usuarios con rol `admin`, `planner`, `supervisor`, o `user`
+
+**Respuesta:** Misma estructura que el endpoint anterior
+
+**Ejemplo de uso:**
+```bash
+curl -X GET "http://localhost:8000/api/v1/teams/weighing/most-suitable" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+**Lógica de selección:**
+1. Busca equipos que contengan "pesado" en el nombre
+2. Prioridad: "pesado principal" > "pesado 1" > primer equipo con "pesado"
+3. Incluye ID, nombre y supervisor del equipo seleccionado
+
+---
+
+## Nuevos Endpoints de Equipos de Pesado con Programaciones
+
+### Obtener Equipo Más Idóneo para Pesado con Programaciones
+
+**Endpoint:** `GET /api/v1/orders/weighing/most-suitable-team-with-programmings`
+
+**Descripción:** Obtiene el equipo más idóneo para pesado junto con sus programaciones disponibles desde la fecha actual. Si no hay programaciones disponibles, crea automáticamente una nueva programación.
+
+**Permisos requeridos:**
+- Usuarios con rol `admin`, `planner`, `supervisor`, o `user`
+
+**Respuesta exitosa (200):**
+```json
+{
+  "success": true,
+  "message": "Equipo más idóneo para pesado y programaciones obtenidos exitosamente",
+  "team_data": {
+    "success": true,
+    "message": "Equipo más idóneo para pesado encontrado exitosamente",
+    "total_weighing_teams": 3,
+    "most_suitable_team": {
+      "id": 2,
+      "name": "pesado principal",
+      "supervisor_id": 5
+    }
+  },
+  "available_programmings": {
+    "success": true,
+    "message": "Programaciones disponibles obtenidas exitosamente",
+    "team_id": 2,
+    "team_name": "pesado principal",
+    "current_date": "2024-01-15",
+    "total_available_programmings": 1,
+    "programmings": [
+      {
+        "id": 10,
+        "date": "2024-01-16",
+        "status": "available",
+        "total_tasks": 0,
+        "is_newly_created": true
+      }
+    ]
+  }
+}
+```
+
+**Respuestas de error:**
+- `500 Internal Server Error`: Error al obtener equipo o programaciones
+
+**Ejemplo de uso:**
+```bash
+curl -X GET "http://localhost:8000/api/v1/orders/weighing/most-suitable-team-with-programmings" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+**Lógica:**
+1. Obtiene el equipo más idóneo para pesado
+2. Busca programaciones disponibles para ese equipo desde la fecha actual
+3. Si no hay programaciones disponibles:
+   - Obtiene la última programación del equipo
+   - Calcula la fecha para la nueva programación (un día después de la última)
+   - Evita domingos (pasa al lunes)
+   - Verifica que no exista ya una programación para esa fecha
+   - Crea una nueva programación con estado "available"
+4. Filtra por estado "available" y ordena por fecha
+
+---
+
+## Nuevos Endpoints de Verificación de Límite de Tiempo
+
+### Verificar Límite de Tiempo para Programación
+
+**Endpoint:** `POST /api/v1/orders/weighing/verify-time-limit`
+
+**Descripción:** Verifica que al agregar una tarea a una programación no se exceda el límite de tiempo (17:40) más de 5 minutos. Si la programación está vacía, crea automáticamente una tarea de preparación.
+
+**Permisos requeridos:**
+- Usuarios con rol `admin`, `planner`, `supervisor`, o `user`
+
+**Request Body:**
+```json
+{
+  "programmings": [
+    {
+      "id": "prog1",
+      "date": "2024-01-15",
+      "status": "available",
+      "team_id": "team1"
+    }
+  ],
+  "task_minutes": 60
+}
+```
+
+**Respuesta exitosa (200):**
+```json
+{
+  "success": true,
+  "message": "Programación seleccionada que cumple con límite de tiempo",
+  "selected_programming": {
+    "id": "prog1",
+    "date": "2024-01-15",
+    "team_id": "team1",
+    "team_name": "Pesado Principal",
+    "current_end_time": "16:20:00",
+    "task_minutes": 60,
+    "final_time": "17:20:00",
+    "time_limit": "17:40:00",
+    "tolerance_minutes": 5
+  },
+  "verification_details": {
+    "current_end_minutes": 980,
+    "final_minutes": 1040,
+    "max_allowed_minutes": 1065,
+    "within_limit": true
+  }
+}
+```
+
+**Nota:** Si la programación seleccionada estaba vacía, se crea automáticamente una tarea de preparación con:
+- Descripción: "REUNION Y PREPARACION DE AREA"
+- Horario: 7:00 - 7:10
+- Minutos: 10
+- Estado: "completed"
+
+**Respuestas de error:**
+- `400 Bad Request`: Datos de entrada inválidos
+- `500 Internal Server Error`: Error al verificar límite de tiempo
+
+**Ejemplo de uso:**
+```bash
+curl -X POST "http://localhost:8000/api/v1/orders/weighing/verify-time-limit" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "programmings": [
+      {
+        "id": "prog1",
+        "date": "2024-01-15",
+        "status": "available",
+        "team_id": "team1"
+      }
+    ],
+    "task_minutes": 60
+  }'
+```
+
+**Lógica de funcionamiento:**
+1. Define límite de tiempo: 17:40 + 5 minutos de tolerancia (17:45 máximo)
+2. Para cada programación en la lista:
+   - Obtiene la última tarea y su end_time
+   - Calcula el tiempo final si se agrega la nueva tarea
+   - Verifica si no excede el límite de 17:45
+   - Si cumple, retorna esa programación
+3. Si ninguna programación cumple, retorna error
+
+### Obtener Equipo con Verificación de Tiempo
+
+**Endpoint:** `POST /api/v1/orders/weighing/team-with-time-verification`
+
+**Descripción:** Obtiene el equipo más idóneo para pesado, sus programaciones disponibles y verifica el límite de tiempo.
+
+**Permisos requeridos:**
+- Usuarios con rol `admin`, `planner`, `supervisor`, o `user`
+
+**Request Body:**
+```json
+{
+  "task_minutes": 45
+}
+```
+
+**Respuesta exitosa (200):**
+```json
+{
+  "success": true,
+  "message": "Equipo idóneo, programaciones y verificación de tiempo obtenidos exitosamente",
+  "team_data": {
+    "success": true,
+    "message": "Equipo más idóneo para pesado encontrado exitosamente",
+    "total_weighing_teams": 3,
+    "most_suitable_team": {
+      "id": 2,
+      "name": "pesado principal",
+      "supervisor_id": 5
+    }
+  },
+  "available_programmings": {
+    "success": true,
+    "message": "Programaciones disponibles obtenidas exitosamente",
+    "team_id": 2,
+    "team_name": "pesado principal",
+    "current_date": "2024-01-15",
+    "total_available_programmings": 3,
+    "programmings": [...]
+  },
+  "time_verification": {
+    "success": true,
+    "message": "Programación seleccionada que cumple con límite de tiempo",
+    "selected_programming": {
+      "id": "prog1",
+      "date": "2024-01-15",
+      "team_name": "Pesado Principal",
+      "final_time": "17:05:00"
+    }
+  }
+}
+```
+
+**Respuestas de error:**
+- `400 Bad Request`: Datos de entrada inválidos
+- `500 Internal Server Error`: Error al obtener equipo o verificar tiempo
+
+**Ejemplo de uso:**
+```bash
+curl -X POST "http://localhost:8000/api/v1/orders/weighing/team-with-time-verification" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "task_minutes": 45
+  }'
+```
+
+**Lógica de funcionamiento:**
+1. Obtiene el equipo más idóneo para pesado
+2. Busca programaciones disponibles para ese equipo
+3. Verifica límite de tiempo para cada programación
+4. Retorna la primera programación que cumple con el límite de tiempo

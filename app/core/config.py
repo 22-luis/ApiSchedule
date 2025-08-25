@@ -67,8 +67,8 @@ class Settings(BaseSettings):
     DEFAULT_TIMEZONE: str = Field(default="America/El_Salvador", description="Zona horaria por defecto")
     
     # Configuración de horarios de trabajo
-    WORKING_HOURS_MONDAY_FRIDAY: str = Field(default="07:00-21:00", description="Horario L-V")
-    WORKING_HOURS_SATURDAY: str = Field(default="07:30-12:30", description="Horario Sábado")
+    WORKING_HOURS_MONDAY_FRIDAY: str = Field(default="07:00-16:00", description="Horario L-V")
+    WORKING_HOURS_SATURDAY: str = Field(default="07:30-11:30", description="Horario Sábado")
     WORKING_HOURS_SUNDAY: str = Field(default="00:00-00:00", description="Horario Domingo (no laboral)")
     
     @property

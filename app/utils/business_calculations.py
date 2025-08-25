@@ -188,11 +188,11 @@ class BusinessCalculations:
         """
         weekday = target_date.weekday()  # 0=Lunes, 6=Domingo
         
-        # Configuración de horas de trabajo
+        # Configuración de horas de trabajo actualizada
         if weekday == 5:  # Sábado
             start_hour = 7
             start_minute = 30
-            end_hour = 17
+            end_hour = 11
             end_minute = 30
             is_working_day = True
         elif weekday == 6:  # Domingo
@@ -204,7 +204,7 @@ class BusinessCalculations:
         else:  # Lunes a Viernes
             start_hour = 7
             start_minute = 0
-            end_hour = 17
+            end_hour = 16
             end_minute = 0
             is_working_day = True
         
