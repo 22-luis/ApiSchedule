@@ -16,10 +16,15 @@ from app.core.task_config import (
     extract_created_orders_data, 
     get_orders_summary
 )
-from app.services.weighing_task_service import WeighingTaskService
-from app.services.fabrication_task_service import FabricationTaskService
+from app.services.factory import TaskServiceFactory
 
 router = APIRouter(prefix="/orders", tags=["orders"])
+
+def get_task_services():
+    """Obtiene instancias de los servicios de tareas usando el factory"""
+    weighing_service = TaskServiceFactory.create_weighing_service()
+    fabrication_service = TaskServiceFactory.create_fabrication_service()
+    return weighing_service, fabrication_service
 
 @router.post("/")
 def create_orders(
@@ -66,13 +71,17 @@ def create_orders(
     
     # Obtener actividades para los códigos de las órdenes extraídas
     print(f"[DEBUG] create_orders: Obteniendo actividades para los códigos extraídos")
-    activities_data = WeighingTaskService.get_activities_for_orders(extracted_orders, db)
+    
+    # Obtener instancias de servicios usando el factory
+    weighing_service, fabrication_service = get_task_services()
+    
+    activities_data = weighing_service.get_activities_for_orders(extracted_orders, db)
     
     # Crear tareas de pesado para todas las órdenes usando el servicio
-    weighing_tasks_result = WeighingTaskService.create_weighing_tasks_for_orders(extracted_orders, db)
+    weighing_tasks_result = weighing_service.create_weighing_tasks_for_orders(extracted_orders, db)
     
     # Crear tareas de fabricación para todas las órdenes usando el servicio
-    fabrication_tasks_result = FabricationTaskService.create_fabrication_tasks_for_orders(extracted_orders, db)
+    fabrication_tasks_result = fabrication_service.create_fabrication_tasks_for_orders(extracted_orders, db)
     
     response_data = {
         "created_orders": extracted_orders,
@@ -484,7 +493,8 @@ def extract_orders_with_activities(
         summary = get_orders_summary(orders)
         
         # Obtener actividades para los códigos de las órdenes extraídas
-        activities_data = WeighingTaskService.get_activities_for_orders(extracted_orders, db)
+        weighing_service, _ = get_task_services()
+        activities_data = weighing_service.get_activities_for_orders(extracted_orders, db)
         
         response_data = {
             "extracted_orders": extracted_orders,
@@ -542,7 +552,8 @@ def extract_recent_orders_with_activities(
         summary = get_orders_summary(recent_orders)
         
         # Obtener actividades para los códigos de las órdenes extraídas
-        activities_data = WeighingTaskService.get_activities_for_orders(extracted_orders, db)
+        weighing_service, _ = get_task_services()
+        activities_data = weighing_service.get_activities_for_orders(extracted_orders, db)
         
         response_data = {
             "extracted_orders": extracted_orders,
@@ -592,8 +603,9 @@ def extract_orders_with_weighing_activities(
         summary = get_orders_summary(orders)
         
         # Obtener actividades de pesado para los códigos de las órdenes extraídas
-        all_activities = WeighingTaskService.get_activities_for_orders(extracted_orders, db)
-        weighing_activities = WeighingTaskService.filter_weighing_activities(all_activities)
+        weighing_service, _ = get_task_services()
+        all_activities = weighing_service.get_activities_for_orders(extracted_orders, db)
+        weighing_activities = weighing_service.filter_activities(all_activities)
         weighing_activities_data = {
             "all_activities": all_activities,
             "weighing_activities": weighing_activities,
@@ -661,8 +673,9 @@ def extract_recent_orders_with_weighing_activities(
         summary = get_orders_summary(recent_orders)
         
         # Obtener actividades de pesado para los códigos de las órdenes extraídas
-        all_activities = WeighingTaskService.get_activities_for_orders(extracted_orders, db)
-        weighing_activities = WeighingTaskService.filter_weighing_activities(all_activities)
+        weighing_service, _ = get_task_services()
+        all_activities = weighing_service.get_activities_for_orders(extracted_orders, db)
+        weighing_activities = weighing_service.filter_activities(all_activities)
         weighing_activities_data = {
             "all_activities": all_activities,
             "weighing_activities": weighing_activities,
@@ -717,8 +730,9 @@ def extract_orders_with_weighing_activities_details(
         summary = get_orders_summary(orders)
         
         # Obtener actividades de pesado con detalles para los códigos de las órdenes extraídas
-        all_activities = WeighingTaskService.get_activities_for_orders(extracted_orders, db)
-        weighing_activities = WeighingTaskService.filter_weighing_activities(all_activities)
+        weighing_service, _ = get_task_services()
+        all_activities = weighing_service.get_activities_for_orders(extracted_orders, db)
+        weighing_activities = weighing_service.filter_weighing_activities(all_activities)
         
         # Obtener detalles específicos para cada actividad de pesado
         weighing_activities_with_details = {}
@@ -731,7 +745,8 @@ def extract_orders_with_weighing_activities_details(
             for activity_data in weighing_activities_list:
                 activity_name = activity_data.get("activity")
                 if activity_name:
-                    activity_details = WeighingTaskService.get_activity_details_by_code_and_activity(code, activity_name, db)
+                    weighing_service, _ = get_task_services()
+                    activity_details = weighing_service.get_activity_details_by_code_and_activity(code, activity_name, db)
                     activities_with_details.append({
                         "activity_data": activity_data,
                         "activity_details": activity_details
@@ -860,7 +875,7 @@ def get_activity_details_for_code_and_activity(
         print(f"[DEBUG] get_activity_details_for_code_and_activity: Obteniendo detalles para código '{code}' y actividad '{activity}'")
         
         # Obtener detalles de la actividad específica
-        activity_details = WeighingTaskService.get_activity_details_by_code_and_activity(code, activity, db)
+        activity_details = weighing_service.get_activity_details_by_code_and_activity(code, activity, db)
         
         response_data = {
             "request": {"code": code, "activity": activity},
@@ -900,7 +915,7 @@ def calculate_minutes_for_activity(
         print(f"[DEBUG] calculate_minutes_for_activity: Calculando minutos para código '{code}', actividad '{activity}', cantidad {order_quantity}")
         
         # Obtener detalles de la actividad con cálculo de minutos
-        activity_details_result = WeighingTaskService.get_activity_details_by_code_and_activity(code, activity, db)
+        activity_details_result = weighing_service.get_activity_details_by_code_and_activity(code, activity, db)
         
         if not activity_details_result.get("success", False):
             activity_details_with_minutes = activity_details_result
@@ -909,7 +924,8 @@ def calculate_minutes_for_activity(
             performance = activity_details.get("performance")
             
             # Calcular minutos
-            calculated_minutes = WeighingTaskService.calculate_minutes_from_performance_and_quantity(performance, order_quantity)
+            weighing_service, _ = get_task_services()
+            calculated_minutes = weighing_service.calculate_minutes_from_performance_and_quantity(performance, order_quantity)
             
             # Calcular horas para mostrar en la fórmula
             hours_calculation = performance * order_quantity
@@ -975,7 +991,8 @@ def extract_orders_with_weighing_activities_minutes(
         summary = get_orders_summary(orders)
         
         # Obtener actividades de pesado con minutos calculados para los códigos de las órdenes extraídas
-        weighing_activities_with_minutes_data = WeighingTaskService.get_weighing_activities_with_minutes(extracted_orders, db)
+        weighing_service, _ = get_task_services()
+        weighing_activities_with_minutes_data = weighing_service.get_weighing_activities_with_minutes(extracted_orders, db)
         
         response_data = {
             "extracted_orders": extracted_orders,
@@ -1040,7 +1057,7 @@ def extract_recent_orders_with_weighing_activities_minutes(
         summary = get_orders_summary(recent_orders)
         
         # Obtener actividades de pesado con minutos calculados para los códigos de las órdenes extraídas
-        weighing_activities_with_minutes_data = WeighingTaskService.get_weighing_activities_with_minutes(extracted_orders, db)
+        weighing_activities_with_minutes_data = weighing_service.get_weighing_activities_with_minutes(extracted_orders, db)
         
         response_data = {
             "extracted_orders": extracted_orders,
@@ -1082,7 +1099,7 @@ def calculate_simple_minutes(
         print(f"[DEBUG] calculate_simple_minutes: Calculando minutos - performance={performance}, quantity={quantity}")
         
         # Calcular minutos
-        calculated_minutes = WeighingTaskService.calculate_minutes_from_performance_and_quantity(performance, quantity)
+        calculated_minutes = weighing_service.calculate_minutes_from_performance_and_quantity(performance, quantity)
         
         # Calcular horas para mostrar en la fórmula
         hours_calculation = performance * quantity
@@ -1120,7 +1137,8 @@ def get_most_suitable_weighing_team_endpoint(
     try:
         print(f"[DEBUG] get_most_suitable_weighing_team_endpoint: Iniciando búsqueda de equipo más idóneo para pesado")
         
-        result = WeighingTaskService.get_most_suitable_weighing_team(db)
+        weighing_service, _ = get_task_services()
+        result = weighing_service.get_most_suitable_weighing_team(db)
         
         print(f"[DEBUG] get_most_suitable_weighing_team_endpoint: Resultado obtenido - {result}")
         
@@ -1145,7 +1163,7 @@ def get_most_suitable_weighing_team_with_programmings_endpoint(
     try:
         print(f"[DEBUG] get_most_suitable_weighing_team_with_programmings_endpoint: Iniciando búsqueda de equipo y programaciones")
         
-        team_result = WeighingTaskService.get_most_suitable_weighing_team(db)
+        team_result = weighing_service.get_most_suitable_weighing_team(db)
         
         if not team_result.get("success", False):
             result = {
@@ -1156,7 +1174,8 @@ def get_most_suitable_weighing_team_with_programmings_endpoint(
             }
         else:
             team_id = team_result.get("most_suitable_team", {}).get("id")
-            available_programmings = WeighingTaskService.get_available_programmings_for_team(team_id, db)
+            weighing_service, _ = get_task_services()
+            available_programmings = weighing_service.get_available_programmings_for_team(team_id, db)
             
             result = {
                 "success": True,
@@ -1207,7 +1226,8 @@ def verify_programming_time_limit_endpoint(
         print(f"[DEBUG] verify_programming_time_limit_endpoint: Programaciones: {len(programmings)}")
         print(f"[DEBUG] verify_programming_time_limit_endpoint: Minutos de tarea: {task_minutes}")
         
-        result = WeighingTaskService.verify_programming_time_limit(programmings, task_minutes, db)
+        weighing_service, _ = get_task_services()
+        result = weighing_service.verify_programming_time_limit(programmings, task_minutes, db)
         
         print(f"[DEBUG] verify_programming_time_limit_endpoint: Resultado obtenido - {result}")
         
@@ -1242,7 +1262,7 @@ def get_most_suitable_weighing_team_with_time_verification_endpoint(
         print(f"[DEBUG] get_most_suitable_weighing_team_with_time_verification_endpoint: Iniciando búsqueda con verificación de tiempo")
         print(f"[DEBUG] get_most_suitable_weighing_team_with_time_verification_endpoint: Minutos de tarea: {task_minutes}")
         
-        team_result = WeighingTaskService.get_most_suitable_weighing_team(db)
+        team_result = weighing_service.get_most_suitable_weighing_team(db)
         
         if not team_result.get("success", False):
             result = {
@@ -1254,7 +1274,7 @@ def get_most_suitable_weighing_team_with_time_verification_endpoint(
             }
         else:
             team_id = team_result.get("most_suitable_team", {}).get("id")
-            available_programmings = WeighingTaskService.get_available_programmings_for_team(team_id, db)
+            available_programmings = weighing_service.get_available_programmings_for_team(team_id, db)
             
             if not available_programmings:
                 result = {
@@ -1265,7 +1285,7 @@ def get_most_suitable_weighing_team_with_time_verification_endpoint(
                     "time_verification": None
                 }
             else:
-                time_verification = WeighingTaskService.verify_programming_time_limit(available_programmings, task_minutes, db)
+                time_verification = weighing_service.verify_programming_time_limit(available_programmings, task_minutes, db)
                 
                 result = {
                     "success": True,
