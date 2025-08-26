@@ -10,6 +10,7 @@ from datetime import time
 import math
 
 from app.services.utils.programming_utils import ProgrammingUtils
+from app.utils.order_status_service import OrderStatusService
 
 
 class BaseTaskService(ABC):
@@ -373,6 +374,20 @@ class BaseTaskService(ABC):
                     )
                     if task_result.get("success"):
                         result["order_task_created"] = task_result.get("task_data")
+                        
+                        # Actualizar el estado de la orden a "programada" si la tarea se creó exitosamente
+                        try:
+                            # Obtener la tarea creada para actualizar el estado de la orden
+                            task_id = task_result.get("task_data", {}).get("task_id")
+                            if task_id:
+                                from app.models.task import Task
+                                task_obj = db.query(Task).filter(Task.id == task_id).first()
+                                if task_obj:
+                                    OrderStatusService.update_order_status_for_task_creation(db, task_obj)
+                        except Exception as e:
+                            # Si hay un error al actualizar el estado, no fallar la creación de la tarea
+                            # Solo registrar el error en el resultado
+                            result["order_status_update_error"] = str(e)
                 
                 # Agregar información sobre la tarea de preparación si se creó
                 if preparation_task_created:
