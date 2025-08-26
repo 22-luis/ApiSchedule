@@ -1,6 +1,3 @@
-"""
-Servicio para la creación y gestión de tareas de fabricación cuando se agregan órdenes.
-"""
 from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta, time, date

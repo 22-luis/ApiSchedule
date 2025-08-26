@@ -13,6 +13,16 @@ Authorization: Bearer <token>
 - **Estados de usuario (`UserState`)**: `active`, `inactive`
 - **Estados de orden (`OrderStatus`)**: `pending`, `programada`, `in_progress`, `completed`
 
+### Configuraciones del sistema
+- **Horarios laborales**: 
+  - Lunes a viernes: 7:00 - 16:00
+  - Sábado: 7:30 - 11:30
+  - Domingo: No laboral
+- **Límites de programación**:
+  - Actividades por defecto: 14:40
+  - Actividades de pesado: 17:40
+- **Tareas obligatorias**: Reunión y preparación, almuerzo, limpieza
+
 Notas:
 - Algunas rutas devuelven objetos serializados manualmente. Los campos tipo enum normalmente se devuelven como string.
 - Fechas/horas deben ir en ISO 8601 salvo que se indique lo contrario.
@@ -1263,3 +1273,43 @@ curl -X POST "http://localhost:8000/api/v1/orders/weighing/team-with-time-verifi
 2. Busca programaciones disponibles para ese equipo
 3. Verifica límite de tiempo para cada programación
 4. Retorna la primera programación que cumple con el límite de tiempo
+
+---
+
+## Servicios Especializados
+
+### Servicio de Pesado (WeighingTaskService)
+
+El sistema incluye un servicio especializado para manejar tareas de pesado con las siguientes funcionalidades:
+
+- **Obtención de equipos de pesado**: Identifica automáticamente el equipo más idóneo para actividades de pesado
+- **Cálculo de tiempos**: Calcula automáticamente la duración de tareas basándose en productividad y cantidad
+- **Verificación de límites**: Asegura que las tareas no excedan los límites de tiempo establecidos
+- **Creación automática de tareas**: Genera tareas de pesado con todos los parámetros necesarios
+
+### Servicio de Fabricación (FabricationTaskService)
+
+Servicio especializado para manejar tareas de fabricación con funcionalidades similares:
+
+- **Identificación de equipos de fabricación**: Molino, Fabricado 1, 2, 3
+- **Actividades de fabricación**: Molienda en pasta, molienda en polvo, mezclas, fabricación de aderezos
+- **Gestión de programaciones**: Manejo automático de programaciones para equipos de fabricación
+- **Cálculos de productividad**: Cálculo automático de tiempos basado en rendimiento
+
+### Configuración de Tareas (task_config.py)
+
+Archivo central de configuración que incluye:
+
+- **Enums de equipos**: Definición de equipos por tipo (pesado, fabricación, empaque)
+- **Enums de actividades**: Actividades específicas por tipo de equipo
+- **Horarios laborales**: Configuración de horarios por día de la semana
+- **Límites de programación**: Tiempos máximos por tipo de actividad
+- **Tareas obligatorias**: Configuración de tareas que deben incluirse en todas las programaciones
+
+### Funciones de Compatibilidad
+
+El sistema incluye funciones de compatibilidad que permiten:
+
+- **Redirección a servicios**: Las funciones en `task_config.py` redirigen automáticamente a los servicios especializados
+- **Mantenimiento de API**: Permite mantener la API existente mientras se migra a servicios especializados
+- **Flexibilidad**: Facilita la transición entre diferentes implementaciones

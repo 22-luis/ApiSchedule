@@ -10,6 +10,8 @@ API para optimización de programación y asignación de tareas en producción d
 - **Programación de Tareas**: Asignación inteligente de tareas a equipos
 - **Cálculos de Negocio**: Centralización de fórmulas y cálculos de productividad
 - **Sistema de Horarios**: Gestión de horarios de trabajo y zonas horarias
+- **Servicios Especializados**: Servicios dedicados para pesado y fabricación
+- **Configuración Centralizada**: Sistema de configuración unificado para tareas y horarios
 
 ## Seguridad y Configuración
 
@@ -237,6 +239,39 @@ En producción, todos los logs se generan en formato JSON para facilitar el aná
   "duration": 0.123,
   "user_id": "user-hash"
 }
+```
+
+## Estructura de Tests
+
+### Tests Organizados
+Los tests están organizados en el directorio `app/tests/`:
+- `test_auth.py` - Tests de autenticación
+- `test_users.py` - Tests de gestión de usuarios
+- `test_teams.py` - Tests de gestión de equipos
+- `test_orders.py` - Tests de gestión de órdenes
+- `test_tasks.py` - Tests de gestión de tareas
+- `test_programming.py` - Tests de programación
+- `test_utils.py` - Tests de utilidades
+- `test_programming_availability.py` - Tests de disponibilidad de programación
+
+### Scripts de Utilidad
+- `quick_test.py` - Verificación rápida del servidor
+- `find_available_lotes.py` - Búsqueda de lotes disponibles para pruebas
+- `run_tests.py` - Ejecutor de tests con configuración personalizada
+
+### Ejecución de Tests
+```bash
+# Ejecutar todos los tests
+pytest
+
+# Ejecutar tests específicos
+pytest app/tests/test_orders.py
+
+# Ejecutar con cobertura
+pytest --cov=app
+
+# Verificación rápida del servidor
+python quick_test.py
 ```
 
 ## Contribución
