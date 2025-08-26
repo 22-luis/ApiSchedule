@@ -13,6 +13,29 @@ API para optimización de programación y asignación de tareas en producción d
 - **Servicios Especializados**: Servicios dedicados para pesado y fabricación
 - **Configuración Centralizada**: Sistema de configuración unificado para tareas y horarios
 
+## 🚀 Nuevas Funcionalidades Automáticas
+
+### **Tarea de Preparación Automática**
+- ✅ Se crea automáticamente "REUNION Y PREPARACION DE AREA" cuando una programación está vacía
+- ✅ Horario fijo: 07:00 - 07:10 (10 minutos)
+- ✅ Siempre es la primera tarea en la programación
+- ✅ Campos limpios: solo información esencial
+
+### **Actualización Automática de Estados**
+- ✅ Las órdenes cambian automáticamente de "pendiente" a "programada" cuando se crean tareas
+- ✅ Flujo completo: Pendiente → Programada → En Progreso → Completada
+- ✅ Trazabilidad completa del proceso de producción
+
+### **Cálculo Inteligente de Minutos**
+- ✅ Sistema que usa performance (horas × cantidad × 60) o tiempo directo
+- ✅ Cálculo automático basado en la actividad específica
+- ✅ Manejo de casos edge con valores por defecto
+
+### **Selección Automática de Equipos**
+- ✅ Lógica inteligente para asignar el equipo más idóneo
+- ✅ Reglas específicas: Mezcla → Fabricado 1, Molino → Molino, etc.
+- ✅ Optimización automática de recursos
+
 ## Seguridad y Configuración
 
 - **Configuración basada en Pydantic Settings** con validación automática
@@ -40,7 +63,7 @@ API para optimización de programación y asignación de tareas en producción d
 ### 1. Clonar el repositorio
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/22-luis/ApiSchedule
 cd ApiSchedule
 ```
 
@@ -254,10 +277,19 @@ Los tests están organizados en el directorio `app/tests/`:
 - `test_utils.py` - Tests de utilidades
 - `test_programming_availability.py` - Tests de disponibilidad de programación
 
+### Tests de Servicios Refactorizados
+- `test_base_task_service.py` - Tests de la clase base abstracta
+- `test_weighing_task_service.py` - Tests del servicio de pesado
+- `test_fabrication_task_service.py` - Tests del servicio de fabricación
+- `test_factory.py` - Tests del factory pattern
+- `test_programming_utils.py` - Tests de utilidades de programación
+- `test_team_selection_service.py` - Tests de selección de equipos
+
 ### Scripts de Utilidad
 - `quick_test.py` - Verificación rápida del servidor
 - `find_available_lotes.py` - Búsqueda de lotes disponibles para pruebas
 - `run_tests.py` - Ejecutor de tests con configuración personalizada
+- `validation_script.py` - Validación completa de servicios refactorizados
 
 ### Ejecución de Tests
 ```bash

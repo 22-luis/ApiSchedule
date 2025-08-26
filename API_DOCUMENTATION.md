@@ -23,6 +23,18 @@ Authorization: Bearer <token>
   - Actividades de pesado: 17:40
 - **Tareas obligatorias**: Reunión y preparación, almuerzo, limpieza
 
+### Servicios Especializados
+- **Servicios de Tareas Refactorizados**:
+  - `WeighingTaskService`: Manejo de tareas de pesado con límite de 17:40
+  - `FabricationTaskService`: Manejo de tareas de fabricación con límite de 14:40
+  - `BaseTaskService`: Clase base abstracta para todos los servicios de tareas
+  - `TaskServiceFactory`: Factory pattern para crear instancias de servicios
+- **Funcionalidades Automáticas**:
+  - **Tarea de Preparación**: Se crea automáticamente cuando una programación está vacía
+  - **Actualización de Estado**: Las órdenes cambian automáticamente a "programada" cuando se crean tareas
+  - **Cálculo de Minutos**: Sistema inteligente que usa performance o tiempo directo
+  - **Selección de Equipos**: Lógica automática para asignar el equipo más idóneo
+
 Notas:
 - Algunas rutas devuelven objetos serializados manualmente. Los campos tipo enum normalmente se devuelven como string.
 - Fechas/horas deben ir en ISO 8601 salvo que se indique lo contrario.
@@ -177,6 +189,12 @@ GET `/api/v1/teams/{team_id}`
 POST `/api/v1/orders/`
 - **Auth**: `admin | planner`
 - Acepta un objeto `OrderCreate` o una lista de `OrderCreate`.
+- **Funcionalidades Automáticas**:
+  - ✅ **Creación de Tareas Automática**: Crea automáticamente tareas de pesado y fabricación
+  - ✅ **Tarea de Preparación**: Agrega "REUNION Y PREPARACION DE AREA" si la programación está vacía
+  - ✅ **Actualización de Estado**: Cambia automáticamente el estado de la orden a "programada"
+  - ✅ **Selección de Equipos**: Asigna automáticamente el equipo más idóneo
+  - ✅ **Cálculo de Minutos**: Calcula tiempo basado en performance o tiempo directo
 - **Body (`OrderCreate`)**:
   - `lote`: int
   - `code`: string
@@ -218,7 +236,122 @@ POST `/api/v1/orders/`
       "total_codes_processed": 1,
       "codes_processed": ["PROD-001"]
     },
-    "message": "Se crearon 1 órdenes exitosamente con sus actividades"
+    "weighing_tasks_result": {
+      "success": true,
+      "message": "Procesamiento completado. 1 tareas creadas de 1 órdenes",
+      "tasks_created": 1,
+      "total_orders": 1,
+      "created_tasks": [
+        {
+          "order_data": {"lote": 123, "quantity": 100, "code": "PROD-001"},
+          "selected_programming": {
+            "id": "uuid-programming",
+            "date": "2025-01-15",
+            "team_id": "uuid-team",
+            "team_name": "Pesado",
+            "task_minutes": 113,
+            "time_limit": "17:40:00",
+            "tolerance_minutes": 5,
+            "current_tasks": 0,
+            "current_end_minutes": 420,
+            "final_minutes": 533
+          },
+          "order_task": {
+            "task_id": "uuid-task",
+            "programming_id": "uuid-programming",
+            "order": 1,
+            "start_time": "2025-01-15T07:00:00",
+            "end_time": "2025-01-15T08:53:00",
+            "minutes": 113,
+            "description": "Producto 1 - Fabricación",
+            "lote": "123",
+            "quantity": 100
+          }
+        }
+      ],
+      "failed_orders": [],
+      "team_data": {
+        "id": "uuid-team",
+        "name": "Pesado",
+        "supervisor_id": "uuid-supervisor"
+      },
+      "activities_data": {
+        "weighing_activities_by_code": {
+          "PROD-001": {
+            "code": "PROD-001",
+            "weighing_activities": [...],
+            "total_weighing_activities": 1,
+            "found": true
+          }
+        },
+        "total_codes_with_weighing": 1,
+        "codes_with_weighing": ["PROD-001"]
+      }
+    },
+    "fabrication_tasks_result": {
+      "success": true,
+      "message": "Procesamiento completado. 1 tareas creadas de 1 órdenes",
+      "tasks_created": 1,
+      "total_orders": 1,
+      "created_tasks": [
+        {
+          "order_data": {"lote": 123, "quantity": 100, "code": "PROD-001"},
+          "selected_programming": {
+            "id": "uuid-programming",
+            "date": "2025-01-15",
+            "team_id": "uuid-team",
+            "team_name": "Fabricado 1",
+            "task_minutes": 40,
+            "time_limit": "14:40:00",
+            "tolerance_minutes": 5,
+            "current_tasks": 0,
+            "current_end_minutes": 420,
+            "final_minutes": 460
+          },
+          "order_task": {
+            "task_id": "uuid-task",
+            "programming_id": "uuid-programming",
+            "order": 1,
+            "start_time": "2025-01-15T07:00:00",
+            "end_time": "2025-01-15T07:40:00",
+            "minutes": 40,
+            "description": "Producto 1 - Fabricación",
+            "lote": "123",
+            "quantity": 100
+          },
+          "team_selection": {
+            "success": true,
+            "selected_team": {
+              "id": "uuid-team",
+              "name": "Fabricado 1",
+              "type": "fabricado1"
+            },
+            "reason": "Actividad de mezcla: MEZCLA EN MAQUINA",
+            "rule_applied": "mezcla_fabricado1"
+          }
+        }
+      ],
+      "failed_orders": [],
+      "teams_data": {
+        "success": true,
+        "message": "Equipos de fabricación encontrados: 4 equipos",
+        "fabrication_teams": [...],
+        "total_fabrication_teams": 4
+      },
+      "activities_data": {
+        "fabrication_activities_by_code": {
+          "PROD-001": {
+            "code": "PROD-001",
+            "fabrication_activities": [...],
+            "total_fabrication_activities": 2,
+            "found": true
+          }
+        },
+        "total_codes_with_fabrication": 1,
+        "codes_with_fabrication": ["PROD-001"]
+      }
+    },
+    "message": "Se crearon 1 órdenes exitosamente. 1 tareas de pesado y 1 tareas de fabricación creadas."
   }
   ```
 
