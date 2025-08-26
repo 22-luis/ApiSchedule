@@ -17,6 +17,7 @@ from app.core.task_config import (
     get_orders_summary
 )
 from app.services.weighing_task_service import WeighingTaskService
+from app.services.fabrication_task_service import FabricationTaskService
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
@@ -70,12 +71,16 @@ def create_orders(
     # Crear tareas de pesado para todas las órdenes usando el servicio
     weighing_tasks_result = WeighingTaskService.create_weighing_tasks_for_orders(extracted_orders, db)
     
+    # Crear tareas de fabricación para todas las órdenes usando el servicio
+    fabrication_tasks_result = FabricationTaskService.create_fabrication_tasks_for_orders(extracted_orders, db)
+    
     response_data = {
         "created_orders": extracted_orders,
         "summary": summary,
         "activities_data": activities_data,
         "weighing_tasks_result": weighing_tasks_result,
-        "message": f"Se crearon {len(created_orders)} órdenes exitosamente. {weighing_tasks_result.get('tasks_created', 0)} tareas de pesado creadas."
+        "fabrication_tasks_result": fabrication_tasks_result,
+        "message": f"Se crearon {len(created_orders)} órdenes exitosamente. {weighing_tasks_result.get('tasks_created', 0)} tareas de pesado y {fabrication_tasks_result.get('tasks_created', 0)} tareas de fabricación creadas."
     }
     
     print(f"[DEBUG] create_orders: Respuesta final - {response_data}")

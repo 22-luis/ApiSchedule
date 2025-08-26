@@ -495,4 +495,261 @@ def create_single_weighing_task(order_data: dict, task_minutes: int, activity_de
             "message": f"Programación seleccionada pero no se pudo crear la tarea para orden {order_data.get('lote')}",
             "order_data": order_data,
             "selected_programming": time_verification_data.get("selected_programming")
+        }
+
+# ============================================================================
+# FUNCIONES DE COMPATIBILIDAD PARA EL SERVICIO DE FABRICACIÓN
+# ============================================================================
+
+def get_fabrication_activities_by_code(code: str, db) -> dict:
+    """Redirige al servicio de fabricación"""
+    from app.services.fabrication_task_service import FabricationTaskService
+    return FabricationTaskService.get_activities_by_code(code, db)
+
+def get_fabrication_activities_for_extracted_orders(extracted_orders: list, db) -> dict:
+    """Redirige al servicio de fabricación"""
+    from app.services.fabrication_task_service import FabricationTaskService
+    return FabricationTaskService.get_activities_for_orders(extracted_orders, db)
+
+def get_fabrication_activities_for_orders(extracted_orders: list, db) -> dict:
+    """Redirige al servicio de fabricación"""
+    from app.services.fabrication_task_service import FabricationTaskService
+    all_activities = FabricationTaskService.get_activities_for_orders(extracted_orders, db)
+    fabrication_activities = FabricationTaskService.filter_fabrication_activities(all_activities)
+    return {
+        "all_activities": all_activities,
+        "fabrication_activities": fabrication_activities,
+        "total_orders_processed": len(extracted_orders)
+    }
+
+def get_fabrication_activities_with_details(extracted_orders: list, db) -> dict:
+    """Redirige al servicio de fabricación"""
+    from app.services.fabrication_task_service import FabricationTaskService
+    all_activities = FabricationTaskService.get_activities_for_orders(extracted_orders, db)
+    fabrication_activities = FabricationTaskService.filter_fabrication_activities(all_activities)
+    
+    # Obtener detalles específicos para cada actividad de fabricación
+    fabrication_activities_with_details = {}
+    fabrication_activities_by_code = fabrication_activities.get("fabrication_activities_by_code", {})
+    
+    for code, code_data in fabrication_activities_by_code.items():
+        fabrication_activities_list = code_data.get("fabrication_activities", [])
+        activities_with_details = []
+        
+        for activity_data in fabrication_activities_list:
+            activity_name = activity_data.get("activity")
+            if activity_name:
+                activity_details = FabricationTaskService.get_activity_details_by_code_and_activity(code, activity_name, db)
+                activities_with_details.append({
+                    "activity_data": activity_data,
+                    "activity_details": activity_details
+                })
+        
+        if activities_with_details:
+            fabrication_activities_with_details[code] = {
+                "code": code,
+                "fabrication_activities_with_details": activities_with_details,
+                "total_fabrication_activities": len(activities_with_details),
+                "found": True
+            }
+    
+    return {
+        "all_activities": all_activities,
+        "fabrication_activities": fabrication_activities,
+        "fabrication_activities_with_details": {
+            "fabrication_activities_with_details_by_code": fabrication_activities_with_details,
+            "total_codes_with_fabrication_details": len(fabrication_activities_with_details),
+            "codes_with_fabrication_details": list(fabrication_activities_with_details.keys())
+        },
+        "total_orders_processed": len(extracted_orders)
+    }
+
+def get_fabrication_activity_details_by_code_and_activity(code: str, activity: str, db) -> dict:
+    """Redirige al servicio de fabricación"""
+    from app.services.fabrication_task_service import FabricationTaskService
+    return FabricationTaskService.get_activity_details_by_code_and_activity(code, activity, db)
+
+def get_fabrication_activity_details_with_minutes_calculation(code: str, activity: str, order_quantity: int, db) -> dict:
+    """Redirige al servicio de fabricación"""
+    from app.services.fabrication_task_service import FabricationTaskService
+    activity_details_result = FabricationTaskService.get_activity_details_by_code_and_activity(code, activity, db)
+    
+    if not activity_details_result.get("success", False):
+        return activity_details_result
+    
+    activity_details = activity_details_result.get("activity_details", {})
+    performance = activity_details.get("performance")
+    
+    # Calcular minutos
+    calculated_minutes = FabricationTaskService.calculate_minutes_from_performance_and_quantity(performance, order_quantity)
+    
+    # Calcular horas para mostrar en la fórmula
+    hours_calculation = performance * order_quantity
+    
+    return {
+        "success": True,
+        "code": code,
+        "activity": activity,
+        "order_quantity": order_quantity,
+        "activity_details": activity_details,
+        "minutes_calculation": {
+            "performance": performance,
+            "quantity": order_quantity,
+            "hours_calculation": hours_calculation,
+            "calculated_minutes": calculated_minutes,
+            "formula": f"{performance} horas * {order_quantity} = {hours_calculation} horas * 60 = {calculated_minutes} minutos (con ceiling)"
+        },
+        "message": f"Datos obtenidos y minutos calculados para código '{code}' y actividad '{activity}'"
+    }
+
+def get_fabrication_activities_with_minutes_calculation(extracted_orders: list, db) -> dict:
+    """Redirige al servicio de fabricación"""
+    from app.services.fabrication_task_service import FabricationTaskService
+    return FabricationTaskService.get_fabrication_activities_with_minutes(extracted_orders, db)
+
+def calculate_fabrication_minutes_from_performance_and_quantity(performance: float, quantity: int) -> int:
+    """Redirige al servicio de fabricación"""
+    from app.services.fabrication_task_service import FabricationTaskService
+    return FabricationTaskService.calculate_minutes_from_performance_and_quantity(performance, quantity)
+
+def get_most_suitable_fabrication_team(db) -> dict:
+    """Redirige al servicio de fabricación"""
+    from app.services.fabrication_task_service import FabricationTaskService
+    return FabricationTaskService.get_most_suitable_fabrication_team(db)
+
+def get_most_suitable_fabrication_team_with_available_programmings(db) -> dict:
+    """Redirige al servicio de fabricación"""
+    from app.services.fabrication_task_service import FabricationTaskService
+    team_result = FabricationTaskService.get_most_suitable_fabrication_team(db)
+    
+    if not team_result.get("success", False):
+        return {
+            "success": False,
+            "message": "No se pudo obtener equipo idóneo para fabricación",
+            "team_data": team_result,
+            "available_programmings": []
+        }
+    
+    team_id = team_result.get("most_suitable_team", {}).get("id")
+    available_programmings = FabricationTaskService.get_available_programmings_for_team(team_id, db)
+    
+    return {
+        "success": True,
+        "message": f"Equipo idóneo y programaciones obtenidas exitosamente",
+        "team_data": team_result,
+        "available_programmings": {
+            "success": True,
+            "message": "Programaciones disponibles obtenidas exitosamente",
+            "team_id": team_id,
+            "team_name": team_result.get("most_suitable_team", {}).get("name"),
+            "programmings": available_programmings,
+            "total_available_programmings": len(available_programmings)
+        }
+    }
+
+def verify_fabrication_programming_time_limit_simple(programmings: list, task_minutes: int, db, order_data: dict = None, activity_details: dict = None) -> dict:
+    """Redirige al servicio de fabricación"""
+    from app.services.fabrication_task_service import FabricationTaskService
+    return FabricationTaskService.verify_programming_time_limit(programmings, task_minutes, db, order_data, activity_details)
+
+def get_most_suitable_fabrication_team_with_time_verification(db, task_minutes: int) -> dict:
+    """Redirige al servicio de fabricación"""
+    from app.services.fabrication_task_service import FabricationTaskService
+    team_result = FabricationTaskService.get_most_suitable_fabrication_team(db)
+    
+    if not team_result.get("success", False):
+        return {
+            "success": False,
+            "message": "No se pudo obtener equipo idóneo y programaciones",
+            "team_data": None,
+            "available_programmings": None,
+            "time_verification": None
+        }
+    
+    team_id = team_result.get("most_suitable_team", {}).get("id")
+    available_programmings = FabricationTaskService.get_available_programmings_for_team(team_id, db)
+    
+    if not available_programmings:
+        return {
+            "success": False,
+            "message": "No hay programaciones disponibles para verificar",
+            "team_data": team_result,
+            "available_programmings": None,
+            "time_verification": None
+        }
+    
+    time_verification = FabricationTaskService.verify_programming_time_limit(available_programmings, task_minutes, db)
+    
+    return {
+        "success": True,
+        "message": "Equipo idóneo, programaciones y verificación de tiempo obtenidos exitosamente",
+        "team_data": team_result,
+        "available_programmings": {
+            "success": True,
+            "programmings": available_programmings,
+            "total_available_programmings": len(available_programmings)
+        },
+        "time_verification": time_verification
+    }
+
+def create_fabrication_task_for_order(extracted_orders: list, db) -> dict:
+    """Redirige al servicio de fabricación"""
+    from app.services.fabrication_task_service import FabricationTaskService
+    return FabricationTaskService.create_fabrication_tasks_for_orders(extracted_orders, db)
+
+def create_fabrication_tasks_for_multiple_orders(extracted_orders: list, db) -> dict:
+    """Redirige al servicio de fabricación"""
+    from app.services.fabrication_task_service import FabricationTaskService
+    return FabricationTaskService.create_fabrication_tasks_for_orders(extracted_orders, db)
+
+def get_most_suitable_fabrication_team_with_available_programmings_sorted(db) -> dict:
+    """Redirige al servicio de fabricación"""
+    return get_most_suitable_fabrication_team_with_available_programmings(db)
+
+def get_fabrication_activity_for_order(order_data: dict, fabrication_activities_with_minutes_data: dict) -> dict:
+    """Redirige al servicio de fabricación"""
+    from app.services.fabrication_task_service import FabricationTaskService
+    return FabricationTaskService._get_fabrication_activity_for_order(order_data, fabrication_activities_with_minutes_data)
+
+def update_fabrication_programming_list_after_task_creation(programming_id: str, task_minutes: int, db) -> list:
+    """Redirige al servicio de fabricación"""
+    from app.services.fabrication_task_service import FabricationTaskService
+    team_result = FabricationTaskService.get_most_suitable_fabrication_team(db)
+    if not team_result.get("success"):
+        return []
+    
+    team_id = team_result.get("most_suitable_team", {}).get("id")
+    if not team_id:
+        return []
+    
+    return FabricationTaskService.get_available_programmings_for_team(team_id, db)
+
+def create_single_fabrication_task(order_data: dict, task_minutes: int, activity_details: dict, available_programmings: list, db) -> dict:
+    """Redirige al servicio de fabricación"""
+    from app.services.fabrication_task_service import FabricationTaskService
+    time_verification_data = FabricationTaskService.verify_programming_time_limit(
+        available_programmings, task_minutes, db, order_data, activity_details
+    )
+    
+    if not time_verification_data.get("success"):
+        return {
+            "success": False,
+            "message": f"No se pudo encontrar una programación adecuada para la orden {order_data.get('lote')}",
+            "order_data": order_data
+        }
+    
+    if time_verification_data.get("order_task_created"):
+        return {
+            "success": True,
+            "message": f"Tarea de fabricación creada exitosamente para orden {order_data.get('lote')}",
+            "order_data": order_data,
+            "selected_programming": time_verification_data.get("selected_programming"),
+            "order_task": time_verification_data.get("order_task_created")
+        }
+    else:
+        return {
+            "success": False,
+            "message": f"Programación seleccionada pero no se pudo crear la tarea para orden {order_data.get('lote')}",
+            "order_data": order_data,
+            "selected_programming": time_verification_data.get("selected_programming")
         } 
