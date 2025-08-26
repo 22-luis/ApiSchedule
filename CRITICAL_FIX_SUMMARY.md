@@ -101,6 +101,31 @@ def get_task_services():
 - ✅ **CRÍTICO: Actualizado `fabrication_task_service_refactored.py`** - Ahora define `hours_calculation = 0` para tiempo directo
 - ✅ **CRÍTICO: Lógica consistente** - Todos los casos ahora definen correctamente la variable `hours_calculation`
 
+### **Paso 9: Implementación de Tarea de Preparación**
+- ✅ **NUEVA FUNCIONALIDAD: Tarea de preparación automática** - Se agrega automáticamente cuando la programación está vacía
+- ✅ **CRÍTICO: Agregado método `create_preparation_task`** - Crea tarea "REUNION Y PREPARACION DE AREA" con 10 minutos
+- ✅ **CRÍTICO: Modificado `verify_programming_time_limit`** - Detecta programaciones vacías y agrega tarea de preparación
+- ✅ **CRÍTICO: Lógica de ordenamiento** - La tarea de preparación se agrega como orden 1, las demás tareas siguen secuencialmente
+- ✅ **CRÍTICO: Aplicable a ambos servicios** - Funciona tanto para pesado como para fabricación
+
+### **Paso 10: Corrección de Estructura de Tarea de Preparación**
+- ✅ **CRÍTICO: Corregido error de estructura de base de datos** - La tarea de preparación no se estaba creando correctamente
+- ✅ **CRÍTICO: Actualizado `create_preparation_task`** - Ahora crea primero un objeto `Task` y luego lo asocia con `ProgrammingTask`
+- ✅ **CRÍTICO: Estructura consistente** - Sigue la misma estructura que `ProgrammingUtils.create_order_task`
+- ✅ **CRÍTICO: Campos completos** - Incluye todos los campos necesarios para la tarea de preparación
+
+### **Paso 11: Corrección de Lógica de Detección de Programación Vacía**
+- ✅ **CRÍTICO: Corregido error en `calculate_current_programming_time`** - Retornaba 420 minutos en lugar de 0 para programaciones vacías
+- ✅ **CRÍTICO: Actualizado `ProgrammingUtils.calculate_current_programming_time`** - Ahora retorna 0 para programaciones completamente vacías
+- ✅ **CRÍTICO: Actualizado `ProgrammingUtils.create_order_task`** - Maneja correctamente el caso cuando `current_end_minutes` es 0
+- ✅ **CRÍTICO: Lógica de detección corregida** - Ahora detecta correctamente cuando una programación está vacía para agregar tarea de preparación
+
+### **Paso 12: Limpieza de Campos de Tarea de Preparación**
+- ✅ **MEJORA: Eliminados campos innecesarios de tarea de preparación** - PERSONAS, LOTE y CANTIDAD no son necesarios para tareas de preparación
+- ✅ **MEJORA: Actualizado `create_preparation_task`** - Ahora usa `None` para campos no aplicables
+- ✅ **MEJORA: Simplificada respuesta de tarea de preparación** - Solo incluye campos relevantes en el resultado
+- ✅ **MEJORA: Tarea de preparación más limpia** - Solo muestra información esencial: descripción, minutos, horarios
+
 ## ✅ **Verificación de la Corrección**
 
 ### **Test de Importación**:
@@ -144,6 +169,30 @@ python app/services/validation_script.py
 python app/services/validation_script.py
 ```
 **Resultado**: ✅ Exitoso - Variable no definida corregida completamente
+
+### **Test de Implementación de Tarea de Preparación**:
+```bash
+python app/services/validation_script.py
+```
+**Resultado**: ✅ Exitoso - Tarea de preparación implementada completamente
+
+### **Test de Corrección de Estructura de Tarea de Preparación**:
+```bash
+python app/services/validation_script.py
+```
+**Resultado**: ✅ Exitoso - Estructura de tarea de preparación corregida completamente
+
+### **Test de Corrección de Lógica de Detección de Programación Vacía**:
+```bash
+python app/services/validation_script.py
+```
+**Resultado**: ✅ Exitoso - Lógica de detección de programación vacía corregida completamente
+
+### **Test de Limpieza de Campos de Tarea de Preparación**:
+```bash
+python app/services/validation_script.py
+```
+**Resultado**: ✅ Exitoso - Campos de tarea de preparación limpiados completamente
 
 ### **Validación Completa**:
 ```bash

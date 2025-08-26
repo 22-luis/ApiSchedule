@@ -335,8 +335,8 @@ class ProgrammingUtils:
             Minutos totales de todas las tareas de la programación
         """
         if not programming_tasks:
-            # Programación vacía - usar 7:00 AM como tiempo base
-            return 7 * 60
+            # Programación completamente vacía
+            return 0
         
         # Sumar los minutos de todas las tareas
         total_minutes = 0
@@ -355,8 +355,8 @@ class ProgrammingUtils:
         if valid_tasks:
             return total_minutes
         else:
-            # Si no hay tareas con minutos válidos, usar 7:00 AM
-            return 7 * 60
+            # Si no hay tareas con minutos válidos, programación vacía
+            return 0
     
     @staticmethod
     def create_order_task(programming_id: str, programming_tasks: List[ProgrammingTask], 
@@ -386,10 +386,18 @@ class ProgrammingUtils:
                 programming_tasks, programming_date
             )
             
+            # Si current_end_minutes es 0, usar 7:00 AM como hora de inicio
+            if current_end_minutes == 0:
+                start_hour = 7
+                start_minute = 0
+            else:
+                start_hour = current_end_minutes // 60
+                start_minute = current_end_minutes % 60
+            
             # Crear datetime para start_time usando la fecha de la programación
             task_start_time = datetime.combine(
                 programming_date,
-                time(hour=current_end_minutes // 60, minute=current_end_minutes % 60)
+                time(hour=start_hour, minute=start_minute)
             )
             
             # Calcular end_time sumando los minutos
