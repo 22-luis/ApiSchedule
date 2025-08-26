@@ -680,4 +680,193 @@ def create_next_available_programming_for_team(
         id=str(new_programming.id),
         team_name=team.name,
         date=new_programming.date.isoformat()
-    ) 
+    )
+
+@router.get("/{programming_id}/next-available-time", response_model=dict)
+def get_next_available_time_for_programming(
+    programming_id: UUID,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    """
+    Obtiene el siguiente horario disponible para agregar una nueva tarea en una programación específica.
+    
+    Args:
+        programming_id: UUID de la programación
+        db: Sesión de base de datos
+        current_user: Usuario autenticado
+        
+    Returns:
+        Diccionario con el siguiente horario disponible
+    """
+    from datetime import time
+    
+    # Verificar que la programación existe
+    programming = db.query(Programming).get(programming_id)
+    if not programming:
+        raise HTTPException(status_code=404, detail="Programming not found")
+    
+    # Verificar permisos del usuario
+    if current_user.role.value not in ("admin", "planner", "supervisor") and not user_belongs_to_team(current_user, str(programming.team_id)):
+        raise HTTPException(status_code=403, detail="Not authorized to access this programming")
+    
+    # Obtener las tareas de la programación ordenadas por end_time
+    programming_tasks = (
+        db.query(ProgrammingTask)
+        .filter(ProgrammingTask.programming_id == programming_id)
+        .order_by(ProgrammingTask.end_time.desc().nullslast())
+        .all()
+    )
+    
+    # Calcular el siguiente horario disponible
+    if not programming_tasks:
+        # Programación vacía - siguiente horario disponible es 7:00
+        next_available_time = datetime.combine(programming.date, time(7, 0))
+        message = "Programación vacía - siguiente horario disponible: 7:00"
+    else:
+        # Obtener la última tarea
+        last_task = programming_tasks[0]  # Ya está ordenado por end_time desc
+        
+        if last_task.end_time:
+            next_available_time = last_task.end_time
+            message = f"Siguiente horario disponible después de la última tarea: {last_task.end_time.strftime('%H:%M')}"
+        else:
+            # Si la última tarea no tiene end_time, usar 7:00
+            next_available_time = datetime.combine(programming.date, time(7, 0))
+            message = "Última tarea sin horario - siguiente horario disponible: 7:00"
+    
+    # Obtener información del equipo
+    team = db.query(Team).filter(Team.id == programming.team_id).first()
+    team_name = team.name if team else "Equipo desconocido"
+    
+    return {
+        "success": True,
+        "message": message,
+        "programming_id": str(programming_id),
+        "team_id": str(programming.team_id),
+        "team_name": team_name,
+        "date": programming.date.isoformat(),
+        "next_available_time": next_available_time.isoformat(),
+        "next_available_time_formatted": next_available_time.strftime("%H:%M"),
+        "total_tasks": len(programming_tasks),
+        "is_empty": len(programming_tasks) == 0
+    }
+
+@router.get("/team/{team_id}/first-available-for-task", response_model=dict)
+def get_first_available_programming_for_task(
+    team_id: UUID,
+    task_minutes: int = Query(..., description="Duración de la tarea en minutos"),
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    """
+    Obtiene la primera programación disponible que pueda acomodar una tarea de duración específica.
+    Implementa la lógica de "primer espacio disponible".
+    
+    Args:
+        team_id: UUID del equipo
+        task_minutes: Duración de la tarea en minutos
+        db: Sesión de base de datos
+        current_user: Usuario autenticado
+        
+    Returns:
+        Diccionario con la primera programación disponible que cumple las condiciones
+    """
+    from datetime import time
+    
+    # Verificar que el equipo existe
+    team = db.query(Team).filter(Team.id == team_id).first()
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+    
+    # Verificar permisos del usuario
+    if current_user.role.value not in ("admin", "planner", "supervisor") and not user_belongs_to_team(current_user, str(team_id)):
+        raise HTTPException(status_code=403, detail="Not authorized to access this team")
+    
+    # Obtener todas las programaciones disponibles del equipo
+    available_programmings = (
+        db.query(Programming)
+        .filter(
+            Programming.team_id == team_id,
+            Programming.status == ProgrammingStatus.available
+        )
+        .order_by(Programming.date)
+        .all()
+    )
+    
+    if not available_programmings:
+        return {
+            "success": False,
+            "message": "No hay programaciones disponibles para este equipo",
+            "selected_programming": None
+        }
+    
+    # Configurar límites de tiempo
+    time_limit = time(17, 40)  # 17:40
+    tolerance_minutes = 5
+    max_allowed_minutes = time_limit.hour * 60 + time_limit.minute + tolerance_minutes
+    
+    # Evaluar cada programación en orden para encontrar la primera que cumpla
+    for programming in available_programmings:
+        # Obtener las tareas de la programación
+        programming_tasks = (
+            db.query(ProgrammingTask)
+            .filter(ProgrammingTask.programming_id == programming.id)
+            .all()
+        )
+        
+        # Calcular el tiempo actual de la programación
+        current_end_minutes = 0
+        
+        if not programming_tasks:
+            # Programación vacía - tiempo de inicio (7:00) + tarea de preparación (10 min)
+            current_end_minutes = 7 * 60 + 10  # 7:10
+        else:
+            # Ordenar tareas por end_time y obtener la última
+            sorted_tasks = sorted(programming_tasks, key=lambda x: x.end_time if x.end_time else time(0, 0))
+            last_task = sorted_tasks[-1]
+            
+            if last_task.end_time:
+                current_end_minutes = last_task.end_time.hour * 60 + last_task.end_time.minute
+            else:
+                current_end_minutes = 7 * 60  # 7:00
+        
+        # Calcular el tiempo final si se agrega la nueva tarea
+        final_minutes = current_end_minutes + task_minutes
+        
+        # Verificar si esta programación cumple con el límite
+        if final_minutes <= max_allowed_minutes:
+            # ¡Encontramos la primera programación que cumple!
+            current_end_time = time(current_end_minutes // 60, current_end_minutes % 60)
+            final_time = time(final_minutes // 60, final_minutes % 60)
+            
+            return {
+                "success": True,
+                "message": f"Primera programación disponible encontrada que cumple con límite de tiempo",
+                "selected_programming": {
+                    "id": str(programming.id),
+                    "date": programming.date.isoformat(),
+                    "team_id": str(programming.team_id),
+                    "team_name": team.name,
+                    "current_end_time": current_end_time.isoformat(),
+                    "task_minutes": task_minutes,
+                    "final_time": final_time.isoformat(),
+                    "time_limit": time_limit.isoformat(),
+                    "tolerance_minutes": tolerance_minutes,
+                    "total_existing_tasks": len(programming_tasks),
+                    "is_empty": len(programming_tasks) == 0
+                },
+                "verification_details": {
+                    "current_end_minutes": current_end_minutes,
+                    "final_minutes": final_minutes,
+                    "max_allowed_minutes": max_allowed_minutes,
+                    "within_limit": True
+                }
+            }
+    
+    # Si ninguna programación cumple con el límite
+    return {
+        "success": False,
+        "message": "Ninguna programación disponible cumple con el límite de tiempo",
+        "selected_programming": None
+    } 

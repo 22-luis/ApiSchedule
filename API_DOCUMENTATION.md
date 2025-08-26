@@ -605,6 +605,57 @@ GET `/api/v1/programmings/{programming_id}/last_task`
 - **Auth**: requiere token
 - **Respuesta 200**: `TaskOut` con campo adicional `programming_end_time`
 
+GET `/api/v1/programmings/{programming_id}/next-available-time`
+- **Auth**: requiere token
+- Obtiene el siguiente horario disponible para agregar una nueva tarea en una programación específica.
+- **Respuesta 200**:
+  ```json
+  {
+    "success": true,
+    "message": "Siguiente horario disponible después de la última tarea: 07:10",
+    "programming_id": "uuid",
+    "team_id": "uuid",
+    "team_name": "Pesado",
+    "date": "2025-08-25",
+    "next_available_time": "2025-08-25T07:10:00",
+    "next_available_time_formatted": "07:10",
+    "total_tasks": 1,
+    "is_empty": false
+  }
+  ```
+
+GET `/api/v1/programmings/team/{team_id}/first-available-for-task`
+- **Auth**: requiere token
+- Obtiene la primera programación disponible que pueda acomodar una tarea de duración específica.
+- **Query**:
+  - `task_minutes`: int (duración de la tarea en minutos)
+- **Respuesta 200**:
+  ```json
+  {
+    "success": true,
+    "message": "Primera programación disponible encontrada que cumple con límite de tiempo",
+    "selected_programming": {
+      "id": "uuid",
+      "date": "2025-08-25",
+      "team_id": "uuid",
+      "team_name": "Pesado",
+      "current_end_time": "07:10:00",
+      "task_minutes": 30,
+      "final_time": "07:40:00",
+      "time_limit": "17:40:00",
+      "tolerance_minutes": 5,
+      "total_existing_tasks": 1,
+      "is_empty": false
+    },
+    "verification_details": {
+      "current_end_minutes": 430,
+      "final_minutes": 460,
+      "max_allowed_minutes": 1065,
+      "within_limit": true
+    }
+  }
+  ```
+
 POST `/api/v1/programmings/{programming_id}/tasks/{task_id}/start_timer`
 - **Auth**: requiere token; solo el usuario asignado puede iniciar si ya hubo asignación previa
 - **Body (opcional)**: `{ "real_start_time": "<ISO datetime>" }`
