@@ -7,8 +7,8 @@
 ```
 app/services/
 ├── base_task_service.py              # Clase base abstracta
-├── weighing_task_service_refactored.py    # Servicio de pesado
-├── fabrication_task_service_refactored.py # Servicio de fabricación
+├── weighing_task_service.py    # Servicio de pesado
+├── fabrication_task_service.py # Servicio de fabricación
 ├── factory.py                        # Factory pattern
 ├── config.py                         # Configuración centralizada
 └── utils/

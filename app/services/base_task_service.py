@@ -6,11 +6,12 @@ Define la interfaz común que deben implementar todos los servicios de tareas.
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
-from datetime import time
+from datetime import time, timedelta
 import math
 
 from app.services.utils.programming_utils import ProgrammingUtils
 from app.utils.order_status_service import OrderStatusService
+from app.core.task_config import get_reunion_preparacion_duration
 
 
 class BaseTaskService(ABC):
@@ -133,6 +134,43 @@ class BaseTaskService(ABC):
         """
         return ProgrammingUtils.get_available_programmings_for_team(team_id, db)
     
+    def get_service_config(self) -> Dict[str, Any]:
+        """
+        Obtiene la configuración del servicio.
+        
+        Returns:
+            Diccionario con la configuración del servicio
+        """
+        from app.services.config import ServiceConfig
+        service_type = self.__class__.__name__.replace('TaskService', '').upper()
+        
+        # Mapear nombres de clase a tipos de servicio
+        service_type_mapping = {
+            'WEIGHING': 'WEIGHING',
+            'FABRICATION': 'FABRICACION',
+            'PACKAGING': 'PACKAGING'
+        }
+        
+        config_type = service_type_mapping.get(service_type, service_type)
+        
+        try:
+            config = ServiceConfig.CONFIGURATIONS.get(config_type, {})
+            return {
+                "description": config.get("description", "Servicio de tareas"),
+                "time_limit": self.time_limit,
+                "tolerance_minutes": self.tolerance_minutes,
+                "activity_keywords": config.get("activity_keywords", []),
+                "team_priorities": config.get("team_priorities", [])
+            }
+        except Exception:
+            return {
+                "description": "Servicio de tareas",
+                "time_limit": self.time_limit,
+                "tolerance_minutes": self.tolerance_minutes,
+                "activity_keywords": [],
+                "team_priorities": []
+            }
+    
     def calculate_minutes_from_performance_and_quantity(self, performance: float, quantity: int, time: float = None) -> int:
         """
         Calcula minutos basándose en performance y cantidad.
@@ -174,7 +212,9 @@ class BaseTaskService(ABC):
         """
         from app.models.programming import ProgrammingTask, Programming
         from app.models.task import Task
+        from app.models.team import Team
         from datetime import datetime, date, time
+        from app.core.task_config import get_reunion_preparacion_duration
         
         # Solo crear tarea de preparación si no hay tareas existentes
         if len(programming_tasks) > 0:
@@ -188,9 +228,18 @@ class BaseTaskService(ABC):
             programming_obj = db.query(Programming).filter(Programming.id == programming_id).first()
             programming_date = programming_obj.date if programming_obj else date.today()
             
+            # Obtener el equipo para determinar la duración de preparación
+            team_obj = None
+            if programming_obj and programming_obj.team_id:
+                team_obj = db.query(Team).filter(Team.id == programming_obj.team_id).first()
+            
+            # Obtener la duración de preparación según el equipo
+            team_name = team_obj.name if team_obj else "default"
+            preparation_duration = get_reunion_preparacion_duration(team_name)
+            
             # Crear datetime para start_time usando la fecha de la programación
             task_start_time = datetime.combine(programming_date, time(7, 0))  # 07:00
-            task_end_time = datetime.combine(programming_date, time(7, 10))   # 07:10
+            task_end_time = datetime.combine(programming_date, time(7, 0)) + timedelta(minutes=preparation_duration)
             
             # Crear la tarea de preparación (objeto Task)
             preparation_task_obj = Task(
@@ -208,7 +257,7 @@ class BaseTaskService(ABC):
                  type="PREP",
                  activity="REUNION Y PREPARACION DE AREA",
                  description="REUNION Y PREPARACION DE AREA",
-                 minutes=10,
+                 minutes=preparation_duration,
                  start_time=task_start_time,
                  end_time=task_end_time
              )
@@ -236,15 +285,16 @@ class BaseTaskService(ABC):
             
             return {
                 "success": True,
-                 "message": "Tarea de preparación creada exitosamente",
+                 "message": f"Tarea de preparación creada exitosamente (duración: {preparation_duration} minutos)",
                  "task_data": {
                      "task_id": str(preparation_task_obj.id),
                      "programming_id": str(preparation_programming_task.programming_id),
                      "order": new_task_order,
                      "start_time": task_start_time.isoformat(),
                      "end_time": task_end_time.isoformat(),
-                     "minutes": 10,
-                     "description": preparation_task_obj.description
+                     "minutes": preparation_duration,
+                     "description": preparation_task_obj.description,
+                     "team_name": team_name
                  }
              }
             
@@ -325,7 +375,7 @@ class BaseTaskService(ABC):
                 if preparation_result.get("success"):
                     preparation_task_created = preparation_result.get("task_data")
                     # Actualizar el tiempo actual después de agregar la tarea de preparación
-                    current_end_minutes = 10  # 10 minutos de preparación
+                    current_end_minutes = preparation_result.get("task_data", {}).get("minutes", 0) # Usar la duración de la tarea de preparación creada
                     # Recalcular las tareas de la programación
                     programming_tasks = db.query(ProgrammingTask).filter(
                         ProgrammingTask.programming_id == programming_id

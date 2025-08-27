@@ -5,8 +5,9 @@ Facilita la creación de servicios según el tipo requerido.
 
 from typing import Optional
 from app.services.config import ServiceType
-from app.services.weighing_task_service_refactored import WeighingTaskService
-from app.services.fabrication_task_service_refactored import FabricationTaskService
+from app.services.weighing_task_service import WeighingTaskService
+from app.services.fabrication_task_service import FabricationTaskService
+from app.services.packaging_task_service import PackagingTaskService
 from app.services.base_task_service import BaseTaskService
 
 
@@ -29,8 +30,7 @@ class TaskServiceFactory:
         elif service_type == ServiceType.FABRICATION:
             return FabricationTaskService()
         elif service_type == ServiceType.PACKAGING:
-            # TODO: Implementar cuando se cree el servicio de empaque
-            return None
+            return PackagingTaskService()
         else:
             return None
     
@@ -55,6 +55,16 @@ class TaskServiceFactory:
         return FabricationTaskService()
     
     @staticmethod
+    def create_packaging_service() -> PackagingTaskService:
+        """
+        Crea una instancia del servicio de empaque.
+        
+        Returns:
+            Instancia del servicio de empaque
+        """
+        return PackagingTaskService()
+    
+    @staticmethod
     def get_available_services() -> list:
         """
         Obtiene la lista de servicios disponibles.
@@ -64,8 +74,8 @@ class TaskServiceFactory:
         """
         return [
             ServiceType.WEIGHING,
-            ServiceType.FABRICATION
-            # ServiceType.PACKAGING  # Descomentar cuando se implemente
+            ServiceType.FABRICATION,
+            ServiceType.PACKAGING
         ]
     
     @staticmethod
