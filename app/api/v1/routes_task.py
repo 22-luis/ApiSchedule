@@ -253,7 +253,7 @@ def update_task(
     task_id: str,
     task_update: TaskUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))
 ):
     db_task = db.query(Task).filter(Task.id == task_id).first()
     if not db_task:

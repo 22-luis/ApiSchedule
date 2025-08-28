@@ -137,7 +137,7 @@ def update_order_status(order_id: str, status_update: OrderStatusUpdate, db: Ses
 def sync_order_status(
     order_id: str, 
     db: Session = Depends(get_db), 
-    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))
 ):
     """
     Sincroniza el estado de una orden basándose en el estado actual de todas sus tareas.
