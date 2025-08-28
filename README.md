@@ -13,28 +13,28 @@ API para optimización de programación y asignación de tareas en producción d
 - **Servicios Especializados**: Servicios dedicados para pesado y fabricación
 - **Configuración Centralizada**: Sistema de configuración unificado para tareas y horarios
 
-## 🚀 Nuevas Funcionalidades Automáticas
+## Nuevas Funcionalidades Automáticas
 
 ### **Tarea de Preparación Automática**
-- ✅ Se crea automáticamente "REUNION Y PREPARACION DE AREA" cuando una programación está vacía
-- ✅ Horario fijo: 07:00 - 07:10 (10 minutos)
-- ✅ Siempre es la primera tarea en la programación
-- ✅ Campos limpios: solo información esencial
+-  Se crea automáticamente "REUNION Y PREPARACION DE AREA" cuando una programación está vacía
+-  Horario fijo: 07:00 - 07:10 (10 minutos)
+-  Siempre es la primera tarea en la programación
+-  Campos limpios: solo información esencial
 
 ### **Actualización Automática de Estados**
-- ✅ Las órdenes cambian automáticamente de "pendiente" a "programada" cuando se crean tareas
-- ✅ Flujo completo: Pendiente → Programada → En Progreso → Completada
-- ✅ Trazabilidad completa del proceso de producción
+-  Las órdenes cambian automáticamente de "pendiente" a "programada" cuando se crean tareas
+-  Flujo completo: Pendiente → Programada → En Progreso → Completada
+-  Trazabilidad completa del proceso de producción
 
 ### **Cálculo Inteligente de Minutos**
-- ✅ Sistema que usa performance (horas × cantidad × 60) o tiempo directo
-- ✅ Cálculo automático basado en la actividad específica
-- ✅ Manejo de casos edge con valores por defecto
+-  Sistema que usa performance (horas × cantidad × 60) o tiempo directo
+-  Cálculo automático basado en la actividad específica
+-  Manejo de casos edge con valores por defecto
 
 ### **Selección Automática de Equipos**
-- ✅ Lógica inteligente para asignar el equipo más idóneo
-- ✅ Reglas específicas: Mezcla → Fabricado 1, Molino → Molino, etc.
-- ✅ Optimización automática de recursos
+-  Lógica inteligente para asignar el equipo más idóneo
+-  Reglas específicas: Mezcla → Fabricado 1, Molino → Molino, etc.
+-  Optimización automática de recursos
 
 ## Seguridad y Configuración
 
@@ -306,18 +306,7 @@ pytest --cov=app
 python quick_test.py
 ```
 
-## Contribución
-
-1. Fork el proyecto
-2. Crear una rama para tu feature (`git checkout -b feature/AmazingFeature`)
-3. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
-4. Push a la rama (`git push origin feature/AmazingFeature`)
-5. Abrir un Pull Request
-
 ## Licencia
 
 Este proyecto está bajo la Licencia MIT. Ver el archivo `LICENSE` para más detalles.
 
----
-
-**ApiSchedule** - Optimizando la programación de producción de alimentos 🚀

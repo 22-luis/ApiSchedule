@@ -5,7 +5,7 @@ Proporciona funciones para cachear respuestas de API y datos frecuentemente acce
 import json
 import hashlib
 import time
-from typing import Any, Optional, Union, Dict, List
+from typing import Any, Optional, Dict, List
 from functools import wraps
 import logging
 

@@ -4,7 +4,7 @@ Implementa el patrón Circuit Breaker para mejorar la resiliencia de la aplicaci
 """
 import time
 import asyncio
-from typing import Any, Callable, Optional, Dict
+from typing import Any, Callable, Dict
 from enum import Enum
 from functools import wraps
 from app.utils.logging import get_logger

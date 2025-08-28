@@ -1,193 +1,160 @@
 """
-Ejemplo de uso de los servicios refactorizados.
-Demuestra cómo usar los nuevos servicios de tareas.
+Ejemplos de uso del servicio de empaque
 """
-
-from typing import List, Dict, Any
-from sqlalchemy.orm import Session
 
 from app.services.factory import TaskServiceFactory
 from app.services.config import ServiceType
+from app.core.enums import PackagingActivities, PackagingTeams
 
 
-def example_weighing_service_usage(db: Session, orders: List) -> Dict[str, Any]:
-    """
-    Ejemplo de uso del servicio de pesado refactorizado.
+def example_packaging_service_usage():
+    """Ejemplo básico de uso del servicio de empaque"""
+    print("🚀 Ejemplo de uso del servicio de empaque")
+    print("=" * 50)
     
-    Args:
-        db: Sesión de base de datos
-        orders: Lista de órdenes de la base de datos
-        
-    Returns:
-        Resultado del procesamiento de tareas de pesado
-    """
-    # Crear instancia del servicio usando el factory
+    # Crear el servicio de empaque
+    packaging_service = TaskServiceFactory.create_packaging_service()
+    
+    print(f"✅ Servicio creado: {type(packaging_service).__name__}")
+    print(f"   - Límite de tiempo: {packaging_service.time_limit}")
+    print(f"   - Tolerancia: {packaging_service.tolerance_minutes} minutos")
+    
+    # Mostrar información de configuración
+    config = packaging_service.get_service_config()
+    print(f"\n⚙️ Configuración del servicio:")
+    print(f"   - Descripción: {config.get('description', 'N/A')}")
+    print(f"   - Palabras clave: {config.get('activity_keywords', [])}")
+    print(f"   - Prioridades de equipos: {config.get('team_priorities', [])}")
+    
+    # Mostrar enumeraciones disponibles
+    print(f"\n📋 Enumeraciones disponibles:")
+    print("   Actividades de empaque:")
+    for activity in PackagingActivities:
+        print(f"     - {activity.name}: {activity.value}")
+    
+    print("   Equipos de empaque:")
+    for team in PackagingTeams:
+        print(f"     - {team.name}: {team.value}")
+    
+    print("\n✅ Ejemplo completado exitosamente")
+
+
+def example_complete_workflow_with_packaging():
+    """Ejemplo de flujo completo incluyendo empaque"""
+    print("🔄 Ejemplo de flujo completo con empaque")
+    print("=" * 50)
+    
+    # Crear servicios para diferentes tipos de tareas
     weighing_service = TaskServiceFactory.create_weighing_service()
-    
-    # Extraer datos de las órdenes
-    extracted_orders = weighing_service.extract_order_data(orders)
-    
-    # Crear tareas de pesado
-    result = weighing_service.create_weighing_tasks_for_orders(extracted_orders, db)
-    
-    return result
-
-
-def example_fabrication_service_usage(db: Session, orders: List) -> Dict[str, Any]:
-    """
-    Ejemplo de uso del servicio de fabricación refactorizado.
-    
-    Args:
-        db: Sesión de base de datos
-        orders: Lista de órdenes de la base de datos
-        
-    Returns:
-        Resultado del procesamiento de tareas de fabricación
-    """
-    # Crear instancia del servicio usando el factory
     fabrication_service = TaskServiceFactory.create_fabrication_service()
+    packaging_service = TaskServiceFactory.create_packaging_service()
     
-    # Extraer datos de las órdenes
-    extracted_orders = fabrication_service.extract_order_data(orders)
+    print("✅ Servicios creados:")
+    print(f"   - Pesaje: {type(weighing_service).__name__}")
+    print(f"   - Fabricación: {type(fabrication_service).__name__}")
+    print(f"   - Empaque: {type(packaging_service).__name__}")
     
-    # Crear tareas de fabricación
-    result = fabrication_service.create_fabrication_tasks_for_orders(extracted_orders, db)
+    # Mostrar configuración de cada servicio
+    print(f"\n⚙️ Configuraciones:")
+    print(f"   - Pesaje: {weighing_service.time_limit}")
+    print(f"   - Fabricación: {fabrication_service.time_limit}")
+    print(f"   - Empaque: {packaging_service.time_limit}")
     
-    return result
+    print("\n✅ Flujo completo demostrado")
 
 
-def example_generic_service_usage(db: Session, orders: List, service_type: ServiceType) -> Dict[str, Any]:
-    """
-    Ejemplo de uso genérico de cualquier servicio.
+def example_generic_service_usage():
+    """Ejemplo de uso genérico del factory"""
+    print("🏭 Ejemplo de uso genérico del factory")
+    print("=" * 50)
     
-    Args:
-        db: Sesión de base de datos
-        orders: Lista de órdenes de la base de datos
-        service_type: Tipo de servicio a usar
-        
-    Returns:
-        Resultado del procesamiento de tareas
-    """
-    # Crear instancia del servicio usando el factory
-    service = TaskServiceFactory.create_service(service_type)
-    
-    if not service:
-        return {
-            "success": False,
-            "message": f"Servicio de tipo {service_type.value} no está disponible"
-        }
-    
-    # Extraer datos de las órdenes
-    extracted_orders = service.extract_order_data(orders)
-    
-    # Crear tareas según el tipo de servicio
-    if service_type == ServiceType.WEIGHING:
-        result = service.create_weighing_tasks_for_orders(extracted_orders, db)
-    elif service_type == ServiceType.FABRICATION:
-        result = service.create_fabrication_tasks_for_orders(extracted_orders, db)
-    else:
-        result = {
-            "success": False,
-            "message": f"Método de creación no implementado para {service_type.value}"
-        }
-    
-    return result
-
-
-def example_service_information() -> Dict[str, Any]:
-    """
-    Ejemplo de cómo obtener información sobre los servicios disponibles.
-    
-    Returns:
-        Información de todos los servicios disponibles
-    """
+    # Listar servicios disponibles
     available_services = TaskServiceFactory.get_available_services()
-    services_info = {}
+    print(f"📋 Servicios disponibles: {available_services}")
     
+    # Crear servicios dinámicamente
     for service_type in available_services:
-        services_info[service_type.value] = TaskServiceFactory.get_service_info(service_type)
-    
-    return {
-        "available_services": [service.value for service in available_services],
-        "services_info": services_info
-    }
-
-
-def example_complete_workflow(db: Session, orders: List) -> Dict[str, Any]:
-    """
-    Ejemplo de flujo completo de trabajo usando ambos servicios.
-    
-    Args:
-        db: Sesión de base de datos
-        orders: Lista de órdenes de la base de datos
+        service = TaskServiceFactory.create_service(service_type)
+        print(f"✅ {service_type}: {type(service).__name__}")
         
-    Returns:
-        Resultado completo del procesamiento
-    """
-    results = {}
+        # Si es el servicio de empaque, mostrar información específica
+        if service_type == ServiceType.PACKAGING:
+            print(f"   - Límite de tiempo: {service.time_limit}")
+            print(f"   - Tolerancia: {service.tolerance_minutes} minutos")
     
-    # Procesar tareas de pesado
-    weighing_result = example_weighing_service_usage(db, orders)
-    results["weighing"] = weighing_result
-    
-    # Procesar tareas de fabricación
-    fabrication_result = example_fabrication_service_usage(db, orders)
-    results["fabrication"] = fabrication_result
-    
-    # Resumen general
-    total_tasks_created = (
-        weighing_result.get("tasks_created", 0) + 
-        fabrication_result.get("tasks_created", 0)
-    )
-    
-    total_orders = len(orders)
-    
-    return {
-        "success": True,
-        "message": f"Procesamiento completo: {total_tasks_created} tareas creadas de {total_orders} órdenes",
-        "total_tasks_created": total_tasks_created,
-        "total_orders": total_orders,
-        "results": results
-    }
+    print("\n✅ Uso genérico completado")
 
 
-# Ejemplo de uso en un endpoint de API
-def api_endpoint_example(db: Session, orders: List, service_type: str) -> Dict[str, Any]:
-    """
-    Ejemplo de cómo usar los servicios en un endpoint de API.
+def api_endpoint_example_with_packaging():
+    """Ejemplo de endpoint API que maneja empaque"""
+    print("🌐 Ejemplo de endpoint API con empaque")
+    print("=" * 50)
     
-    Args:
-        db: Sesión de base de datos
-        orders: Lista de órdenes de la base de datos
-        service_type: Tipo de servicio como string ("weighing", "fabrication")
-        
-    Returns:
-        Respuesta del endpoint
-    """
-    try:
-        # Convertir string a ServiceType
-        if service_type == "weighing":
-            service_type_enum = ServiceType.WEIGHING
-        elif service_type == "fabrication":
-            service_type_enum = ServiceType.FABRICATION
+    def create_tasks_endpoint(service_type: str, orders_data: list, db):
+        """Endpoint simulado para crear tareas"""
+        try:
+            # Crear el servicio apropiado
+            service = TaskServiceFactory.create_service(service_type)
+            
+            if service_type == ServiceType.PACKAGING:
+                # Para empaque, usar el método específico
+                result = service.create_packaging_tasks_for_orders(orders_data, db)
         else:
-            return {
-                "success": False,
-                "message": f"Tipo de servicio '{service_type}' no válido. Opciones: weighing, fabrication"
-            }
-        
-        # Procesar usando el servicio genérico
-        result = example_generic_service_usage(db, orders, service_type_enum)
+                # Para otros servicios, usar el método genérico
+                result = service.create_tasks_for_orders(orders_data, db)
         
         return {
             "success": True,
-            "data": result,
-            "service_type": service_type
+                "service_type": service_type,
+                "result": result
         }
         
     except Exception as e:
         return {
             "success": False,
-            "message": f"Error en el procesamiento: {str(e)}",
+                "error": str(e),
             "service_type": service_type
         }
+
+    # Simular llamadas al endpoint
+    print("📡 Simulando llamadas al endpoint:")
+    
+    # Ejemplo con empaque
+    print("\n1. Creando tareas de empaque...")
+    packaging_result = create_tasks_endpoint(
+        ServiceType.PACKAGING, 
+        [{"lote": "TEST001", "quantity": 100}], 
+        None
+    )
+    print(f"   Resultado: {packaging_result['success']}")
+    
+    # Ejemplo con pesaje
+    print("\n2. Creando tareas de pesaje...")
+    weighing_result = create_tasks_endpoint(
+        ServiceType.WEIGHING, 
+        [{"lote": "TEST002", "quantity": 50}], 
+        None
+    )
+    print(f"   Resultado: {weighing_result['success']}")
+    
+    print("\n✅ Ejemplo de endpoint completado")
+
+
+if __name__ == "__main__":
+    print("🚀 Ejecutando ejemplos de uso del servicio de empaque")
+    print("=" * 60)
+    
+    # Ejecutar todos los ejemplos
+    example_packaging_service_usage()
+    print("\n" + "=" * 60)
+    
+    example_complete_workflow_with_packaging()
+    print("\n" + "=" * 60)
+    
+    example_generic_service_usage()
+    print("\n" + "=" * 60)
+    
+    api_endpoint_example_with_packaging()
+    print("\n" + "=" * 60)
+    
+    print("🎉 Todos los ejemplos completados exitosamente")

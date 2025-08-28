@@ -7,7 +7,7 @@ from typing import Dict, Any, List
 from sqlalchemy.orm import Session
 
 from app.models.team import Team
-from app.core.enums import ManufacturingActivities, ManufacturingTeams
+from app.core.enums import ManufacturingActivities, ManufacturingTeams, PackagingActivities, PackagingTeams
 
 
 class TeamSelectionService:
@@ -316,6 +316,254 @@ class TeamSelectionService:
         
         # Si no se puede aplicar ninguna regla, usar el primer equipo disponible
         available_teams = [fabricado1_team, fabricado3_team, teams_by_type.get("fabricado2"), teams_by_type.get("molino")]
+        for team in available_teams:
+            if team:
+                return {
+                    "success": True,
+                    "selected_team": {
+                        "id": str(team.id),
+                        "name": team.name,
+                        "type": "fallback"
+                    },
+                    "reason": f"Equipo de respaldo: {team.name}",
+                    "rule_applied": "fallback"
+                }
+        
+        return {
+            "success": False,
+            "selected_team": None,
+            "reason": "No se encontró equipo disponible para la actividad",
+            "rule_applied": "none"
+        }
+
+    @staticmethod
+    def get_packaging_teams(db: Session) -> Dict[str, Any]:
+        """
+        Obtiene todos los equipos de empaque disponibles.
+        
+        Args:
+            db: Sesión de base de datos
+            
+        Returns:
+            Diccionario con información de todos los equipos de empaque
+        """
+        # Usar los equipos definidos en PackagingTeams
+        packaging_team_names = [
+            PackagingTeams.Empaque1.value,
+            PackagingTeams.Empaque2.value,
+            PackagingTeams.Empaque3.value,
+            PackagingTeams.Empaque4.value,
+            PackagingTeams.Maquina1.value,
+            PackagingTeams.Maquina2.value
+        ]
+        
+        packaging_teams = []
+        
+        # Buscar equipos que coincidan con los nombres definidos en PackagingTeams
+        for team_name in packaging_team_names:
+            teams = db.query(Team).filter(Team.name.ilike(f'%{team_name}%')).all()
+            packaging_teams.extend(teams)
+        
+        # Si no se encuentran equipos específicos, buscar por palabras clave
+        if not packaging_teams:
+            # Buscar equipos que contengan "empaque" en el nombre
+            packaging_teams = db.query(Team).filter(Team.name.ilike('%empaque%')).all()
+        
+        if not packaging_teams:
+            # Si no hay equipos con "empaque", buscar equipos de máquina
+            packaging_teams = db.query(Team).filter(Team.name.ilike('%maquina%')).all()
+        
+        if not packaging_teams:
+            return {
+                "success": False,
+                "message": "No se encontraron equipos de empaque en la base de datos",
+                "packaging_teams": [],
+                "most_suitable_team": None
+            }
+        
+        # Organizar equipos por tipo
+        empaque_teams = []
+        empaque2_teams = []
+        empaque3_teams = []
+        empaque4_teams = []
+        maquina1_teams = []
+        maquina2_teams = []
+        
+        for team in packaging_teams:
+            team_name_lower = team.name.lower()
+            if PackagingTeams.Empaque1.value.lower() in team_name_lower:
+                empaque_teams.append(team)
+            elif PackagingTeams.Empaque2.value.lower() in team_name_lower:
+                empaque2_teams.append(team)
+            elif PackagingTeams.Empaque3.value.lower() in team_name_lower:
+                empaque3_teams.append(team)
+            elif PackagingTeams.Empaque4.value.lower() in team_name_lower:
+                empaque4_teams.append(team)
+            elif PackagingTeams.Maquina1.value.lower() in team_name_lower:
+                maquina1_teams.append(team)
+            elif PackagingTeams.Maquina2.value.lower() in team_name_lower:
+                maquina2_teams.append(team)
+        
+        # Tomar el primer equipo de cada tipo como representante
+        empaque_team = empaque_teams[0] if empaque_teams else None
+        empaque2_team = empaque2_teams[0] if empaque2_teams else None
+        empaque3_team = empaque3_teams[0] if empaque3_teams else None
+        empaque4_team = empaque4_teams[0] if empaque4_teams else None
+        maquina1_team = maquina1_teams[0] if maquina1_teams else None
+        maquina2_team = maquina2_teams[0] if maquina2_teams else None
+        
+        return {
+            "success": True,
+            "message": f"Equipos de empaque encontrados: {len(packaging_teams)} equipos",
+            "packaging_teams": [
+                {
+                    "id": str(team.id),
+                    "name": team.name,
+                    "type": "empaque" if PackagingTeams.Empaque1.value.lower() in team.name.lower() else
+                           "empaque2" if PackagingTeams.Empaque2.value.lower() in team.name.lower() else
+                           "empaque3" if PackagingTeams.Empaque3.value.lower() in team.name.lower() else
+                           "empaque4" if PackagingTeams.Empaque4.value.lower() in team.name.lower() else
+                           "maquina1" if PackagingTeams.Maquina1.value.lower() in team.name.lower() else
+                           "maquina2" if PackagingTeams.Maquina2.value.lower() in team.name.lower() else "otro"
+                } for team in packaging_teams
+            ],
+            "teams_by_type": {
+                "empaque": empaque_team,
+                "empaque2": empaque2_team,
+                "empaque3": empaque3_team,
+                "empaque4": empaque4_team,
+                "maquina1": maquina1_team,
+                "maquina2": maquina2_team
+            },
+            "total_packaging_teams": len(packaging_teams)
+        }
+    
+    @staticmethod
+    def get_specific_packaging_team_for_activity(activity_name: str, activity_description: str, teams_data: Dict) -> Dict[str, Any]:
+        """
+        Determina el equipo específico para una actividad de empaque según las reglas de negocio.
+        
+        Reglas:
+        1. Empaque: Actividades "EMPAQUE MANUAL GRUPO"
+        2. Empaque 3: Actividades "EMPAQUE MANUAL"
+        3. Empaque 2: Descripción que contenga "esencia"
+        4. Empaque 4: Actividades "EMPAQUE MANUAL MAS MEZCLA"
+        5. MAQUINA 1: Actividades "EMPAQUE MAQUINA SEMI AUTOMATICA"
+        6. MAQUINA 2: Actividades "EMPAQUE MAQUINA AUTOMATICA"
+        
+        Args:
+            activity_name: Nombre de la actividad
+            activity_description: Descripción de la actividad
+            teams_data: Datos de equipos obtenidos de get_packaging_teams
+            
+        Returns:
+            Diccionario con el equipo seleccionado y la razón
+        """
+        activity_upper = activity_name.upper() if activity_name else ""
+        description_lower = activity_description.lower() if activity_description else ""
+        
+        teams_by_type = teams_data.get("teams_by_type", {})
+        
+        # Regla 1: Empaque para actividades "EMPAQUE MANUAL GRUPO"
+        if PackagingActivities.Emp_grupo.value.upper() in activity_upper:
+            empaque_team = teams_by_type.get("empaque")
+            if empaque_team:
+                return {
+                    "success": True,
+                    "selected_team": {
+                        "id": str(empaque_team.id),
+                        "name": empaque_team.name,
+                        "type": "empaque"
+                    },
+                    "reason": f"Actividad de empaque manual grupo: {activity_name}",
+                    "rule_applied": "empaque_manual_grupo"
+                }
+        
+        # Regla 2: Empaque 3 para actividades "EMPAQUE MANUAL"
+        if PackagingActivities.Emp_manual.value.upper() in activity_upper:
+            empaque3_team = teams_by_type.get("empaque3")
+            if empaque3_team:
+                return {
+                    "success": True,
+                    "selected_team": {
+                        "id": str(empaque3_team.id),
+                        "name": empaque3_team.name,
+                        "type": "empaque3"
+                    },
+                    "reason": f"Actividad de empaque manual: {activity_name}",
+                    "rule_applied": "empaque_manual"
+                }
+        
+        # Regla 3: Empaque 2 para descripciones con "esencia"
+        if "esencia" in description_lower:
+            empaque2_team = teams_by_type.get("empaque2")
+            if empaque2_team:
+                return {
+                    "success": True,
+                    "selected_team": {
+                        "id": str(empaque2_team.id),
+                        "name": empaque2_team.name,
+                        "type": "empaque2"
+                    },
+                    "reason": f"Descripción contiene 'esencia': {activity_description}",
+                    "rule_applied": "esencia"
+                }
+        
+        # Regla 4: Empaque 4 para actividades "EMPAQUE MANUAL MAS MEZCLA"
+        if PackagingActivities.Emp_mezcla.value.upper() in activity_upper:
+            empaque4_team = teams_by_type.get("empaque4")
+            if empaque4_team:
+                return {
+                    "success": True,
+                    "selected_team": {
+                        "id": str(empaque4_team.id),
+                        "name": empaque4_team.name,
+                        "type": "empaque4"
+                    },
+                    "reason": f"Actividad de empaque manual más mezcla: {activity_name}",
+                    "rule_applied": "empaque_manual_mezcla"
+                }
+        
+        # Regla 5: MAQUINA 1 para actividades "EMPAQUE MAQUINA SEMI AUTOMATICA"
+        if PackagingActivities.Emp_semi.value.upper() in activity_upper:
+            maquina1_team = teams_by_type.get("maquina1")
+            if maquina1_team:
+                return {
+                    "success": True,
+                    "selected_team": {
+                        "id": str(maquina1_team.id),
+                        "name": maquina1_team.name,
+                        "type": "maquina1"
+                    },
+                    "reason": f"Actividad de máquina semi-automática: {activity_name}",
+                    "rule_applied": "maquina_semi_automatica"
+                }
+        
+        # Regla 6: MAQUINA 2 para actividades "EMPAQUE MAQUINA AUTOMATICA"
+        if PackagingActivities.Emp_auto.value.upper() in activity_upper:
+            maquina2_team = teams_by_type.get("maquina2")
+            if maquina2_team:
+                return {
+                    "success": True,
+                    "selected_team": {
+                        "id": str(maquina2_team.id),
+                        "name": maquina2_team.name,
+                        "type": "maquina2"
+                    },
+                    "reason": f"Actividad de máquina automática: {activity_name}",
+                    "rule_applied": "maquina_automatica"
+                }
+        
+        # Si no se puede aplicar ninguna regla, usar el primer equipo disponible
+        available_teams = [
+            teams_by_type.get("empaque"), 
+            teams_by_type.get("empaque3"), 
+            teams_by_type.get("empaque2"), 
+            teams_by_type.get("empaque4"),
+            teams_by_type.get("maquina1"),
+            teams_by_type.get("maquina2")
+        ]
+        
         for team in available_teams:
             if team:
                 return {

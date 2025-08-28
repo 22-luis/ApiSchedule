@@ -67,6 +67,15 @@ class TeamPriorities:
         "fabricado1", # Fabricado 1 (para mezclas)
         "fabricado3"  # Fabricado 3 (para aderezos y jaleas)
     ]
+    
+    # Prioridades para equipos de empaque
+    PACKAGING_PRIORITIES = [
+        "empaque",    # Empaque (para empaque manual grupo)
+        "empaque3",   # Empaque 3 (para empaque manual)
+        "empaque2",   # Empaque 2 (para esencias)
+        "maquina 1",  # MAQUINA 1 (para semi-automática)
+        "maquina 2"   # MAQUINA 2 (para automática)
+    ]
 
 
 class ServiceConfig:
@@ -92,7 +101,7 @@ class ServiceConfig:
             "time_limit": TimeLimits.PACKAGING,
             "tolerance_minutes": TimeLimits.TOLERANCE_MINUTES,
             "activity_keywords": ActivityKeywords.PACKAGING_KEYWORDS,
-            "team_priorities": [],  # Por definir
+            "team_priorities": TeamPriorities.PACKAGING_PRIORITIES,
             "description": "Servicio de empaque de productos"
         }
     }

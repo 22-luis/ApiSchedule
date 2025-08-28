@@ -75,6 +75,10 @@ def create_orders(
     # Obtener instancias de servicios usando el factory
     weighing_service, fabrication_service = get_task_services()
     
+    # Crear instancia del servicio de empaque
+    from app.services.factory import TaskServiceFactory
+    packaging_service = TaskServiceFactory.create_packaging_service()
+    
     activities_data = weighing_service.get_activities_for_orders(extracted_orders, db)
     
     # Crear tareas de pesado para todas las órdenes usando el servicio
@@ -83,13 +87,17 @@ def create_orders(
     # Crear tareas de fabricación para todas las órdenes usando el servicio
     fabrication_tasks_result = fabrication_service.create_fabrication_tasks_for_orders(extracted_orders, db)
     
+    # Crear tareas de empaque para todas las órdenes usando el servicio
+    packaging_tasks_result = packaging_service.create_packaging_tasks_for_orders(extracted_orders, db)
+    
     response_data = {
         "created_orders": extracted_orders,
         "summary": summary,
         "activities_data": activities_data,
         "weighing_tasks_result": weighing_tasks_result,
         "fabrication_tasks_result": fabrication_tasks_result,
-        "message": f"Se crearon {len(created_orders)} órdenes exitosamente. {weighing_tasks_result.get('tasks_created', 0)} tareas de pesado y {fabrication_tasks_result.get('tasks_created', 0)} tareas de fabricación creadas."
+        "packaging_tasks_result": packaging_tasks_result,
+        "message": f"Se crearon {len(created_orders)} órdenes exitosamente. {weighing_tasks_result.get('tasks_created', 0)} tareas de pesado, {fabrication_tasks_result.get('tasks_created', 0)} tareas de fabricación y {packaging_tasks_result.get('tasks_created', 0)} tareas de empaque creadas."
     }
     
     print(f"[DEBUG] create_orders: Respuesta final - {response_data}")
@@ -129,7 +137,7 @@ def update_order_status(order_id: str, status_update: OrderStatusUpdate, db: Ses
 def sync_order_status(
     order_id: str, 
     db: Session = Depends(get_db), 
-    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))
 ):
     """
     Sincroniza el estado de una orden basándose en el estado actual de todas sus tareas.

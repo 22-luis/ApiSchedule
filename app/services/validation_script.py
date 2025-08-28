@@ -229,11 +229,11 @@ def validate_imports() -> Dict[str, Any]:
     
     try:
         # Validar imports de servicios refactorizados
-        from app.services.weighing_task_service_refactored import WeighingTaskService
+        from app.services.weighing_task_service import WeighingTaskService
         results["imports_validated"].append("WeighingTaskService")
         print("✅ Import de WeighingTaskService exitoso")
         
-        from app.services.fabrication_task_service_refactored import FabricationTaskService
+        from app.services.fabrication_task_service import FabricationTaskService
         results["imports_validated"].append("FabricationTaskService")
         print("✅ Import de FabricationTaskService exitoso")
         
