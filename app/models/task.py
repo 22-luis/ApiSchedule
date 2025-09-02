@@ -3,7 +3,7 @@ Modelo que representa una tarea individual dentro de una programación, incluyen
 """
 import uuid
 
-from sqlalchemy import Column, String, Integer, ForeignKey, Table, DateTime, Float
+from sqlalchemy import Column, String, Integer, ForeignKey, DateTime, Float
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
 from app.db.database import Base

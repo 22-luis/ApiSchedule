@@ -29,6 +29,7 @@ def get_task_services():
 @router.post("/")
 def create_orders(
     orders: Union[OrderCreate, List[OrderCreate]],
+    auto_create_tasks: bool = Query(True, description="Crear tareas automáticamente"),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))
 ):
@@ -69,36 +70,61 @@ def create_orders(
     # Generar resumen simplificado
     summary = get_orders_summary(created_orders)
     
-    # Obtener actividades para los códigos de las órdenes extraídas
-    print(f"[DEBUG] create_orders: Obteniendo actividades para los códigos extraídos")
-    
-    # Obtener instancias de servicios usando el factory
-    weighing_service, fabrication_service = get_task_services()
-    
-    # Crear instancia del servicio de empaque
-    from app.services.factory import TaskServiceFactory
-    packaging_service = TaskServiceFactory.create_packaging_service()
-    
-    activities_data = weighing_service.get_activities_for_orders(extracted_orders, db)
-    
-    # Crear tareas de pesado para todas las órdenes usando el servicio
-    weighing_tasks_result = weighing_service.create_weighing_tasks_for_orders(extracted_orders, db)
-    
-    # Crear tareas de fabricación para todas las órdenes usando el servicio
-    fabrication_tasks_result = fabrication_service.create_fabrication_tasks_for_orders(extracted_orders, db)
-    
-    # Crear tareas de empaque para todas las órdenes usando el servicio
-    packaging_tasks_result = packaging_service.create_packaging_tasks_for_orders(extracted_orders, db)
+    # Serializar las órdenes creadas para la respuesta
+    serialized_orders = []
+    for order in created_orders:
+        order_dict = {
+            "lote": order.lote,
+            "code": order.code,
+            "status": order.status,
+            "description": order.description,
+            "quantity": order.quantity,
+            "bin": order.bin,
+            "dueDate": order.dueDate
+        }
+        serialized_orders.append(order_dict)
     
     response_data = {
-        "created_orders": extracted_orders,
+        "created_orders": serialized_orders,
+        "extracted_orders": extracted_orders,
         "summary": summary,
-        "activities_data": activities_data,
-        "weighing_tasks_result": weighing_tasks_result,
-        "fabrication_tasks_result": fabrication_tasks_result,
-        "packaging_tasks_result": packaging_tasks_result,
-        "message": f"Se crearon {len(created_orders)} órdenes exitosamente. {weighing_tasks_result.get('tasks_created', 0)} tareas de pesado, {fabrication_tasks_result.get('tasks_created', 0)} tareas de fabricación y {packaging_tasks_result.get('tasks_created', 0)} tareas de empaque creadas."
+        "auto_create_tasks": auto_create_tasks
     }
+    
+    # Solo crear tareas si auto_create_tasks es True
+    if auto_create_tasks:
+        # Obtener actividades para los códigos de las órdenes extraídas
+        print(f"[DEBUG] create_orders: Obteniendo actividades para los códigos extraídos")
+        
+        # Obtener instancias de servicios usando el factory
+        weighing_service, fabrication_service = get_task_services()
+        
+        # Crear instancia del servicio de empaque
+        from app.services.factory import TaskServiceFactory
+        packaging_service = TaskServiceFactory.create_packaging_service()
+        
+        activities_data = weighing_service.get_activities_for_orders(extracted_orders, db)
+        
+        # Crear tareas de pesado para todas las órdenes usando el servicio
+        weighing_tasks_result = weighing_service.create_weighing_tasks_for_orders(extracted_orders, db)
+        
+        # Crear tareas de fabricación para todas las órdenes usando el servicio
+        fabrication_tasks_result = fabrication_service.create_fabrication_tasks_for_orders(extracted_orders, db)
+        
+        # Crear tareas de empaque para todas las órdenes usando el servicio
+        packaging_tasks_result = packaging_service.create_packaging_tasks_for_orders(extracted_orders, db)
+        
+        response_data.update({
+            "activities_data": activities_data,
+            "weighing_tasks_result": weighing_tasks_result,
+            "fabrication_tasks_result": fabrication_tasks_result,
+            "packaging_tasks_result": packaging_tasks_result,
+            "message": f"Se crearon {len(created_orders)} órdenes exitosamente. {weighing_tasks_result.get('tasks_created', 0)} tareas de pesado, {fabrication_tasks_result.get('tasks_created', 0)} tareas de fabricación y {packaging_tasks_result.get('tasks_created', 0)} tareas de empaque creadas."
+        })
+    else:
+        response_data.update({
+            "message": f"Se crearon {len(created_orders)} órdenes exitosamente. No se crearon tareas automáticamente."
+        })
     
     print(f"[DEBUG] create_orders: Respuesta final - {response_data}")
     return response_data
