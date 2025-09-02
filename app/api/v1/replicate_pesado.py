@@ -70,7 +70,6 @@ def get_pesado_data_for_code(db: Session, code_id: str) -> dict:
             'presentation': pesado_code.presentation,
             'fabricationCode': pesado_code.fabricationCode,
             'usefulLife': pesado_code.usefulLife,
-            'related_code_team': pesado_code.related_code_team,
             'unit': pesado_code.unit,
             'type': pesado_code.type,
             'description': pesado_code.description
@@ -87,7 +86,6 @@ def get_pesado_data_for_code(db: Session, code_id: str) -> dict:
             'presentation': original_code.presentation,
             'fabricationCode': original_code.fabricationCode,
             'usefulLife': original_code.usefulLife,
-            'related_code_team': original_code.related_code_team,
             'unit': original_code.unit,
             'type': original_code.type,
             'description': original_code.description
@@ -211,7 +209,7 @@ def replicate_task_to_pesado_if_needed(
                 presentation=pesado_data['presentation'],  # Presentación específica para PESADO
                 fabricationCode=pesado_data['fabricationCode'],  # Código de fabricación específico para PESADO
                 usefulLife=pesado_data['usefulLife'],  # Vida útil específica para PESADO
-                related_task_code=pesado_data['related_code_team'],  # Código relacionado específico para PESADO
+                related_task_code=None,  # No hay código relacionado disponible
                 unit=pesado_data['unit'],  # Unidad específica para PESADO
                 type=pesado_data['type'],  # Tipo específico para PESADO
                 activity="PESADO",  # Actividad específica para pesado
