@@ -269,10 +269,10 @@ def get_code_activity(code: str, db: Session = Depends(get_db), current_user: Us
 @router.get("/by_code/{code}/lotes")
 @cache_response(ttl=300, key_fields=["code"])  # Cache por 5 minutos
 def get_lotes_by_code(code: str, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))):
-    # Solo obtener lotes con estado "pending" (pendiente)
+    # Obtener todos los lotes excepto los que tienen estado "completed" (completado)
     lotes = db.query(Order.lote).filter(
         Order.code == code,
-        Order.status == "pending"
+        Order.status != "completed"
     ).all()
     
     # Devolver respuesta vacía en lugar de error 404 cuando no hay lotes
