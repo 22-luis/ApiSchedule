@@ -39,8 +39,8 @@ def clean_float(value):
     if value is None:
         return None
     if isinstance(value, str):
-        value = value.strip().replace('\xa0', '').replace(' ', '')
-        if value == '' or value == '-':
+        value = value.strip().replace('\xa0', '').replace(' ', '').replace(',', '.')
+        if value == '' or value == '-' or value.lower() == 'null':
             return None
     try:
         return float(value)
@@ -51,8 +51,13 @@ def clean_str(value):
     if value is None:
         return ""
     if isinstance(value, str):
-        return value.strip()
-    return str(value)
+        # Limpiar espacios múltiples, caracteres especiales y normalizar
+        cleaned = value.strip().replace('\xa0', ' ')
+        # Reemplazar múltiples espacios con uno solo
+        import re
+        cleaned = re.sub(r'\s+', ' ', cleaned)
+        return cleaned.upper() if cleaned.lower() != 'null' else ""
+    return str(value).strip().upper()
 
 @router.post("/", response_model=CodeOut)
 @invalidate_cache(pattern="codes")  # Invalidar caché de códigos
@@ -92,46 +97,234 @@ def create_code(code: CodeCreate, db: Session = Depends(get_db), current_user: U
         "usefulLife": db_code.usefulLife,
     }
 
+@router.get("/debug_codes")
+def debug_codes(db: Session = Depends(get_db)):
+    """Endpoint temporal para debug - ver todos los códigos"""
+    try:
+        codes = db.query(Code).all()
+        result = []
+        for code in codes:
+            result.append({
+                "id": str(code.id),
+                "code": f"'{code.code}'",
+                "activity": f"'{code.activity}'",
+                "description": f"'{code.description}'",
+                "code_len": len(code.code or ""),
+                "activity_len": len(code.activity or ""),
+                "code_repr": repr(code.code),
+                "activity_repr": repr(code.activity)
+            })
+        return {"total": len(codes), "codes": result[:10]}  # Solo primeros 10 para no saturar
+    except Exception as e:
+        return {"error": str(e), "total": 0, "codes": []}
+
+@router.post("/test_search")
+def test_search(search_data: dict, db: Session = Depends(get_db)):
+    """Endpoint para probar la búsqueda de códigos"""
+    try:
+        code_str = search_data.get("code", "")
+        activity_str = search_data.get("activity", "")
+        
+        print(f"[TEST_SEARCH] Buscando código='{code_str}' actividad='{activity_str}'")
+        
+        # Limpiar valores
+        clean_code = clean_str(code_str)
+        clean_activity = clean_str(activity_str)
+        
+        print(f"[TEST_SEARCH] Limpiados código='{clean_code}' actividad='{clean_activity}'")
+        
+        # Buscar
+        existing_code = db.query(Code).filter(
+            Code.code == clean_code,
+            Code.activity == clean_activity
+        ).first()
+        
+        if existing_code:
+            result = {
+                "found": True,
+                "id": str(existing_code.id),
+                "code": existing_code.code,
+                "activity": existing_code.activity,
+                "description": existing_code.description
+            }
+        else:
+            result = {"found": False}
+        
+        print(f"[TEST_SEARCH] Resultado: {result}")
+        return result
+        
+    except Exception as e:
+        return {"error": str(e), "found": False}
+
 @router.post("/bulk_upload")
 @invalidate_cache(pattern="codes")  # Invalidar caché de códigos
 def bulk_upload_codes(codes: list[dict], db: Session = Depends(get_db), current_user=Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))):
+    print(f"[BULK_UPLOAD] Iniciando carga masiva con {len(codes)} registros")
+    
+    # Lista de actividades permitidas
+    ACTIVIDADES_PERMITIDAS = {
+        "EMPAQUE MANUAL MAS MEZCLA",
+        "EMPAQUE MANUAL GRUPO", 
+        "EMPAQUE MANUAL",
+        "EMPAQUE MAQUINA SEMI AUTOMATICA",
+        "EMPAQUE MAQUINA AUTOMATICA",
+        "PESADO",
+        "MOLIENDA EN POLVO",
+        "MOLIENDA EN PASTA",
+        "MEZCLA MANUAL POLVO",
+        "MEZCLA EN MAQUINA",
+        "MEZCLA LIQUIDA",
+        "FABRICACION DE ADEREZOS, JALEAS",
+        "HOMOGENIZACION"
+    }
+    
     created = 0
+    updated = 0
     errors = []
+    ignored = 0
+    
     for idx, code_data in enumerate(codes):
         code_str = code_data.get("code")
         description = code_data.get("description")
+        activity = code_data.get("activity")
+        
         if not code_str or not description:
             errors.append({"row": idx+1, "error": "Falta código o descripción"})
-            continue
-        # Verifica duplicados
-        exists = db.query(Code).filter(Code.code == code_str).first()
-        if exists:
-            errors.append({"row": idx+1, "error": f"Código duplicado: {code_str}"})
             continue
         
         # Mapeo de columnas para compatibilidad con Excel (lowercase a camelCase)
         useful_life = code_data.get("usefulLife") or code_data.get("usefullife")
         fabrication_code = code_data.get("fabricationCode") or code_data.get("fabricationc")
         
-        db_code = Code(
-            code=clean_str(code_str),
-            description=clean_str(description),
-            unit=clean_str(code_data.get("unit")),
-            type=clean_str(code_data.get("type")),
-            activity=clean_str(code_data.get("activity")),
-            quantity=clean_float(code_data.get("quantity")),
-            time=clean_float(code_data.get("time")),
-            people=clean_float(code_data.get("people")),
-            performance=clean_float(code_data.get("performance")),
-            material=clean_str(code_data.get("material")),
-            presentation=clean_str(code_data.get("presentation")),
-            fabricationCode=clean_str(fabrication_code),
-            usefulLife=clean_str(useful_life)
-        )
-        db.add(db_code)
-        created += 1
+        # Limpiar el código y la actividad antes de buscar
+        clean_code = clean_str(code_str)
+        clean_activity = clean_str(activity)
+        
+        print(f"[DEBUG] Fila {idx+1}: Buscando código='{clean_code}' (len={len(clean_code)}) actividad='{clean_activity}' (len={len(clean_activity)})")
+        
+        # Validar que la actividad esté en la lista permitida
+        if clean_activity not in ACTIVIDADES_PERMITIDAS:
+            print(f"[DEBUG] Actividad '{clean_activity}' no está permitida. Ignorando registro.")
+            errors.append({"row": idx+1, "error": f"Actividad no permitida: '{activity}'. Actividades válidas: {', '.join(sorted(ACTIVIDADES_PERMITIDAS))}"})
+            ignored += 1
+            continue
+        
+        # Buscar todos los códigos que coincidan y comparar manualmente con normalización
+        all_codes = db.query(Code).filter(Code.code.ilike(clean_code)).all()
+        existing_code = None
+        
+        print(f"[DEBUG] Encontrados {len(all_codes)} códigos con código similar")
+        
+        for code_obj in all_codes:
+            db_code_clean = clean_str(code_obj.code)
+            db_activity_clean = clean_str(code_obj.activity)
+            
+            print(f"[DEBUG] Comparando: DB('{db_code_clean}','{db_activity_clean}') vs Excel('{clean_code}','{clean_activity}')")
+            
+            if db_code_clean == clean_code and db_activity_clean == clean_activity:
+                existing_code = code_obj
+                print(f"[DEBUG] ¡COINCIDENCIA ENCONTRADA! ID: {existing_code.id}")
+                break
+        
+        if not existing_code:
+            print(f"[DEBUG] NO ENCONTRADO - Creando nuevo registro")
+        
+        if existing_code:
+            # Si existe, actualizar solo los campos que han cambiado
+            has_changes = False
+            
+            # Preparar los nuevos valores preservando formato original
+            def clean_str_preserve_case(value):
+                if value is None:
+                    return ""
+                if isinstance(value, str):
+                    cleaned = value.strip().replace('\xa0', ' ')
+                    import re
+                    cleaned = re.sub(r'\s+', ' ', cleaned)
+                    return cleaned if cleaned.lower() != 'null' else ""
+                return str(value).strip()
+            
+            new_values = {
+                'description': clean_str_preserve_case(description),
+                'unit': clean_str_preserve_case(code_data.get("unit")),
+                'type': clean_str_preserve_case(code_data.get("type")),
+                'quantity': clean_float(code_data.get("quantity")),
+                'time': clean_float(code_data.get("time")),
+                'people': clean_float(code_data.get("people")),
+                'performance': clean_float(code_data.get("performance")),
+                'material': clean_str_preserve_case(code_data.get("material")),
+                'presentation': clean_str_preserve_case(code_data.get("presentation")),
+                'fabricationCode': clean_str_preserve_case(fabrication_code),
+                'usefulLife': clean_str_preserve_case(useful_life)
+            }
+            
+            # Comparar y actualizar solo los campos diferentes
+            for field, new_value in new_values.items():
+                current_value = getattr(existing_code, field)
+                # Normalizar valores para comparación (pero mantener formato original al guardar)
+                if isinstance(current_value, str) and isinstance(new_value, str):
+                    # Normalizar ambos para comparación
+                    current_normalized = clean_str(current_value) if current_value else ""
+                    new_normalized = clean_str(new_value) if new_value else ""
+                    if current_normalized != new_normalized:
+                        setattr(existing_code, field, new_value)  # Guardar el valor original
+                        has_changes = True
+                        print(f"[DEBUG] Campo '{field}' cambiado: '{current_value}' -> '{new_value}'")
+                elif current_value != new_value:
+                    setattr(existing_code, field, new_value)
+                    has_changes = True
+                    print(f"[DEBUG] Campo '{field}' cambiado: {current_value} -> {new_value}")
+            
+            if has_changes:
+                updated += 1
+        else:
+            # Si no existe, crear nuevo
+            # Para crear, usar valores limpios pero manteniendo el formato original
+            def clean_str_preserve_case(value):
+                if value is None:
+                    return ""
+                if isinstance(value, str):
+                    cleaned = value.strip().replace('\xa0', ' ')
+                    import re
+                    cleaned = re.sub(r'\s+', ' ', cleaned)
+                    return cleaned if cleaned.lower() != 'null' else ""
+                return str(value).strip()
+            
+            db_code = Code(
+                code=clean_str_preserve_case(code_str),
+                description=clean_str_preserve_case(description),
+                unit=clean_str_preserve_case(code_data.get("unit")),
+                type=clean_str_preserve_case(code_data.get("type")),
+                activity=clean_str_preserve_case(activity),
+                quantity=clean_float(code_data.get("quantity")),
+                time=clean_float(code_data.get("time")),
+                people=clean_float(code_data.get("people")),
+                performance=clean_float(code_data.get("performance")),
+                material=clean_str_preserve_case(code_data.get("material")),
+                presentation=clean_str_preserve_case(code_data.get("presentation")),
+                fabricationCode=clean_str_preserve_case(fabrication_code),
+                usefulLife=clean_str_preserve_case(useful_life)
+            )
+            db.add(db_code)
+            created += 1
+    
     db.commit()
-    return {"created": created, "errors": errors}
+    
+    # Calcular registros sin cambios
+    total_processed = len(codes) - len(errors)
+    unchanged = total_processed - created - updated
+    
+    print(f"[BULK_UPLOAD] Completado - Creados: {created}, Actualizados: {updated}, Sin cambios: {unchanged}, Ignorados: {ignored}, Errores: {len(errors)}")
+    
+    return {
+        "created": created, 
+        "updated": updated, 
+        "unchanged": unchanged,
+        "ignored": ignored,
+        "errors": errors,
+        "total_processed": total_processed,
+        "valid_activities": list(ACTIVIDADES_PERMITIDAS)
+    }
 
 @router.get("/", response_model=CodePageOut)
 @cache_response(ttl=300, key_fields=["skip", "limit", "search"])  # Cache por 5 minutos

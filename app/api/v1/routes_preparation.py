@@ -13,6 +13,26 @@ from app.models.role import UserRole
 
 router = APIRouter(prefix="/preparations", tags=["preparations"])
 
+def clean_int(value):
+    if value is None:
+        return None
+    if isinstance(value, str):
+        value = value.strip().replace('\xa0', '').replace(' ', '').replace(',', '.')
+        if value == '' or value == '-' or value.lower() == 'null':
+            return None
+    try:
+        return int(float(value))  # Convertir a float primero para manejar decimales
+    except (ValueError, TypeError):
+        return None
+
+def clean_str(value):
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        cleaned = value.strip().replace('\xa0', ' ')
+        return cleaned if cleaned.lower() != 'null' else ""
+    return str(value).strip()
+
 @router.post("/", response_model=PreparationOut)
 def create_preparation(
     preparation: PreparationCreate,
@@ -28,26 +48,47 @@ def create_preparation(
 @router.post("/bulk_upload")
 def bulk_upload_preparations(preparations: list[dict], db: Session = Depends(get_db), current_user=Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))):
     created = 0
+    updated = 0
     errors = []
+    
     for idx, prep_data in enumerate(preparations):
-        description = prep_data.get("description")
-        minutes = prep_data.get("minutes")
+        description = clean_str(prep_data.get("description"))
+        minutes = clean_int(prep_data.get("minutes"))
+        
         if not description or minutes is None:
             errors.append({"row": idx+1, "error": "Falta descripción o minutos"})
             continue
-        # Verifica duplicados
-        exists = db.query(Preparation).filter(Preparation.description == description).first()
-        if exists:
-            errors.append({"row": idx+1, "error": f"Preparación duplicada: {description}"})
-            continue
-        db_prep = Preparation(
-            description=description,
-            minutes=minutes
-        )
-        db.add(db_prep)
-        created += 1
+        
+        # Buscar si existe una preparación con la misma descripción
+        existing_prep = db.query(Preparation).filter(Preparation.description == description).first()
+        
+        if existing_prep:
+            # Si existe, actualizar solo si los minutos han cambiado
+            if existing_prep.minutes != minutes:
+                existing_prep.minutes = minutes
+                updated += 1
+        else:
+            # Si no existe, crear nueva
+            db_prep = Preparation(
+                description=description,
+                minutes=minutes
+            )
+            db.add(db_prep)
+            created += 1
+    
     db.commit()
-    return {"created": created, "errors": errors}
+    
+    # Calcular registros sin cambios
+    total_processed = len(preparations) - len(errors)
+    unchanged = total_processed - created - updated
+    
+    return {
+        "created": created, 
+        "updated": updated, 
+        "unchanged": unchanged,
+        "errors": errors,
+        "total_processed": total_processed
+    }
 
 @router.get("/", response_model=List[PreparationOut])
 def get_preparations(
