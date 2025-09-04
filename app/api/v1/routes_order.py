@@ -3,7 +3,7 @@ Rutas de la API para la gestión de órdenes de producción: creación, actualiz
 """
 from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from sqlalchemy.orm import Session
-from app.schemas.order import OrderCreate, OrderOut, OrderStatusUpdate, OrderPageOut
+from app.schemas.order import OrderCreate, OrderOut, OrderStatusUpdate, OrderPageOut, OrderWarehouseUpdate, OrderWarehouseOut
 from app.models import order as order_model
 from app.db.dependency import get_db
 from typing import List, Union, Optional
@@ -138,11 +138,46 @@ def delete_order(order_id: str, db: Session = Depends(get_db), current_user: Use
     db.commit()
     return {"message": "Order deleted successfully"}
 
-@router.patch("/{order_id}/status")
-def update_order_status(order_id: str, status_update: OrderStatusUpdate, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))):
+@router.patch("/{order_id}")
+def update_order_warehouse(order_id: str, order_update: OrderWarehouseUpdate, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.WAREHOUSE))):
+    from app.utils.order_status_service import OrderStatusService
+    
     db_order = db.query(order_model.Order).filter(order_model.Order.lote == order_id).first()
     if not db_order:
         raise HTTPException(status_code=404, detail="Order not found")
+    
+    update_data = order_update.dict(exclude_unset=True)
+    for key, value in update_data.items():
+        if value is not None:
+            setattr(db_order, key, value)
+    
+    # Si se actualizó missing_quantity, verificar cambio de estado
+    if 'missing_quantity' in update_data:
+        OrderStatusService.update_order_status_based_on_missing_quantity(db, db_order)
+    
+    db.commit()
+    db.refresh(db_order)
+    return {
+        "lote": db_order.lote,
+        "received_user": db_order.received_user,
+        "received_date": db_order.received_date,
+        "received_quantity": db_order.received_quantity,
+        "missing_quantity": db_order.missing_quantity,
+        "submitted_user": db_order.submitted_user,
+        "submitted_date": db_order.submitted_date,
+        "status": db_order.status
+    }
+
+@router.patch("/{order_id}/status")
+def update_order_status(order_id: str, status_update: OrderStatusUpdate, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.WAREHOUSE))):
+    """
+    Actualiza manualmente el estado de una orden.
+    Todos los roles excepto USER pueden actualizar el estado.
+    """
+    db_order = db.query(order_model.Order).filter(order_model.Order.lote == order_id).first()
+    if not db_order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
     db_order.status = status_update.status
     db.commit()
     db.refresh(db_order)
@@ -155,9 +190,58 @@ def update_order_status(order_id: str, status_update: OrderStatusUpdate, db: Ses
         "description": db_order.description,
         "quantity": db_order.quantity,
         "bin": db_order.bin,
-        "dueDate": db_order.dueDate
+        "dueDate": db_order.dueDate,
+        "missing_quantity": db_order.missing_quantity
     }
     return order_dict
+
+@router.patch("/{order_id}/warehouse-fields")
+def update_order_warehouse_fields(
+    order_id: str, 
+    order_update: OrderWarehouseUpdate, 
+    db: Session = Depends(get_db), 
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.WAREHOUSE))
+):
+    """
+    Endpoint específico para actualizar campos de almacén y gestionar el flujo de estados automáticamente.
+    Cuando se actualiza missing_quantity, el estado cambia automáticamente según las reglas del negocio.
+    """
+    from app.utils.order_status_service import OrderStatusService
+    
+    db_order = db.query(order_model.Order).filter(order_model.Order.lote == order_id).first()
+    if not db_order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    # Guardar el estado anterior para logging
+    previous_status = db_order.status
+    
+    # Actualizar solo los campos que se enviaron
+    update_data = order_update.dict(exclude_unset=True)
+    for key, value in update_data.items():
+        if value is not None:
+            setattr(db_order, key, value)
+    
+    # Si se actualizó missing_quantity, aplicar la lógica de cambio de estado automático
+    if 'missing_quantity' in update_data and update_data['missing_quantity'] is not None:
+        OrderStatusService.update_order_status_based_on_missing_quantity(db, db_order)
+    
+    db.commit()
+    db.refresh(db_order)
+    
+    return {
+        "lote": db_order.lote,
+        "code": db_order.code,
+        "status": db_order.status,
+        "previous_status": previous_status,
+        "status_changed": previous_status != db_order.status,
+        "received_user": db_order.received_user,
+        "received_date": db_order.received_date,
+        "received_quantity": db_order.received_quantity,
+        "missing_quantity": db_order.missing_quantity,
+        "submitted_user": db_order.submitted_user,
+        "submitted_date": db_order.submitted_date,
+        "message": f"Orden actualizada. Estado cambió de {previous_status} a {db_order.status}" if previous_status != db_order.status else "Orden actualizada sin cambio de estado"
+    }
 
 @router.post("/{order_id}/sync_status")
 def sync_order_status(
@@ -344,7 +428,13 @@ def get_orders(
             "description": order.description,
             "quantity": order.quantity,
             "bin": order.bin,
-            "dueDate": order.dueDate
+            "dueDate": order.dueDate,
+            "received_user": order.received_user,
+            "received_date": order.received_date,
+            "received_quantity": order.received_quantity,
+            "missing_quantity": order.missing_quantity,
+            "submitted_user": order.submitted_user,
+            "submitted_date": order.submitted_date
         }
         serialized_orders.append(order_dict)
     
@@ -1332,11 +1422,10 @@ def get_most_suitable_weighing_team_with_time_verification_endpoint(
                     },
                     "time_verification": time_verification
                 }
-        
+
         print(f"[DEBUG] get_most_suitable_weighing_team_with_time_verification_endpoint: Resultado obtenido - {result}")
-        
+
         return result
         
     except Exception as e:
-        print(f"[DEBUG] get_most_suitable_weighing_team_with_time_verification_endpoint: Error - {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error obteniendo equipo con verificación de tiempo: {str(e)}")

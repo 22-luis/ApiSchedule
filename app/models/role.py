@@ -8,3 +8,4 @@ class UserRole(enum.Enum):
     PLANNER = "planner"
     SUPERVISOR = "supervisor"
     USER = "user"
+    WAREHOUSE = "warehouse"

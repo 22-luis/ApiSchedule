@@ -9,8 +9,9 @@ class UserState(enum.Enum):
 
 class OrderStatus(enum.Enum):
     pending = "pending"
-    programada = "programada"
-    in_progress = "in_progress"
+    programmed = "programmed"
+    unprogrammed = "unprogrammed"
+    manufactured = "manufactured"
     completed = "completed"
     
 class ProgrammingStatus(enum.Enum):

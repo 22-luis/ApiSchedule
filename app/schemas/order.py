@@ -30,6 +30,12 @@ class OrderOut(BaseModel):
     quantity: int
     bin: int
     dueDate: Optional[datetime] = None
+    received_user: Optional[str] = None
+    received_date: Optional[datetime] = None
+    received_quantity: Optional[int] = None
+    missing_quantity: Optional[int] = None
+    submitted_user: Optional[str] = None
+    submitted_date: Optional[datetime] = None
 
     @field_validator('code', 'description')
     @classmethod
@@ -49,3 +55,27 @@ class OrderStatusUpdate(BaseModel):
 class OrderPageOut(BaseModel):
     orders: list[OrderOut]
     total: int
+
+class OrderWarehouseUpdate(BaseModel):
+    received_user: Optional[str] = None
+    received_date: Optional[datetime] = None
+    received_quantity: Optional[int] = None
+    missing_quantity: Optional[int] = None
+    submitted_user: Optional[str] = None
+    submitted_date: Optional[datetime] = None
+
+class OrderWarehouseOut(BaseModel):
+    lote: int
+    code: str
+    status: OrderStatus
+    description: str
+    quantity: int
+    bin: int
+    dueDate: datetime
+    received_user: Optional[str] = None
+    received_date: Optional[datetime] = None
+    received_quantity: Optional[int] = None
+    missing_quantity: Optional[int] = None
+    submitted_user: Optional[str] = None
+    submitted_date: Optional[datetime] = None
+
