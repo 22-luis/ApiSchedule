@@ -1,10 +1,15 @@
 from logging.config import fileConfig
+import os
+from dotenv import load_dotenv
 
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 
 from alembic import context
-from app.db.database import Base 
+from app.db.database import Base
+
+# Cargar variables de entorno
+load_dotenv() 
 
 # IMPORTA TODOS LOS MODELOS PARA QUE ALEMBIC LOS DETECTE
 from app.models.user import User
@@ -49,7 +54,9 @@ def run_migrations_offline() -> None:
     script output.
 
     """
-    url = config.get_main_option("sqlalchemy.url")
+    # Construir URL desde variables de entorno
+    url = f"postgresql+psycopg2://{os.getenv('POSTGRES_USER')}:{os.getenv('POSTGRES_PASSWORD')}@{os.getenv('POSTGRES_SERVER')}:{os.getenv('POSTGRES_PORT')}/{os.getenv('POSTGRES_DB')}"
+    
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -68,8 +75,12 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
+    # Configurar URL desde variables de entorno
+    configuration = config.get_section(config.config_ini_section, {})
+    configuration["sqlalchemy.url"] = f"postgresql+psycopg2://{os.getenv('POSTGRES_USER')}:{os.getenv('POSTGRES_PASSWORD')}@{os.getenv('POSTGRES_SERVER')}:{os.getenv('POSTGRES_PORT')}/{os.getenv('POSTGRES_DB')}"
+    
     connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
+        configuration,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )

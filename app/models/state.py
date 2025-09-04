@@ -12,6 +12,7 @@ class OrderStatus(enum.Enum):
     programmed = "programmed"
     unprogrammed = "unprogrammed"
     manufactured = "manufactured"
+    delivered = "delivered"
     completed = "completed"
     
 class ProgrammingStatus(enum.Enum):

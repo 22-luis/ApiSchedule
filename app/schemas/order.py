@@ -8,7 +8,7 @@ from app.models.state import OrderStatus
 class OrderCreate(BaseModel):
     lote: int
     code: str
-    status: OrderStatus
+    status: Optional[OrderStatus] = OrderStatus.unprogrammed
     description: str
     quantity: int
     bin: int

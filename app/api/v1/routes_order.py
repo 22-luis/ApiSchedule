@@ -12,6 +12,16 @@ from app.utils.dependencies import get_current_user, require_roles
 from app.models.role import UserRole
 from app.models.state import OrderStatus
 from app.utils.data_cleaning import clean_order_data
+
+def _get_delivery_status_message(status: OrderStatus, missing_quantity: int) -> str:
+    """Genera el mensaje apropiado según el estado y cantidad faltante."""
+    if status == OrderStatus.completed:
+        if missing_quantity < 0:
+            return f"Orden completada con {abs(missing_quantity)} unidades adicionales."
+        else:
+            return "Orden completada."
+    else:
+        return f"Cantidad faltante: {missing_quantity}"
 from app.core.task_config import (
     extract_created_orders_data, 
     get_orders_summary
@@ -54,7 +64,7 @@ def create_orders(
             description=cleaned_order['description'],
             quantity=order.quantity,
             bin=order.bin,
-            status=order.status,
+            status=OrderStatus.unprogrammed,  # Siempre iniciar como unprogrammed
         )
         db.add(db_order)
         created_orders.append(db_order)
@@ -139,7 +149,7 @@ def delete_order(order_id: str, db: Session = Depends(get_db), current_user: Use
     return {"message": "Order deleted successfully"}
 
 @router.patch("/{order_id}")
-def update_order_warehouse(order_id: str, order_update: OrderWarehouseUpdate, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.WAREHOUSE))):
+def update_order_warehouse(order_id: str, order_update: OrderWarehouseUpdate, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.WAREHOUSE, UserRole.USER))):
     from app.utils.order_status_service import OrderStatusService
     
     db_order = db.query(order_model.Order).filter(order_model.Order.lote == order_id).first()
@@ -169,7 +179,7 @@ def update_order_warehouse(order_id: str, order_update: OrderWarehouseUpdate, db
     }
 
 @router.patch("/{order_id}/status")
-def update_order_status(order_id: str, status_update: OrderStatusUpdate, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.WAREHOUSE))):
+def update_order_status(order_id: str, status_update: OrderStatusUpdate, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.WAREHOUSE, UserRole.USER))):
     """
     Actualiza manualmente el estado de una orden.
     Todos los roles excepto USER pueden actualizar el estado.
@@ -200,7 +210,7 @@ def update_order_warehouse_fields(
     order_id: str, 
     order_update: OrderWarehouseUpdate, 
     db: Session = Depends(get_db), 
-    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.WAREHOUSE))
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.WAREHOUSE, UserRole.USER))
 ):
     """
     Endpoint específico para actualizar campos de almacén y gestionar el flujo de estados automáticamente.
@@ -359,6 +369,50 @@ def sync_all_orders_status(
         "message": f"Synced {synced_count} out of {len(orders)} orders",
         "synced_count": synced_count,
         "total_orders": len(orders)
+    }
+
+@router.post("/test_order_flow/{order_lote}")
+def test_order_status_flow(
+    order_lote: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))
+):
+    """
+    Endpoint de prueba para verificar el flujo completo de estados de una orden.
+    """
+    from app.utils.order_status_service import OrderStatusService
+    from app.models.task import Task
+    
+    # Buscar la orden
+    order = db.query(order_model.Order).filter(order_model.Order.lote == order_lote).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    # Buscar tareas asociadas a esta orden
+    tasks = db.query(Task).filter(Task.lote == str(order_lote)).all()
+    
+    # Información de las tareas
+    tasks_info = []
+    for task in tasks:
+        task_info = {
+            "id": str(task.id),
+            "lote": task.lote,
+            "activity": task.activity,
+            "code_activity": task.code.activity if task.code else None,
+            "description": task.description
+        }
+        tasks_info.append(task_info)
+    
+    return {
+        "order": {
+            "lote": order.lote,
+            "code": order.code,
+            "status": order.status,
+            "description": order.description
+        },
+        "tasks": tasks_info,
+        "tasks_count": len(tasks),
+        "message": f"Orden {order_lote} tiene {len(tasks)} tareas asociadas"
     }
 
 @router.post("/update_status_for_today")
@@ -685,7 +739,7 @@ def extract_recent_orders_with_activities(
             "activities_data": activities_data,
             "limit": limit,
             "status_filter": status.value if status else None,
-            "message": f"Se extrajeron {len(recent_orders)} órdenes recientes con sus actividades"
+            "message": f"Se extrajeron {len(recent_orders)} órdenes recientes con actividades"
         }
         
         print(f"[DEBUG] extract_recent_orders_with_activities: Respuesta final - {response_data}")
@@ -693,6 +747,219 @@ def extract_recent_orders_with_activities(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error extrayendo órdenes recientes con actividades: {str(e)}")
+
+@router.get("/delivered", response_model=OrderPageOut)
+def get_delivered_orders(
+    lote: int = Query(None, description="Filtrar por lote"),
+    code: str = Query(None, description="Filtrar por código"),
+    skip: int = Query(0, ge=0, description="Cuántos registros omitir (paginación)"),
+    limit: int = Query(10, ge=1, le=100, description="Cuántos registros devolver (paginación)"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.WAREHOUSE))
+):
+    """
+    Obtiene órdenes que han sido entregadas pero no completadas.
+    Solo muestra órdenes en estado 'delivered' que están pendientes de recepción en almacén.
+    Solo accesible para admin, supervisor y warehouse (recepción).
+    """
+    from sqlalchemy import or_
+    
+    query = db.query(order_model.Order).filter(
+        order_model.Order.status == OrderStatus.delivered  # Órdenes entregadas pero no completadas
+    )
+    
+    if lote:
+        query = query.filter(order_model.Order.lote == lote)
+    if code:
+        query = query.filter(order_model.Order.code == code)
+    
+    total = query.count()
+    orders = query.offset(skip).limit(limit).all()
+    
+    # Serializar las órdenes usando el esquema OrderOut
+    serialized_orders = []
+    for order in orders:
+        order_dict = {
+            "lote": order.lote,
+            "code": order.code,
+            "status": order.status,
+            "description": order.description,
+            "quantity": order.quantity,
+            "bin": order.bin,
+            "dueDate": order.dueDate,
+            "received_user": order.received_user,
+            "received_date": order.received_date,
+            "received_quantity": order.received_quantity,
+            "missing_quantity": order.missing_quantity,
+            "submitted_user": order.submitted_user,
+            "submitted_date": order.submitted_date
+        }
+        serialized_orders.append(order_dict)
+    
+    return {"orders": serialized_orders, "total": total}
+
+@router.post("/{order_id}/receive")
+def receive_order(
+    order_id: str,
+    request_data: dict = Body(default={}),
+    db: Session = Depends(get_db), 
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.WAREHOUSE))
+):
+    """
+    Marca una orden como recibida completamente por el usuario actual.
+    Automáticamente recibe la cantidad entregada y cambia el estado a completed.
+    Solo accesible para admin, supervisor y warehouse (recepción).
+    """
+    from datetime import date
+    
+    db_order = db.query(order_model.Order).filter(order_model.Order.lote == order_id).first()
+    if not db_order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    # Verificar que la orden haya sido entregada
+    if db_order.status != OrderStatus.delivered:
+        raise HTTPException(status_code=400, detail="La orden debe estar en estado 'entregado' para poder ser recibida")
+    
+    # Verificar que no esté ya completada
+    if db_order.status == OrderStatus.completed:
+        raise HTTPException(status_code=400, detail="La orden ya está completada")
+    
+    # Marcar como recibida automáticamente con la cantidad entregada
+    db_order.received_user = current_user.username
+    db_order.received_date = date.today()
+    # No cambiar received_quantity ya que se estableció en la entrega
+    
+    # Determinar el estado final
+    custom_status = request_data.get("custom_status")
+    if custom_status == "pending":
+        db_order.status = OrderStatus.pending
+        status_message = "pendiente (requiere revisión)"
+    else:
+        # Por defecto, cambiar a completado
+        db_order.status = OrderStatus.completed
+        status_message = "completada"
+    
+    db.commit()
+    db.refresh(db_order)
+    
+    return {
+        "message": f"Orden {order_id} recibida exitosamente por {current_user.username} - Estado: {status_message}",
+        "lote": db_order.lote,
+        "status": db_order.status,
+        "received_user": db_order.received_user,
+        "received_date": db_order.received_date,
+        "received_quantity": db_order.received_quantity,
+        "missing_quantity": db_order.missing_quantity,
+        "status": db_order.status,
+        "status_message": status_message
+    }
+
+@router.get("/manufactured")
+def get_manufactured_orders(
+    skip: int = Query(0, ge=0, description="Cuántos registros omitir (paginación)"),
+    limit: int = Query(10, ge=1, le=100, description="Cuántos registros devolver (paginación)"),
+    lote: Optional[int] = Query(None, description="Filtrar por lote"),
+    code: Optional[str] = Query(None, description="Filtrar por código"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
+):
+    """
+    Obtiene todas las órdenes con estado 'manufactured' que están listas para entregar.
+    Solo para roles admin, planner y supervisor.
+    """
+    from sqlalchemy import or_
+    
+    # Buscar todas las órdenes manufacturadas que están listas para entregar
+    # Incluir órdenes con estado manufactured que no han sido entregadas completamente
+    query = db.query(order_model.Order).filter(
+        order_model.Order.status == OrderStatus.manufactured
+    )
+    
+    if lote:
+        query = query.filter(order_model.Order.lote == lote)
+    if code:
+        query = query.filter(order_model.Order.code.ilike(f"%{code}%"))
+    
+    total = query.count()
+    orders = query.offset(skip).limit(limit).all()
+    
+    # Serializar las órdenes
+    serialized_orders = []
+    for order in orders:
+        order_dict = {
+            "lote": order.lote,
+            "code": order.code,
+            "status": order.status,
+            "description": order.description,
+            "quantity": order.quantity,
+            "bin": order.bin,
+            "dueDate": order.dueDate,
+            "received_user": order.received_user,
+            "received_date": order.received_date,
+            "received_quantity": order.received_quantity or 0,
+            "missing_quantity": order.missing_quantity or order.quantity,
+            "submitted_user": order.submitted_user,
+            "submitted_date": order.submitted_date
+        }
+        serialized_orders.append(order_dict)
+    
+    return {"orders": serialized_orders, "total": total}
+
+@router.post("/{order_id}/deliver")
+def deliver_order(
+    order_id: str,
+    delivery_data: dict = Body(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
+):
+    """
+    Realiza la entrega de una orden manufacturada.
+    Solo para roles admin, planner y supervisor.
+    """
+    from datetime import date
+    
+    db_order = db.query(order_model.Order).filter(order_model.Order.lote == order_id).first()
+    if not db_order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    if db_order.status != OrderStatus.manufactured:
+        raise HTTPException(status_code=400, detail="Order must be in manufactured status to be delivered")
+    
+    delivered_quantity = delivery_data.get("delivered_quantity")
+    if not delivered_quantity or delivered_quantity <= 0:
+        raise HTTPException(status_code=400, detail="Delivered quantity must be greater than 0")
+    
+    # Calcular cantidad recibida total y faltante
+    current_received = db_order.received_quantity or 0
+    new_received_total = current_received + delivered_quantity
+    new_missing_quantity = db_order.quantity - new_received_total
+    
+    # Actualizar campos de entrega
+    db_order.submitted_user = current_user.username
+    db_order.submitted_date = date.today()
+    db_order.received_quantity = new_received_total
+    db_order.missing_quantity = new_missing_quantity  # Puede ser negativo para indicar exceso
+    
+    # Cambiar estado a delivered (independientemente de la cantidad)
+    # El estado solo cambiará a completed cuando se reciba en almacén
+    db_order.status = OrderStatus.delivered
+    
+    db.commit()
+    db.refresh(db_order)
+    
+    return {
+        "lote": db_order.lote,
+        "code": db_order.code,
+        "status": db_order.status,
+        "quantity": db_order.quantity,
+        "received_quantity": db_order.received_quantity,
+        "missing_quantity": db_order.missing_quantity,
+        "delivered_quantity": delivered_quantity,
+        "difference": abs(new_missing_quantity),
+        "submitted_user": db_order.submitted_user,
+        "submitted_date": db_order.submitted_date,
+        "message": f"Entrega realizada exitosamente. {_get_delivery_status_message(db_order.status, db_order.missing_quantity)}"
+    }
 
 @router.post("/extract-with-weighing-activities")
 def extract_orders_with_weighing_activities(
@@ -1429,3 +1696,479 @@ def get_most_suitable_weighing_team_with_time_verification_endpoint(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error obteniendo equipo con verificación de tiempo: {str(e)}")
+
+@router.post("/test_packaging_completion/{order_lote}")
+def test_packaging_task_completion(
+    order_lote: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))
+):
+    """
+    Endpoint de prueba para simular la completación de una tarea de empaque y verificar el cambio de estado.
+    """
+    from app.utils.order_status_service import OrderStatusService
+    from app.models.task import Task
+    from app.models.programming import ProgrammingTask
+    
+    # Buscar la orden
+    order = db.query(order_model.Order).filter(order_model.Order.lote == order_lote).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    # Buscar tareas de empaque asociadas a esta orden
+    packaging_tasks = db.query(Task).filter(
+        Task.lote == str(order_lote)
+    ).all()
+    
+    packaging_task = None
+    for task in packaging_tasks:
+        # Verificar si es una tarea de empaque
+        if task.code and task.code.activity:
+            activity = task.code.activity.lower().strip()
+            if ('empaque' in activity or 'empacado' in activity or 'packaging' in activity):
+                packaging_task = task
+                break
+        elif task.activity:
+            activity = task.activity.lower().strip()
+            if ('empaque' in activity or 'empacado' in activity or 'packaging' in activity):
+                packaging_task = task
+                break
+    
+    if not packaging_task:
+        return {
+            "error": "No se encontró tarea de empaque para esta orden",
+            "order_lote": order_lote,
+            "available_tasks": [
+                {
+                    "id": str(t.id),
+                    "activity": t.activity,
+                    "code_activity": t.code.activity if t.code else None
+                } for t in packaging_tasks
+            ]
+        }
+    
+    # Buscar la ProgrammingTask asociada
+    programming_task = db.query(ProgrammingTask).filter(
+        ProgrammingTask.task_id == packaging_task.id
+    ).first()
+    
+    if not programming_task:
+        return {
+            "error": "No se encontró programming task para la tarea de empaque",
+            "packaging_task_id": str(packaging_task.id)
+        }
+    
+    # Guardar estado anterior
+    previous_status = order.status
+    
+    # Marcar la tarea como completada
+    programming_task.is_completed = True
+    programming_task.completed_by_user_id = current_user.id
+    db.commit()
+    
+    # Llamar al servicio para actualizar el estado de la orden
+    OrderStatusService.update_order_status_for_task_completion(db, programming_task)
+    
+    # Refrescar la orden para ver los cambios
+    db.refresh(order)
+    
+    return {
+        "success": True,
+        "order_lote": order_lote,
+        "previous_status": previous_status,
+        "new_status": order.status,
+        "status_changed": previous_status != order.status,
+        "packaging_task": {
+            "id": str(packaging_task.id),
+            "activity": packaging_task.activity,
+            "code_activity": packaging_task.code.activity if packaging_task.code else None,
+            "is_completed": programming_task.is_completed
+        },
+        "message": f"Tarea de empaque marcada como completada. Estado cambió de {previous_status} a {order.status}" if previous_status != order.status else f"Tarea completada pero estado no cambió (sigue en {order.status})"
+    }
+
+@router.get("/debug/database_connection")
+def debug_database_connection(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))
+):
+    """
+    Endpoint de diagnóstico para verificar la conexión a la base de datos.
+    """
+    try:
+        # Probar una consulta simple
+        result = db.execute("SELECT 1 as test").fetchone()
+        
+        # Contar órdenes
+        orders_count = db.query(order_model.Order).count()
+        
+        return {
+            "database_connection": "OK",
+            "test_query": result[0] if result else None,
+            "orders_count": orders_count,
+            "message": "Base de datos funcionando correctamente"
+        }
+    except Exception as e:
+        return {
+            "database_connection": "ERROR",
+            "error": str(e),
+            "message": "Error en la conexión a la base de datos"
+        }
+
+@router.post("/debug/test_order_update/{order_lote}")
+def debug_test_order_update(
+    order_lote: int,
+    new_status: OrderStatus,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))
+):
+    """
+    Endpoint de diagnóstico para probar la actualización de estado de una orden específica.
+    """
+    try:
+        # Buscar la orden
+        order = db.query(order_model.Order).filter(order_model.Order.lote == order_lote).first()
+        if not order:
+            return {
+                "success": False,
+                "error": "Order not found",
+                "order_lote": order_lote
+            }
+        
+        # Guardar estado anterior
+        previous_status = order.status
+        
+        # Intentar actualizar el estado
+        order.status = new_status
+        db.commit()
+        
+        # Verificar que se actualizó
+        db.refresh(order)
+        
+        return {
+            "success": True,
+            "order_lote": order_lote,
+            "previous_status": previous_status,
+            "new_status": order.status,
+            "status_changed": previous_status != order.status,
+            "message": f"Estado actualizado de {previous_status} a {order.status}"
+        }
+        
+    except Exception as e:
+        db.rollback()
+        return {
+            "success": False,
+            "error": str(e),
+            "order_lote": order_lote,
+            "message": "Error actualizando el estado de la orden"
+        }
+
+@router.post("/debug/complete_packaging_task")
+def debug_complete_packaging_task(
+    order_lote: int = Body(...),
+    task_id: str = Body(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))
+):
+    """
+    Endpoint de diagnóstico para completar manualmente una tarea de empaque específica.
+    """
+    from app.utils.order_status_service import OrderStatusService
+    from app.models.task import Task
+    from app.models.programming import ProgrammingTask
+    
+    try:
+        # Buscar la orden
+        order = db.query(order_model.Order).filter(order_model.Order.lote == order_lote).first()
+        if not order:
+            return {
+                "success": False,
+                "error": "Order not found",
+                "order_lote": order_lote
+            }
+        
+        # Buscar la tarea
+        task = db.query(Task).filter(Task.id == task_id).first()
+        if not task:
+            return {
+                "success": False,
+                "error": "Task not found",
+                "task_id": task_id
+            }
+        
+        # Buscar la ProgrammingTask
+        programming_task = db.query(ProgrammingTask).filter(
+            ProgrammingTask.task_id == task_id
+        ).first()
+        
+        if not programming_task:
+            return {
+                "success": False,
+                "error": "Programming task not found",
+                "task_id": task_id
+            }
+        
+        # Información antes del cambio
+        previous_status = order.status
+        previous_completed = programming_task.is_completed
+        
+        # Marcar como completada
+        programming_task.is_completed = True
+        programming_task.completed_by_user_id = current_user.id
+        db.commit()
+        
+        # Llamar al servicio
+        OrderStatusService.update_order_status_for_task_completion(db, programming_task)
+        
+        # Refrescar para ver cambios
+        db.refresh(order)
+        db.refresh(programming_task)
+        
+        return {
+            "success": True,
+            "order_lote": order_lote,
+            "task_id": task_id,
+            "task_info": {
+                "lote": task.lote,
+                "activity": task.activity,
+                "code_activity": task.code.activity if task.code else None,
+                "description": task.description
+            },
+            "previous_status": previous_status,
+            "new_status": order.status,
+            "status_changed": previous_status != order.status,
+            "task_completed": programming_task.is_completed,
+            "message": f"Tarea completada. Estado cambió de {previous_status} a {order.status}" if previous_status != order.status else f"Tarea completada pero estado no cambió (sigue en {order.status})"
+        }
+        
+    except Exception as e:
+        db.rollback()
+        return {
+            "success": False,
+            "error": str(e),
+            "order_lote": order_lote,
+            "task_id": task_id,
+            "message": "Error completando la tarea"
+        }
+@router.get("/surplus", response_model=OrderPageOut)
+def get_surplus_orders(
+    lote: int = Query(None, description="Filtrar por lote"),
+    code: str = Query(None, description="Filtrar por código"),
+    skip: int = Query(0, ge=0, description="Cuántos registros omitir (paginación)"),
+    limit: int = Query(10, ge=1, le=100, description="Cuántos registros devolver (paginación)"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
+):
+    """
+    Obtiene órdenes que tienen sobrantes (cantidad entregada mayor a la original).
+    Busca en órdenes manufacturadas, entregadas y completadas con missing_quantity negativo.
+    Solo accesible para admin, planner y supervisor.
+    """
+    
+    from sqlalchemy import and_, or_
+    
+    query = db.query(order_model.Order).filter(
+        or_(
+            and_(
+                order_model.Order.status == OrderStatus.manufactured,
+                order_model.Order.missing_quantity < 0  # Con sobrantes (negativo indica exceso)
+            ),
+            and_(
+                order_model.Order.status == OrderStatus.delivered,
+                order_model.Order.missing_quantity < 0  # Con sobrantes (negativo indica exceso)
+            ),
+            and_(
+                order_model.Order.status == OrderStatus.completed,
+                order_model.Order.missing_quantity < 0  # Con sobrantes (negativo indica exceso)
+            )
+        )
+    )
+    
+    if lote:
+        query = query.filter(order_model.Order.lote == lote)
+    if code:
+        query = query.filter(order_model.Order.code == code)
+    
+    total = query.count()
+    orders = query.offset(skip).limit(limit).all()
+    
+    # Serializar las órdenes usando el esquema OrderOut
+    serialized_orders = []
+    for order in orders:
+        order_dict = {
+            "lote": order.lote,
+            "code": order.code,
+            "status": order.status,
+            "description": order.description,
+            "quantity": order.quantity,
+            "bin": order.bin,
+            "dueDate": order.dueDate,
+            "received_user": order.received_user,
+            "received_date": order.received_date,
+            "received_quantity": order.received_quantity,
+            "missing_quantity": order.missing_quantity,
+            "submitted_user": order.submitted_user,
+            "submitted_date": order.submitted_date
+        }
+        serialized_orders.append(order_dict)
+    
+    return {"orders": serialized_orders, "total": total}
+
+@router.get("/available-for-transfer/{code}")
+def get_available_orders_for_transfer(
+    code: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
+):
+    """
+    Obtiene órdenes disponibles para recibir transferencia de sobrantes.
+    Busca órdenes del mismo código que no estén completadas y tengan cantidad faltante.
+    """
+    
+    # Buscar órdenes del mismo código que no estén completadas
+    available_orders = db.query(order_model.Order).filter(
+        order_model.Order.code == code,
+        order_model.Order.status.in_([OrderStatus.unprogrammed, OrderStatus.programmed, OrderStatus.manufactured]),
+        order_model.Order.missing_quantity >= 0  # Sin sobrantes o con faltantes
+    ).all()
+    
+    # Serializar las órdenes disponibles
+    serialized_orders = []
+    for order in available_orders:
+        order_dict = {
+            "lote": order.lote,
+            "code": order.code,
+            "status": order.status,
+            "description": order.description,
+            "quantity": order.quantity,
+            "missing_quantity": order.missing_quantity,
+            "dueDate": order.dueDate
+        }
+        serialized_orders.append(order_dict)
+    
+    return {"available_orders": serialized_orders}
+
+@router.post("/{source_lote}/transfer-surplus")
+def transfer_surplus_to_order(
+    source_lote: int,
+    transfer_data: dict = Body(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
+):
+    """
+    Transfiere sobrantes de una orden a otra orden del mismo código.
+    
+    Body esperado:
+    {
+        "target_lote": int,
+        "transfer_quantity": int
+    }
+    """
+    target_lote = transfer_data.get("target_lote")
+    transfer_quantity = transfer_data.get("transfer_quantity")
+    
+    if not target_lote or not transfer_quantity or transfer_quantity <= 0:
+        raise HTTPException(status_code=400, detail="target_lote y transfer_quantity son requeridos y deben ser positivos")
+    
+    # Obtener orden origen (con sobrantes)
+    source_order = db.query(order_model.Order).filter(order_model.Order.lote == source_lote).first()
+    if not source_order:
+        raise HTTPException(status_code=404, detail="Orden origen no encontrada")
+    
+    if source_order.missing_quantity >= 0:
+        raise HTTPException(status_code=400, detail="La orden origen no tiene sobrantes para transferir")
+    
+    # Obtener orden destino
+    target_order = db.query(order_model.Order).filter(order_model.Order.lote == target_lote).first()
+    if not target_order:
+        raise HTTPException(status_code=404, detail="Orden destino no encontrada")
+    
+    # Verificar que sean del mismo código
+    if source_order.code != target_order.code:
+        raise HTTPException(status_code=400, detail="Las órdenes deben tener el mismo código para transferir sobrantes")
+    
+    # Verificar que la cantidad a transferir no exceda los sobrantes disponibles
+    available_surplus = abs(source_order.missing_quantity)
+    if transfer_quantity > available_surplus:
+        raise HTTPException(status_code=400, detail=f"No se pueden transferir {transfer_quantity} unidades. Solo hay {available_surplus} sobrantes disponibles")
+    
+    # Realizar la transferencia
+    # Actualizar orden origen: reducir sobrantes
+    source_order.missing_quantity += transfer_quantity  # Suma porque missing_quantity es negativo
+    
+    # Actualizar orden destino: aumentar cantidad original y recalcular missing_quantity
+    target_order.quantity += transfer_quantity
+    if target_order.received_quantity:
+        target_order.missing_quantity = target_order.quantity - target_order.received_quantity
+    else:
+        target_order.missing_quantity = target_order.quantity
+    
+    # Si la orden origen ya no tiene sobrantes, puede ser entregada normalmente
+    if source_order.missing_quantity == 0:
+        source_order.status = OrderStatus.manufactured  # Mantener como manufacturada para entrega normal
+    
+    db.commit()
+    db.refresh(source_order)
+    db.refresh(target_order)
+    
+    return {
+        "message": f"Transferidos {transfer_quantity} unidades del lote {source_lote} al lote {target_lote}",
+        "source_order": {
+            "lote": source_order.lote,
+            "remaining_surplus": abs(source_order.missing_quantity) if source_order.missing_quantity < 0 else 0,
+            "status": source_order.status
+        },
+        "target_order": {
+            "lote": target_order.lote,
+            "new_quantity": target_order.quantity,
+            "missing_quantity": target_order.missing_quantity,
+            "status": target_order.status
+        }
+    }
+
+@router.post("/{order_id}/receive")
+def receive_order(
+    order_id: str,
+    body: dict = Body(default={}),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.WAREHOUSE))
+):
+    """
+    Recibe una orden entregada y la marca como completada.
+    Proceso simplificado sin entrada de cantidad - confirmación automática.
+    """
+    db_order = db.query(order_model.Order).filter(order_model.Order.lote == order_id).first()
+    if not db_order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    if db_order.status != OrderStatus.delivered:
+        raise HTTPException(status_code=400, detail="Solo se pueden recibir órdenes en estado 'delivered'")
+    
+    # Marcar como recibida y completada
+    db_order.received_user = current_user.username
+    """
+    Recibe una orden entregada y la marca como completada.
+    Proceso simplificado sin entrada de cantidad - confirmación automática.
+    """
+    db_order = db.query(order_model.Order).filter(order_model.Order.lote == order_id).first()
+    if not db_order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    if db_order.status != OrderStatus.delivered:
+        raise HTTPException(status_code=400, detail="Solo se pueden recibir órdenes en estado 'delivered'")
+    
+    # Marcar como recibida y completada
+    db_order.received_user = current_user.username
+    db_order.received_date = datetime.now()
+    db_order.status = OrderStatus.completed
+    
+    db.commit()
+    db.refresh(db_order)
+    
+    return {
+        "message": "Orden recibida y completada exitosamente",
+        "lote": db_order.lote,
+        "status": db_order.status,
+        "received_user": db_order.received_user,
+        "received_date": db_order.received_date
+    }

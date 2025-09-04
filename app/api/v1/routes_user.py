@@ -23,12 +23,33 @@ class UsersPageOut(BaseModel):
 @router.post("/", response_model=UserOut)
 def create_user(
     user: UserCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
 ):
+    # Verificar permisos para crear usuarios con diferentes roles
+    if current_user.role == UserRole.ADMIN:
+        # Admin puede crear usuarios con cualquier rol
+        allowed_role = user.role
+    elif current_user.role in [UserRole.PLANNER, UserRole.SUPERVISOR]:
+        # Planner y Supervisor solo pueden crear usuarios con rol USER
+        if user.role != UserRole.USER:
+            raise HTTPException(
+                status_code=403, 
+                detail="Los usuarios Planner y Supervisor solo pueden crear usuarios con rol USER"
+            )
+        allowed_role = UserRole.USER
+    else:
+        raise HTTPException(status_code=403, detail="No tienes permisos para crear usuarios")
+    
+    # Verificar que el username no exista
+    existing_user = db.query(User).filter(User.username == user.username).first()
+    if existing_user:
+        raise HTTPException(status_code=400, detail="El nombre de usuario ya existe")
+    
     db_user = User(
         username=user.username, 
         password=hash_password(user.password),
-        role=user.role
+        role=allowed_role
     )
     db.add(db_user)
     db.commit()

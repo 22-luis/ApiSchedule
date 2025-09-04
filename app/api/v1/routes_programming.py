@@ -85,7 +85,12 @@ def get_programming_by_team_date(team_id: str, date: str, db: Session = Depends(
             t['real_quantity'] = getattr(pt, 'real_quantity', None)
             t['comment'] = getattr(pt, 'comment', None)
             t['created_at'] = getattr(pt, 'created_at', None)
-            t['created_by_user'] = task_obj.created_by_user 
+            # Properly serialize the created_by_user object
+            if task_obj.created_by_user:
+                from app.schemas.user import UserOut
+                t['created_by_user'] = UserOut.model_validate(task_obj.created_by_user, from_attributes=True).model_dump()
+            else:
+                t['created_by_user'] = None
             t['is_completed'] = getattr(pt, 'is_completed', None)
 
             tasks.append(t)
@@ -368,7 +373,7 @@ def add_task_comment(programming_id: str, task_id: str, data: ProgrammingTaskRep
         raise HTTPException(status_code=403, detail="No autorizado")
     pt.comment = data.comment
     db.commit()
-    return {"ok": True, "comment": pt.comment} 
+    return {"ok": True, "comment": pt.comment}
 
 @router.post("/{programming_id}/tasks/{task_id}/toggle_status")
 def toggle_task_status(programming_id: str, task_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
@@ -376,15 +381,24 @@ def toggle_task_status(programming_id: str, task_id: str, db: Session = Depends(
     if not pt:
         raise HTTPException(status_code=404, detail="ProgrammingTask not found")
     
+    # Verificar que el usuario tenga permisos para modificar esta tarea
+    if pt.completed_by_user_id and pt.completed_by_user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="No autorizado")
+    
     # Alternar el estado
     pt.is_completed = not bool(pt.is_completed)
+    
+    # Si se marca como completada, asignar el usuario actual
+    if pt.is_completed:
+        pt.completed_by_user_id = current_user.id
+    
     db.commit()
     
     # Actualizar estado de la orden usando el servicio centralizado
     OrderStatusService.update_order_status_for_task_completion(db, pt)
     
     db.refresh(pt)
-    return {"is_completed": pt.is_completed}
+    return {"is_completed": pt.is_completed} 
 
 @router.post("/{programming_id}/tasks/{task_id}/reprogram")
 def reprogram_task(

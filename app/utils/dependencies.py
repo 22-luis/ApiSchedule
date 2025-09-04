@@ -33,11 +33,12 @@ def require_roles(*roles):
         else:
             flat_roles.append(r)
     def role_checker(current_user=Depends(get_current_user)):
-        # Permitir jerarquía: ADMIN > PLANNER > SUPERVISOR > USER
+        # Permitir jerarquía: ADMIN > PLANNER > SUPERVISOR > WAREHOUSE > USER
         hierarchy = {
-            "admin": 3,
-            "planner": 2,
-            "supervisor": 1,
+            "admin": 4,
+            "planner": 3,
+            "supervisor": 2,
+            "warehouse": 1,
             "user": 0
         }
         user_role = str(current_user.role.value if hasattr(current_user.role, "value") else current_user.role)
@@ -57,9 +58,10 @@ def check_user_permission_for_target_user(current_user: User, target_user: User)
     Un usuario no puede modificar a otro usuario con rol igual o superior.
     """
     hierarchy = {
-        "admin": 3,
-        "planner": 2,
-        "supervisor": 1,
+        "admin": 4,
+        "planner": 3,
+        "supervisor": 2,
+        "warehouse": 1,
         "user": 0
     }
     
