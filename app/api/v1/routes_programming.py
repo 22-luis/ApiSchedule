@@ -1,6 +1,3 @@
-"""
-Rutas de la API para la gestión de programaciones: creación, actualización, reordenamiento de tareas, control de tiempo y reportes de ejecución.
-"""
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Body, Request
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
@@ -51,17 +48,12 @@ def list_programmings(db: Session = Depends(get_db), current_user=Depends(get_cu
 # Obtener programación por equipo y fecha (debe ir antes del endpoint por id)
 @router.get("/by_team_date", response_model=dict)
 def get_programming_by_team_date(team_id: str, date: str, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
-    print("[DEBUG] team_id:", team_id, type(team_id), "date:", date, type(date))
     try:
         # Convertir date a objeto date
         date_obj = datetime.strptime(date, "%Y-%m-%d").date()
         programming = db.query(Programming).filter_by(team_id=team_id, date=date_obj).first()
         if not programming:
             # Si no existe la programación, verificar si el usuario puede crearla
-            print(f"[DEBUG] Programming not found - User role: {current_user.role.value}")
-            print(f"[DEBUG] Programming not found - User teams: {[team.id for team in getattr(current_user, 'teams', [])]}")
-            print(f"[DEBUG] Programming not found - Target team_id: {team_id}")
-            print(f"[DEBUG] Programming not found - user_belongs_to_team result: {user_belongs_to_team(current_user, team_id)}")
             if current_user.role.value not in ("admin", "planner", "supervisor") and not user_belongs_to_team(current_user, team_id):
                 raise HTTPException(status_code=403, detail="Not authorized")
             # Crear la programación automáticamente para usuarios autorizados
@@ -71,10 +63,6 @@ def get_programming_by_team_date(team_id: str, date: str, db: Session = Depends(
             db.refresh(programming)
         else:
             # Si existe la programación, verificar permisos de acceso
-            print(f"[DEBUG] User role: {current_user.role.value}")
-            print(f"[DEBUG] User teams: {[team.id for team in getattr(current_user, 'teams', [])]}")
-            print(f"[DEBUG] Target team_id: {team_id}")
-            print(f"[DEBUG] user_belongs_to_team result: {user_belongs_to_team(current_user, team_id)}")
             if current_user.role.value not in ("admin", "planner", "supervisor") and not user_belongs_to_team(current_user, team_id):
                 raise HTTPException(status_code=403, detail="Not authorized")
         # Obtener tareas completas con datos de la tabla intermedia
@@ -96,13 +84,10 @@ def get_programming_by_team_date(team_id: str, date: str, db: Session = Depends(
             t['real_end_time'] = getattr(pt, 'real_end_time', None)
             t['real_quantity'] = getattr(pt, 'real_quantity', None)
             t['comment'] = getattr(pt, 'comment', None)
+            t['created_at'] = getattr(pt, 'created_at', None)
+            t['created_by_user'] = task_obj.created_by_user 
             t['is_completed'] = getattr(pt, 'is_completed', None)
-            
-            # Debug log para verificar datos de created_by_user
-            if task_obj.created_by_user_id:
-                print(f"[DEBUG] Task {task_obj.id}: created_by_user_id={task_obj.created_by_user_id}, created_by_user={task_obj.created_by_user}")
-                print(f"[DEBUG] Task {task_obj.id}: created_by_user.name={getattr(task_obj.created_by_user, 'name', 'None') if task_obj.created_by_user else 'None'}")
-            
+
             tasks.append(t)
         response = {
             "id": programming.id,
@@ -110,7 +95,6 @@ def get_programming_by_team_date(team_id: str, date: str, db: Session = Depends(
             "team_id": str(programming.team_id) if not isinstance(programming.team_id, UUID) else programming.team_id,
             "tasks": tasks
         }
-        print("[DEBUG] response to return:", response)
         return response
     except Exception as e:
         print("[DEBUG] Exception in get_programming_by_team_date:", e)
@@ -174,7 +158,6 @@ def delete_programming(programming_id: UUID, db: Session = Depends(get_db)):
 
 @router.post("/ensure_by_team_date", response_model=ProgrammingRead)
 def ensure_programming_by_team_date(team_id: str = Query(...), date: date = Query(...), db: Session = Depends(get_db), current_user=Depends(get_current_user)):
-    print("[DEBUG] current_user.role:", getattr(current_user, 'role', None))
     programming = db.query(Programming).filter_by(team_id=team_id, date=date).first()
     if programming:
         return programming
@@ -302,12 +285,6 @@ async def reorder_programming_tasks(
     # Update programming availability after reordering tasks
     update_programming_availability(db, programming)
     
-    # Depuración: mostrar los valores actuales en la tabla intermedia
-    refreshed_programming = db.query(Programming).get(programming_id)
-    print('--- ProgrammingTask después de commit ---')
-    if refreshed_programming:
-        for pt in refreshed_programming.programming_tasks:
-            print(f'Task {pt.task_id}: order={pt.order}, start_time={pt.start_time}, end_time={pt.end_time}')
     return ProgrammingReorderResponse(
         programming_id=programming_id,
         tasks=result
@@ -417,31 +394,24 @@ def reprogram_task(
     db: Session = Depends(get_db), 
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Reprograma una tarea para una nueva fecha y actualiza el estado de la orden correspondiente.
-    """
     pt = db.query(ProgrammingTask).filter_by(programming_id=programming_id, task_id=task_id).first()
     if not pt:
         raise HTTPException(status_code=404, detail="ProgrammingTask not found")
     
     # Actualizar estado de la orden antes de reprogramar
     OrderStatusService.update_order_status_for_task_reprogramming(db, pt, new_date)
-    
-    # Aquí se podría agregar la lógica para mover la tarea a la nueva programación
-    # Por ahora solo actualizamos el estado de la orden
-    
+
     return {"message": "Task reprogrammed successfully"}
 
 
+
+# Manually check and update programming availability based on the last task's end time.
 @router.post("/{programming_id}/check_availability")
 def check_programming_availability(
     programming_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(["admin", "planner", "supervisor"]))
 ):
-    """
-    Manually check and update programming availability based on the last task's end time.
-    """
     programming = db.query(Programming).get(programming_id)
     if not programming:
         raise HTTPException(status_code=404, detail="Programming not found")
@@ -456,15 +426,14 @@ def check_programming_availability(
     }
 
 
+
+# Check and update availability for all programmings on a specific date.
 @router.post("/check_availability_by_date")
 def check_programmings_availability_by_date(
     target_date: date,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(["admin", "planner", "supervisor"]))
 ):
-    """
-    Check and update availability for all programmings on a specific date.
-    """
     results = update_all_programmings_availability_for_date(db, target_date)
     
     return {
