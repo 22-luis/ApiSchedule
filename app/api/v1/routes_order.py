@@ -861,18 +861,21 @@ def get_manufactured_orders(
     lote: Optional[int] = Query(None, description="Filtrar por lote"),
     code: Optional[str] = Query(None, description="Filtrar por código"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.WAREHOUSE))
 ):
     """
-    Obtiene todas las órdenes con estado 'manufactured' que están listas para entregar.
-    Solo para roles admin, planner y supervisor.
+    Obtiene todas las órdenes con estado 'manufactured' y 'pending' que están listas para entregar.
+    Accesible para roles admin, planner, supervisor y warehouse.
     """
     from sqlalchemy import or_
     
-    # Buscar todas las órdenes manufacturadas que están listas para entregar
-    # Incluir órdenes con estado manufactured que no han sido entregadas completamente
+    # Buscar órdenes manufacturadas y pendientes que están listas para entregar
+    # Incluir órdenes con estado manufactured o pending
     query = db.query(order_model.Order).filter(
-        order_model.Order.status == OrderStatus.manufactured
+        or_(
+            order_model.Order.status == OrderStatus.manufactured,
+            order_model.Order.status == OrderStatus.pending
+        )
     )
     
     if lote:
