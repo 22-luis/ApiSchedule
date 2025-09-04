@@ -916,7 +916,7 @@ def deliver_order(
     current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
 ):
     """
-    Realiza la entrega de una orden manufacturada.
+    Realiza la entrega de una orden manufacturada o pendiente.
     Solo para roles admin, planner y supervisor.
     """
     from datetime import date
@@ -925,8 +925,8 @@ def deliver_order(
     if not db_order:
         raise HTTPException(status_code=404, detail="Order not found")
     
-    if db_order.status != OrderStatus.manufactured:
-        raise HTTPException(status_code=400, detail="Order must be in manufactured status to be delivered")
+    if db_order.status not in [OrderStatus.manufactured, OrderStatus.pending]:
+        raise HTTPException(status_code=400, detail="Order must be in manufactured or pending status to be delivered")
     
     delivered_quantity = delivery_data.get("delivered_quantity")
     if not delivered_quantity or delivered_quantity <= 0:
