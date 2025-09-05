@@ -12,6 +12,7 @@ from app.utils.dependencies import get_current_user, require_roles
 from app.models.role import UserRole
 from app.models.state import OrderStatus
 from app.utils.data_cleaning import clean_order_data
+from datetime import datetime
 
 def _get_delivery_status_message(status: OrderStatus, missing_quantity: int) -> str:
     """Genera el mensaje apropiado según el estado y cantidad faltante."""
@@ -2020,6 +2021,7 @@ def get_surplus_orders(
 @router.get("/available-for-transfer/{code}")
 def get_available_orders_for_transfer(
     code: str,
+    exclude_lote: Optional[int] = Query(None, description="Lote a excluir de los resultados"),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
 ):
@@ -2028,12 +2030,45 @@ def get_available_orders_for_transfer(
     Busca órdenes del mismo código que no estén completadas y tengan cantidad faltante.
     """
     
-    # Buscar órdenes del mismo código que no estén completadas
-    available_orders = db.query(order_model.Order).filter(
-        order_model.Order.code == code,
+    # Normalizar el código base (parte antes de '-') y buscar por prefijo
+    code_base = code.split('-')[0].strip()
+
+    query = db.query(order_model.Order).filter(
+        order_model.Order.code.ilike(f"{code_base}%"),
         order_model.Order.status.in_([OrderStatus.unprogrammed, OrderStatus.programmed, OrderStatus.manufactured]),
         order_model.Order.missing_quantity >= 0  # Sin sobrantes o con faltantes
-    ).all()
+    )
+
+    if exclude_lote:
+        query = query.filter(order_model.Order.lote != exclude_lote)
+
+    available_orders = query.all()
+
+    # Si no encontramos candidatos con la consulta estricta, intentar una búsqueda más laxa
+    if not available_orders:
+        try:
+            print(f"[DEBUG] No candidates with strict filters for code_base={code_base}, trying relaxed query...")
+            relaxed_query = db.query(order_model.Order).filter(
+                order_model.Order.code.ilike(f"{code_base}%")
+            )
+            if exclude_lote:
+                relaxed_query = relaxed_query.filter(order_model.Order.lote != exclude_lote)
+            relaxed_orders = relaxed_query.all()
+            print(f"[DEBUG] relaxed query found={len(relaxed_orders)}")
+            for ao in relaxed_orders:
+                print(f"[DEBUG] relaxed candidate lote={ao.lote} code={ao.code} missing={ao.missing_quantity} status={ao.status}")
+            # Use relaxed result for response so frontend can inspect
+            available_orders = relaxed_orders
+        except Exception as e:
+            print("[DEBUG] error during relaxed query:", e)
+
+    # DEBUG: imprimir información útil para depuración
+    try:
+        print(f"[DEBUG] available-for-transfer: code_base={code_base} exclude_lote={exclude_lote} -> found={len(available_orders)}")
+        for ao in available_orders:
+            print(f"[DEBUG] candidate lote={ao.lote} code={ao.code} missing={ao.missing_quantity} status={ao.status}")
+    except Exception as e:
+        print("[DEBUG] error printing available_orders:", e)
     
     # Serializar las órdenes disponibles
     serialized_orders = []
@@ -2080,6 +2115,10 @@ def transfer_surplus_to_order(
     
     if source_order.missing_quantity >= 0:
         raise HTTPException(status_code=400, detail="La orden origen no tiene sobrantes para transferir")
+
+    # La orden origen debe estar completada para poder ceder sobrantes (no cambiar su estado)
+    if source_order.status != OrderStatus.completed:
+        raise HTTPException(status_code=400, detail="La orden origen debe estar en estado 'completed' para transferir sobrantes")
     
     # Obtener orden destino
     target_order = db.query(order_model.Order).filter(order_model.Order.lote == target_lote).first()
@@ -2098,17 +2137,13 @@ def transfer_surplus_to_order(
     # Realizar la transferencia
     # Actualizar orden origen: reducir sobrantes
     source_order.missing_quantity += transfer_quantity  # Suma porque missing_quantity es negativo
+
+    # Actualizar orden destino: la transferencia representa unidades recibidas en el lote destino.
+    # Incrementamos received_quantity y recalculamos missing_quantity = quantity - received_quantity.
+    target_order.received_quantity = (target_order.received_quantity or 0) + transfer_quantity
+    target_order.missing_quantity = (target_order.quantity or 0) - target_order.received_quantity
     
-    # Actualizar orden destino: aumentar cantidad original y recalcular missing_quantity
-    target_order.quantity += transfer_quantity
-    if target_order.received_quantity:
-        target_order.missing_quantity = target_order.quantity - target_order.received_quantity
-    else:
-        target_order.missing_quantity = target_order.quantity
-    
-    # Si la orden origen ya no tiene sobrantes, puede ser entregada normalmente
-    if source_order.missing_quantity == 0:
-        source_order.status = OrderStatus.manufactured  # Mantener como manufacturada para entrega normal
+    # No cambiamos el estado de la orden origen: la transferencia no debe alterar su estado
     
     db.commit()
     db.refresh(source_order)
@@ -2123,7 +2158,7 @@ def transfer_surplus_to_order(
         },
         "target_order": {
             "lote": target_order.lote,
-            "new_quantity": target_order.quantity,
+            "received_quantity": target_order.received_quantity,
             "missing_quantity": target_order.missing_quantity,
             "status": target_order.status
         }
