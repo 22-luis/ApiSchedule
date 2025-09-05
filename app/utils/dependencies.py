@@ -86,6 +86,11 @@ def check_user_permission_for_target_user(current_user: User, target_user: User)
     current_level = hierarchy.get(current_user_role, 0)
     target_level = hierarchy.get(target_user_role, 0)
 
+
+    # Permitir que un usuario edite su propia información
+    if current_user.id == target_user.id:
+        return True
+
     if current_level <= target_level:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
