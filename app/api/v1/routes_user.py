@@ -27,20 +27,19 @@ def create_user(
     current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
 ):
     # Verificar permisos para crear usuarios con diferentes roles
-    if current_user.role == UserRole.ADMIN:
-        # Admin puede crear usuarios con cualquier rol
-        allowed_role = user.role
-    elif current_user.role in [UserRole.PLANNER, UserRole.SUPERVISOR]:
-        # Planner y Supervisor solo pueden crear usuarios con rol USER
-        if user.role != UserRole.USER:
-            raise HTTPException(
-                status_code=403, 
-                detail="Los usuarios Planner y Supervisor solo pueden crear usuarios con rol USER"
-            )
-        allowed_role = UserRole.USER
-    else:
-        raise HTTPException(status_code=403, detail="No tienes permisos para crear usuarios")
-    
+    hierarchy = {"admin": 4, "planner": 3, "supervisor": 2, "warehouse": 1, "user": 0}
+    current_user_role_str = current_user.role.value
+    target_user_role_str = user.role.value
+
+    current_role_level = hierarchy.get(current_user_role_str, -1)
+    target_role_level = hierarchy.get(target_user_role_str, -1)
+
+    if current_user.role != UserRole.ADMIN and current_role_level <= target_role_level:
+        raise HTTPException(
+            status_code=403,
+            detail=f"No tienes permisos para crear usuarios con el rol {user.role.value}"
+        )
+
     # Verificar que el username no exista
     existing_user = db.query(User).filter(User.username == user.username).first()
     if existing_user:
@@ -49,7 +48,7 @@ def create_user(
     db_user = User(
         username=user.username, 
         password=hash_password(user.password),
-        role=allowed_role
+        role=user.role
     )
     db.add(db_user)
     db.commit()
@@ -57,7 +56,7 @@ def create_user(
     return db_user
 
 @router.delete("/{user_id}")
-def delete_user(user_id: str, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN))):
+def delete_user(user_id: str, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))):
     db_user = db.query(User).filter(User.id == user_id).first()
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -71,7 +70,7 @@ def delete_user(user_id: str, db: Session = Depends(get_db), current_user: User 
     return {"message": "User deleted successfully"}
 
 @router.patch("/{user_id}", response_model=UserOut)
-def update_user(user_id: str, user: UserUpdate, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN))):
+def update_user(user_id: str, user: UserUpdate, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))):
     db_user = db.query(User).filter(User.id == user_id).first()
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found")
