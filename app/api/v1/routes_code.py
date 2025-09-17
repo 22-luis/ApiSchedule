@@ -188,8 +188,8 @@ def bulk_upload_codes(codes: list[dict], db: Session = Depends(get_db), current_
         description = code_data.get("description")
         activity = code_data.get("activity")
         
-        if not code_str or not description:
-            errors.append({"row": idx+1, "error": "Falta código o descripción"})
+        if not code_str:
+            errors.append({"row": idx+1, "error": "Falta código"})
             continue
         
         # Mapeo de columnas para compatibilidad con Excel (lowercase a camelCase)
@@ -203,11 +203,11 @@ def bulk_upload_codes(codes: list[dict], db: Session = Depends(get_db), current_
         print(f"[DEBUG] Fila {idx+1}: Buscando código='{clean_code}' (len={len(clean_code)}) actividad='{clean_activity}' (len={len(clean_activity)})")
         
         # Validar que la actividad esté en la lista permitida
-        if clean_activity not in ACTIVIDADES_PERMITIDAS:
-            print(f"[DEBUG] Actividad '{clean_activity}' no está permitida. Ignorando registro.")
-            errors.append({"row": idx+1, "error": f"Actividad no permitida: '{activity}'. Actividades válidas: {', '.join(sorted(ACTIVIDADES_PERMITIDAS))}"})
-            ignored += 1
-            continue
+        # if clean_activity not in ACTIVIDADES_PERMITIDAS:
+        #     print(f"[DEBUG] Actividad '{clean_activity}' no está permitida. Ignorando registro.")
+        #     errors.append({"row": idx+1, "error": f"Actividad no permitida: '{activity}'. Actividades válidas: {', '.join(sorted(ACTIVIDADES_PERMITIDAS))}"})
+        #     ignored += 1
+        #     continue
         
         # Buscar todos los códigos que coincidan y comparar manualmente con normalización
         all_codes = db.query(Code).filter(Code.code.ilike(clean_code)).all()
