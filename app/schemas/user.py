@@ -43,7 +43,7 @@ class UserCreate(BaseModel):
         if v.lower() in ['admin', 'root', 'system', 'test', 'guest']:
             raise ValueError('Nombre de usuario no permitido')
         
-        return v.lower()
+        return v
 
     @validator('password')
     def validate_password(cls, v):
