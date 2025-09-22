@@ -399,7 +399,8 @@ def get_orders(
             "received_quantity": order.received_quantity,
             "missing_quantity": order.missing_quantity,
             "submitted_user": order.submitted_user,
-            "submitted_date": order.submitted_date
+            "submitted_date": order.submitted_date,
+            "submitted_observations": order.submitted_observations
         }
         serialized_orders.append(order_dict)
     
@@ -656,7 +657,8 @@ def get_delivered_orders(
             "received_quantity": order.received_quantity,
             "missing_quantity": order.missing_quantity,
             "submitted_user": order.submitted_user,
-            "submitted_date": order.submitted_date
+            "submitted_date": order.submitted_date,
+            "submitted_observations": order.submitted_observations
         }
         serialized_orders.append(order_dict)
     
@@ -814,6 +816,8 @@ def deliver_order(
         # Allow 0 delivered (explicit), but reject negative or missing values
         raise HTTPException(status_code=400, detail="Delivered quantity must be >= 0")
     
+    submitted_observations = delivery_data.get("submitted_observations")
+
     # Calcular cantidad recibida total y faltante
     current_received = db_order.received_quantity or 0
     new_received_total = current_received + delivered_quantity
@@ -822,6 +826,7 @@ def deliver_order(
     # Actualizar campos de entrega
     db_order.submitted_user = current_user.username
     db_order.submitted_date = date.today()
+    db_order.submitted_observations = submitted_observations
     db_order.received_quantity = new_received_total
     db_order.missing_quantity = new_missing_quantity  # Puede ser negativo para indicar exceso
     
@@ -843,6 +848,7 @@ def deliver_order(
         "difference": abs(new_missing_quantity),
         "submitted_user": db_order.submitted_user,
         "submitted_date": db_order.submitted_date,
+        "submitted_observations": db_order.submitted_observations,
         "message": f"Entrega realizada exitosamente. {_get_delivery_status_message(db_order.status, db_order.missing_quantity)}"
     }
 

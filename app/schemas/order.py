@@ -36,6 +36,7 @@ class OrderOut(BaseModel):
     missing_quantity: Optional[int] = None
     submitted_user: Optional[str] = None
     submitted_date: Optional[datetime] = None
+    submitted_observations: Optional[str] = None
 
     @field_validator('code', 'description')
     @classmethod
@@ -63,6 +64,7 @@ class OrderWarehouseUpdate(BaseModel):
     missing_quantity: Optional[int] = None
     submitted_user: Optional[str] = None
     submitted_date: Optional[datetime] = None
+    submitted_observations: Optional[str] = None
 
 class OrderWarehouseOut(BaseModel):
     lote: int
@@ -78,4 +80,5 @@ class OrderWarehouseOut(BaseModel):
     missing_quantity: Optional[int] = None
     submitted_user: Optional[str] = None
     submitted_date: Optional[datetime] = None
+    submitted_observations: Optional[str] = None
 
