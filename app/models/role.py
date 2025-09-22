@@ -1,6 +1,3 @@
-"""
-Enum que define los diferentes roles de usuario en el sistema.
-"""
 import enum
 
 class UserRole(enum.Enum):

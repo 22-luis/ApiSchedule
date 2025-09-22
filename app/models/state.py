@@ -1,6 +1,3 @@
-"""
-Enums que representan los posibles estados de usuario y de las órdenes en el sistema.
-"""
 import enum
 
 class UserState(enum.Enum):
@@ -14,6 +11,7 @@ class OrderStatus(enum.Enum):
     manufactured = "manufactured"
     delivered = "delivered"
     completed = "completed"
+    not_programmable = "not_programmable"
     
 class ProgrammingStatus(enum.Enum):
     available = "available"

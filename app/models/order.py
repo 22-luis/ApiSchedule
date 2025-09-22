@@ -18,3 +18,4 @@ class Order(Base):
     missing_quantity = Column(Integer)
     submitted_user = Column(String)
     submitted_date = Column(Date)
+    submitted_observations = Column(String)
