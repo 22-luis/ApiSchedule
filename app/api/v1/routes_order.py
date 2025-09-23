@@ -11,6 +11,14 @@ from app.models.state import OrderStatus
 from app.utils.data_cleaning import clean_order_data
 from datetime import datetime
 from sqlalchemy import or_, and_
+from app.core.task_config import (
+    extract_created_orders_data, 
+    get_orders_summary
+)
+from app.services.factory import TaskServiceFactory
+from app.utils.order_status_service import OrderStatusService
+from app.models.programming import ProgrammingTask
+from datetime import date
 
 
 def _get_delivery_status_message(status: OrderStatus, missing_quantity: int) -> str:
@@ -22,11 +30,6 @@ def _get_delivery_status_message(status: OrderStatus, missing_quantity: int) -> 
             return "Orden completada."
     else:
         return f"Cantidad faltante: {missing_quantity}"
-from app.core.task_config import (
-    extract_created_orders_data, 
-    get_orders_summary
-)
-from app.services.factory import TaskServiceFactory
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
@@ -116,7 +119,7 @@ def create_orders(
         weighing_service, fabrication_service = get_task_services()
         
         # Crear instancia del servicio de empaque
-        from app.services.factory import TaskServiceFactory
+        
         packaging_service = TaskServiceFactory.create_packaging_service()
         
         activities_data = weighing_service.get_activities_for_orders(extracted_orders, db)
@@ -156,7 +159,7 @@ def delete_order(order_id: str, db: Session = Depends(get_db), current_user: Use
 
 @router.patch("/{order_id}")
 def update_order_warehouse(order_id: str, order_update: OrderWarehouseUpdate, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.WAREHOUSE, UserRole.USER))):
-    from app.utils.order_status_service import OrderStatusService
+    
     
     db_order = db.query(order_model.Order).filter(order_model.Order.lote == order_id).first()
     if not db_order:
@@ -222,7 +225,7 @@ def update_order_warehouse_fields(
     Endpoint específico para actualizar campos de almacén y gestionar el flujo de estados automáticamente.
     Cuando se actualiza missing_quantity, el estado cambia automáticamente según las reglas del negocio.
     """
-    from app.utils.order_status_service import OrderStatusService
+    
     
     db_order = db.query(order_model.Order).filter(order_model.Order.lote == order_id).first()
     if not db_order:
@@ -268,7 +271,7 @@ def sync_order_status(
     """
     Sincroniza el estado de una orden basándose en el estado actual de todas sus tareas.
     """
-    from app.utils.order_status_service import OrderStatusService
+    
     
     try:
         lote_int = int(order_id)
@@ -309,7 +312,7 @@ def sync_all_orders_status(
     """
     Sincroniza el estado de todas las órdenes basándose en el estado actual de sus tareas.
     """
-    from app.utils.order_status_service import OrderStatusService
+    
     
     # Obtener todas las órdenes
     orders = db.query(order_model.Order).all()
@@ -340,9 +343,8 @@ def update_orders_status_for_today(
     Actualiza automáticamente el estado de las órdenes que tienen tareas programadas para hoy.
     Cambia de 'pending' o 'programada' a 'in_progress' si la programación es para hoy.
     """
-    from app.utils.order_status_service import OrderStatusService
-    from app.models.programming import ProgrammingTask
-    from datetime import date
+    
+    
     
     today = date.today()
     updated_count = 0
@@ -681,7 +683,7 @@ def receive_order(
     Automáticamente recibe la cantidad entregada y cambia el estado a completed.
     Solo accesible para admin, supervisor y warehouse (recepción).
     """
-    from datetime import date
+    
     
     db_order = db.query(order_model.Order).filter(order_model.Order.lote == order_id).first()
     if not db_order:
@@ -804,7 +806,7 @@ def deliver_order(
     Realiza la entrega de una orden manufacturada o pendiente.
     Solo para roles admin, planner y supervisor.
     """
-    from datetime import date
+    
     
     db_order = db.query(order_model.Order).filter(order_model.Order.lote == order_id).first()
     if not db_order:
@@ -1562,7 +1564,7 @@ def get_surplus_orders(
     Solo accesible para admin, planner y supervisor.
     """
     
-    from sqlalchemy import and_, or_
+    
     
     query = db.query(order_model.Order).filter(
         or_(
