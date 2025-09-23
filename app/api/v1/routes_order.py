@@ -616,44 +616,32 @@ def receive_order(
     db: Session = Depends(get_db), 
     current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.WAREHOUSE))
 ):
-    """
-    Marca una orden como recibida completamente por el usuario actual.
-    Automáticamente recibe la cantidad entregada y cambia el estado a completed.
-    Solo accesible para admin, supervisor y warehouse (recepción).
-    """
-    
     
     db_order = db.query(order_model.Order).filter(order_model.Order.lote == order_id).first()
     if not db_order:
         raise HTTPException(status_code=404, detail="Order not found")
     
-    # Verificar que la orden haya sido entregada
+    # Previous verifications
     if db_order.status != OrderStatus.delivered:
         raise HTTPException(status_code=400, detail="La orden debe estar en estado 'entregado' para poder ser recibida")
-    
-    # Verificar que no esté ya completada
+
     if db_order.status == OrderStatus.completed:
         raise HTTPException(status_code=400, detail="La orden ya está completada")
     
-    # Marcar como recibida automáticamente con la cantidad entregada
+    # Mark as received and update fields
     db_order.received_user = current_user.username
     db_order.received_date = date.today()
-    # No cambiar received_quantity ya que se estableció en la entrega
 
-    # Determinar el estado final: si se pasa custom_status lo respetamos,
-    # sino inferimos a partir de missing_quantity:
-    # - if missing_quantity > 0 -> pending
-    # - else -> completed
     custom_status = request_data.get("custom_status")
     if custom_status:
         if custom_status == "pending":
             db_order.status = OrderStatus.pending
-            status_message = "pendiente (requiere revisión)"
+            status_message = "Pendiente"
         else:
             db_order.status = OrderStatus.completed
-            status_message = "completada"
+            status_message = "Completada"
     else:
-        # Inferir por cantidad faltante
+        # Based on missing_quantity
         try:
             current_missing = db_order.missing_quantity if db_order.missing_quantity is not None else 0
             if current_missing > 0:
@@ -663,7 +651,7 @@ def receive_order(
                 db_order.status = OrderStatus.completed
                 status_message = "completada"
         except Exception:
-            # Fallback por defecto a completed
+            # Fallback by default
             db_order.status = OrderStatus.completed
             status_message = "completada"
     
@@ -1646,61 +1634,4 @@ def transfer_surplus_to_order(
             "missing_quantity": target_order.missing_quantity,
             "status": target_order.status
         }
-    }
-
-@router.post("/{order_id}/receive")
-def receive_order(
-    order_id: str,
-    body: dict = Body(default={}),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.WAREHOUSE))
-):
-    """
-    Recibe una orden entregada y la marca como completada.
-    Proceso simplificado sin entrada de cantidad - confirmación automática.
-    """
-    db_order = db.query(order_model.Order).filter(order_model.Order.lote == order_id).first()
-    if not db_order:
-        raise HTTPException(status_code=404, detail="Order not found")
-    
-    if db_order.status != OrderStatus.delivered:
-        raise HTTPException(status_code=400, detail="Solo se pueden recibir órdenes en estado 'delivered'")
-    
-    # Marcar como recibida y establecer fecha/usuario
-    db_order.received_user = current_user.username
-    db_order.received_date = datetime.now()
-
-    # Determinar estado final: respetar custom_status si viene en body,
-    # de lo contrario inferir según missing_quantity (pending si >0, completed si <=0)
-    custom_status = body.get("custom_status") if isinstance(body, dict) else None
-    if custom_status:
-        if custom_status == "pending":
-            db_order.status = OrderStatus.pending
-            status_message = "pendiente (requiere revisión)"
-        else:
-            db_order.status = OrderStatus.completed
-            status_message = "completada"
-    else:
-        try:
-            current_missing = db_order.missing_quantity if db_order.missing_quantity is not None else 0
-            if current_missing > 0:
-                db_order.status = OrderStatus.pending
-                status_message = "pendiente (quedan faltantes)"
-            else:
-                db_order.status = OrderStatus.completed
-                status_message = "completada"
-        except Exception:
-            db_order.status = OrderStatus.completed
-            status_message = "completada"
-    db_order.status = OrderStatus.completed
-    
-    db.commit()
-    db.refresh(db_order)
-    
-    return {
-        "message": "Orden recibida y completada exitosamente",
-        "lote": db_order.lote,
-        "status": db_order.status,
-        "received_user": db_order.received_user,
-        "received_date": db_order.received_date
     }
