@@ -58,6 +58,12 @@ def create_orders(
         order_dict = order.dict()
         cleaned_order = clean_order_data(order_dict)
         
+        initial_status = OrderStatus.unprogrammed
+        
+        #Not programable condition
+        if order.bin not in [8,10]:
+            initial_status = OrderStatus.not_programmable
+        
         db_order = order_model.Order(
             lote=order.lote,
             dueDate=order.dueDate,
@@ -65,7 +71,7 @@ def create_orders(
             description=cleaned_order['description'],
             quantity=order.quantity,
             bin=order.bin,
-            status=OrderStatus.unprogrammed,  # Siempre iniciar como unprogrammed
+            status=initial_status
         )
         db.add(db_order)
         created_orders.append(db_order)
