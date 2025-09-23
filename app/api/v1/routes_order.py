@@ -1,6 +1,3 @@
-"""
-Rutas de la API para la gestión de órdenes de producción: creación, actualización de estado, eliminación y consulta con filtros.
-"""
 from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from sqlalchemy.orm import Session
 from app.schemas.order import OrderCreate, OrderOut, OrderStatusUpdate, OrderPageOut, OrderWarehouseUpdate, OrderWarehouseOut
@@ -13,6 +10,8 @@ from app.models.role import UserRole
 from app.models.state import OrderStatus
 from app.utils.data_cleaning import clean_order_data
 from datetime import datetime
+from sqlalchemy import or_, and_
+
 
 def _get_delivery_status_message(status: OrderStatus, missing_quantity: int) -> str:
     """Genera el mensaje apropiado según el estado y cantidad faltante."""
@@ -751,19 +750,16 @@ def get_manufactured_orders(
     code: Optional[str] = Query(None, description="Filtrar por código"),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.WAREHOUSE))
-):
-    """
-    Obtiene todas las órdenes con estado 'manufactured' y 'pending' que están listas para entregar.
-    Accesible para roles admin, planner, supervisor y warehouse.
-    """
-    from sqlalchemy import or_
-    
+):    
     # Buscar órdenes manufacturadas y pendientes que están listas para entregar
     # Incluir órdenes con estado manufactured o pending
     query = db.query(order_model.Order).filter(
-        or_(
-            order_model.Order.status == OrderStatus.manufactured,
-            order_model.Order.status == OrderStatus.pending
+        and_(
+            order_model.Order.bin == 8,
+            or_(
+                order_model.Order.status == OrderStatus.manufactured,
+                order_model.Order.status == OrderStatus.pending
+            )
         )
     )
     
