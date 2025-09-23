@@ -152,35 +152,6 @@ def delete_order(order_id: str, db: Session = Depends(get_db), current_user: Use
     db.commit()
     return {"message": "Order deleted successfully"}
 
-@router.patch("/{order_id}")
-def update_order_warehouse(order_id: str, order_update: OrderWarehouseUpdate, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.WAREHOUSE, UserRole.USER))):
-    
-    db_order = db.query(order_model.Order).filter(order_model.Order.lote == order_id).first()
-    if not db_order:
-        raise HTTPException(status_code=404, detail="Order not found")
-    
-    update_data = order_update.dict(exclude_unset=True)
-    for key, value in update_data.items():
-        if value is not None:
-            setattr(db_order, key, value)
-    
-    # Si se actualizó missing_quantity, verificar cambio de estado
-    if 'missing_quantity' in update_data:
-        OrderStatusService.update_order_status_based_on_missing_quantity(db, db_order)
-    
-    db.commit()
-    db.refresh(db_order)
-    return {
-        "lote": db_order.lote,
-        "received_user": db_order.received_user,
-        "received_date": db_order.received_date,
-        "received_quantity": db_order.received_quantity,
-        "missing_quantity": db_order.missing_quantity,
-        "submitted_user": db_order.submitted_user,
-        "submitted_date": db_order.submitted_date,
-        "status": db_order.status
-    }
-
 @router.patch("/{order_id}/status")
 def update_order_status(order_id: str, status_update: OrderStatusUpdate, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.WAREHOUSE, UserRole.USER))):
     """
@@ -215,11 +186,6 @@ def update_order_warehouse_fields(
     db: Session = Depends(get_db), 
     current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.WAREHOUSE, UserRole.USER))
 ):
-    """
-    Endpoint específico para actualizar campos de almacén y gestionar el flujo de estados automáticamente.
-    Cuando se actualiza missing_quantity, el estado cambia automáticamente según las reglas del negocio.
-    """
-    
     
     db_order = db.query(order_model.Order).filter(order_model.Order.lote == order_id).first()
     if not db_order:
@@ -333,16 +299,7 @@ def get_orders(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.WAREHOUSE, UserRole.USER))
 ):
-    """
-    Obtiene una lista paginada de órdenes con filtros avanzados.
-
-    - **status**: Filtra por uno o más estados de orden (ej: `?status=delivered&status=pending`).
-    - **lote**: Filtra por un número de lote exacto.
-    - **code**: Filtra por un código de producto exacto.
-    - **has_surplus**: Si es `true`, filtra órdenes con sobrantes (`missing_quantity < 0`).
-    - **bin_number**: Filtra por el número de `bin`.
-    - **skip**, **limit**: Para paginación.
-    """
+    
     query = db.query(order_model.Order)
     if status:
         query = query.filter(order_model.Order.status.in_(status))
@@ -380,8 +337,6 @@ def get_orders(
         serialized_orders.append(order_dict)
     
     return {"orders": serialized_orders, "total": total}
-
-
 
 @router.post("/extract-data")
 def extract_orders_data(
