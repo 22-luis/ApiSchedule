@@ -22,7 +22,6 @@ from datetime import date
 
 
 def _get_delivery_status_message(status: OrderStatus, missing_quantity: int) -> str:
-    """Genera el mensaje apropiado según el estado y cantidad faltante."""
     if status == OrderStatus.completed:
         if missing_quantity < 0:
             return f"Orden completada con {abs(missing_quantity)} unidades adicionales."
@@ -34,7 +33,6 @@ def _get_delivery_status_message(status: OrderStatus, missing_quantity: int) -> 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
 def get_task_services():
-    """Obtiene instancias de los servicios de tareas usando el factory"""
     weighing_service = TaskServiceFactory.create_weighing_service()
     fabrication_service = TaskServiceFactory.create_fabrication_service()
     return weighing_service, fabrication_service
@@ -54,7 +52,7 @@ def create_orders(
         # Verificar si la orden ya existe por el lote
         existing_order = db.query(order_model.Order).filter(order_model.Order.lote == order.lote).first()
         if existing_order:
-            continue  # Omitir si ya existe
+            continue 
         
         # Limpiar los datos de la orden
         order_dict = order.dict()
@@ -80,8 +78,6 @@ def create_orders(
     db.commit()
     for db_order in created_orders:
         db.refresh(db_order)
-    
-    print(f"[DEBUG] create_orders: Procesando {len(created_orders)} órdenes creadas")
     
     # Extraer solo lote, quantity y code de las órdenes creadas
     extracted_orders = extract_created_orders_data(created_orders)
@@ -112,8 +108,6 @@ def create_orders(
     
     # Solo crear tareas si auto_create_tasks es True
     if auto_create_tasks:
-        # Obtener actividades para los códigos de las órdenes extraídas
-        print(f"[DEBUG] create_orders: Obteniendo actividades para los códigos extraídos")
         
         # Obtener instancias de servicios usando el factory
         weighing_service, fabrication_service = get_task_services()
@@ -123,6 +117,8 @@ def create_orders(
         packaging_service = TaskServiceFactory.create_packaging_service()
         
         activities_data = weighing_service.get_activities_for_orders(extracted_orders, db)
+        
+        #La creacion automatica puede cambiar de como esta ahorita
         
         # Crear tareas de pesado para todas las órdenes usando el servicio
         weighing_tasks_result = weighing_service.create_weighing_tasks_for_orders(extracted_orders, db)
@@ -145,7 +141,6 @@ def create_orders(
             "message": f"Se crearon {len(created_orders)} órdenes exitosamente. No se crearon tareas automáticamente."
         })
     
-    print(f"[DEBUG] create_orders: Respuesta final - {response_data}")
     return response_data
 
 @router.delete("/{order_id}")
@@ -159,7 +154,6 @@ def delete_order(order_id: str, db: Session = Depends(get_db), current_user: Use
 
 @router.patch("/{order_id}")
 def update_order_warehouse(order_id: str, order_update: OrderWarehouseUpdate, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.WAREHOUSE, UserRole.USER))):
-    
     
     db_order = db.query(order_model.Order).filter(order_model.Order.lote == order_id).first()
     if not db_order:
@@ -271,8 +265,7 @@ def sync_order_status(
     """
     Sincroniza el estado de una orden basándose en el estado actual de todas sus tareas.
     """
-    
-    
+  
     try:
         lote_int = int(order_id)
         OrderStatusService.sync_order_status_for_lote(db, str(lote_int))
@@ -293,13 +286,11 @@ def sync_order_status(
             "dueDate": order.dueDate
         }
         
-        print(f"DEBUG - Response data: {response_data}")
         return response_data
         
     except (ValueError, TypeError):
         raise HTTPException(status_code=400, detail="Invalid order ID format")
     except Exception as e:
-        print(f"DEBUG - Error in sync_order_status: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error syncing order: {str(e)}")
 
 
@@ -313,7 +304,6 @@ def sync_all_orders_status(
     Sincroniza el estado de todas las órdenes basándose en el estado actual de sus tareas.
     """
     
-    
     # Obtener todas las órdenes
     orders = db.query(order_model.Order).all()
     synced_count = 0
@@ -323,51 +313,12 @@ def sync_all_orders_status(
             OrderStatusService.sync_order_status_for_lote(db, str(order.lote))
             synced_count += 1
         except Exception as e:
-            print(f"Error syncing order {order.lote}: {e}")
             continue
     
     return {
         "message": f"Synced {synced_count} out of {len(orders)} orders",
         "synced_count": synced_count,
         "total_orders": len(orders)
-    }
-
-
-
-@router.post("/update_status_for_today")
-def update_orders_status_for_today(
-    db: Session = Depends(get_db), 
-    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))
-):
-    """
-    Actualiza automáticamente el estado de las órdenes que tienen tareas programadas para hoy.
-    Cambia de 'pending' o 'programada' a 'in_progress' si la programación es para hoy.
-    """
-    
-    
-    
-    today = date.today()
-    updated_count = 0
-    
-    # Obtener todas las programaciones de tareas para hoy
-    today_programming_tasks = db.query(ProgrammingTask).join(
-        ProgrammingTask.programming
-    ).filter(
-        ProgrammingTask.programming.has(date=today)
-    ).all()
-    
-    for pt in today_programming_tasks:
-        try:
-            OrderStatusService.update_order_status_for_programming_date(db, pt)
-            updated_count += 1
-        except Exception as e:
-            print(f"Error updating order status for programming task: {e}")
-            continue
-    
-    return {
-        "message": f"Updated {updated_count} orders for today's programming",
-        "updated_count": updated_count,
-        "total_today_tasks": len(today_programming_tasks)
     }
 
 @router.get("/", response_model=OrderPageOut)
@@ -439,8 +390,6 @@ def extract_orders_data(
         if not orders:
             raise HTTPException(status_code=404, detail="No se encontraron órdenes con los lotes especificados")
         
-        print(f"[DEBUG] extract_orders_data: Procesando {len(orders)} órdenes encontradas")
-        
         # Extraer solo lote, quantity y code usando las funciones utilitarias
         extracted_orders = extract_created_orders_data(orders)
         summary = get_orders_summary(orders)
@@ -453,7 +402,6 @@ def extract_orders_data(
             "missing_lotes": list(set(order_ids) - set([order.lote for order in orders]))
         }
         
-        print(f"[DEBUG] extract_orders_data: Respuesta final - {response_data}")
         return response_data
         
     except Exception as e:
@@ -494,8 +442,6 @@ def extract_recent_orders_data(
                 "message": "No se encontraron órdenes recientes"
             }
         
-        print(f"[DEBUG] extract_recent_orders_data: Procesando {len(recent_orders)} órdenes recientes")
-        
         # Extraer solo lote, quantity y code usando las funciones utilitarias
         extracted_orders = extract_created_orders_data(recent_orders)
         summary = get_orders_summary(recent_orders)
@@ -508,7 +454,6 @@ def extract_recent_orders_data(
             "message": f"Se extrajeron {len(recent_orders)} órdenes recientes"
         }
         
-        print(f"[DEBUG] extract_recent_orders_data: Respuesta final - {response_data}")
         return response_data
         
     except Exception as e:
@@ -530,8 +475,6 @@ def extract_orders_with_activities(
         Datos de las órdenes con sus actividades correspondientes
     """
     try:
-        print(f"[DEBUG] extract_orders_with_activities: Procesando {len(order_ids)} órdenes")
-        
         # Buscar las órdenes en la base de datos
         orders = db.query(order_model.Order).filter(order_model.Order.lote.in_(order_ids)).all()
         
@@ -555,7 +498,6 @@ def extract_orders_with_activities(
             "missing_lotes": list(set(order_ids) - set([order.lote for order in orders]))
         }
         
-        print(f"[DEBUG] extract_orders_with_activities: Respuesta final - {response_data}")
         return response_data
         
     except Exception as e:
@@ -595,8 +537,6 @@ def extract_recent_orders_with_activities(
                 "message": "No se encontraron órdenes recientes"
             }
         
-        print(f"[DEBUG] extract_recent_orders_with_activities: Procesando {len(recent_orders)} órdenes recientes")
-        
         # Extraer solo lote, quantity y code usando las funciones utilitarias
         extracted_orders = extract_created_orders_data(recent_orders)
         summary = get_orders_summary(recent_orders)
@@ -614,7 +554,6 @@ def extract_recent_orders_with_activities(
             "message": f"Se extrajeron {len(recent_orders)} órdenes recientes con actividades"
         }
         
-        print(f"[DEBUG] extract_recent_orders_with_activities: Respuesta final - {response_data}")
         return response_data
         
     except Exception as e:
@@ -634,8 +573,7 @@ def get_delivered_orders(
     Solo muestra órdenes en estado 'delivered' que están pendientes de recepción en almacén.
     Solo accesible para admin, supervisor y warehouse (recepción).
     """
-    from sqlalchemy import or_
-    
+  
     query = db.query(order_model.Order).filter(
         order_model.Order.status == OrderStatus.delivered  # Órdenes entregadas pero no completadas
     )
@@ -754,7 +692,6 @@ def get_manufactured_orders(
     current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.WAREHOUSE))
 ):    
     # Buscar órdenes manufacturadas y pendientes que están listas para entregar
-    # Incluir órdenes con estado manufactured o pending
     query = db.query(order_model.Order).filter(
         and_(
             order_model.Order.bin == 8,
@@ -806,7 +743,6 @@ def deliver_order(
     Realiza la entrega de una orden manufacturada o pendiente.
     Solo para roles admin, planner y supervisor.
     """
-    
     
     db_order = db.query(order_model.Order).filter(order_model.Order.lote == order_id).first()
     if not db_order:
@@ -876,8 +812,6 @@ def extract_orders_with_weighing_activities(
         if not order_ids:
             raise HTTPException(status_code=400, detail="Se requiere al menos un order_id")
         
-        print(f"[DEBUG] extract_orders_with_weighing_activities: Procesando {len(order_ids)} órdenes")
-        
         # Buscar las órdenes en la base de datos
         orders = db.query(order_model.Order).filter(order_model.Order.lote.in_(order_ids)).all()
         
@@ -908,7 +842,6 @@ def extract_orders_with_weighing_activities(
             "message": f"Se extrajeron {len(orders)} órdenes con sus actividades de pesado"
         }
         
-        print(f"[DEBUG] extract_orders_with_weighing_activities: Respuesta final - {response_data}")
         return response_data
         
     except Exception as e:
@@ -952,8 +885,6 @@ def extract_recent_orders_with_weighing_activities(
                 "message": "No se encontraron órdenes recientes"
             }
         
-        print(f"[DEBUG] extract_recent_orders_with_weighing_activities: Procesando {len(recent_orders)} órdenes recientes")
-        
         # Extraer solo lote, quantity y code usando las funciones utilitarias
         extracted_orders = extract_created_orders_data(recent_orders)
         summary = get_orders_summary(recent_orders)
@@ -977,7 +908,6 @@ def extract_recent_orders_with_weighing_activities(
             "message": f"Se extrajeron {len(recent_orders)} órdenes recientes con sus actividades de pesado"
         }
         
-        print(f"[DEBUG] extract_recent_orders_with_weighing_activities: Respuesta final - {response_data}")
         return response_data
         
     except Exception as e:
@@ -1002,8 +932,6 @@ def extract_orders_with_weighing_activities_details(
         order_ids = request.get("order_ids", [])
         if not order_ids:
             raise HTTPException(status_code=400, detail="Se requiere al menos un order_id")
-        
-        print(f"[DEBUG] extract_orders_with_weighing_activities_details: Procesando {len(order_ids)} órdenes")
         
         # Buscar las órdenes en la base de datos
         orders = db.query(order_model.Order).filter(order_model.Order.lote.in_(order_ids)).all()
@@ -1067,7 +995,6 @@ def extract_orders_with_weighing_activities_details(
             "message": f"Se extrajeron {len(orders)} órdenes con sus actividades de pesado y detalles"
         }
         
-        print(f"[DEBUG] extract_orders_with_weighing_activities_details: Respuesta final - {response_data}")
         return response_data
         
     except Exception as e:
@@ -1112,8 +1039,6 @@ def extract_recent_orders_with_weighing_activities_details(
                 "message": "No se encontraron órdenes recientes"
             }
         
-        print(f"[DEBUG] extract_recent_orders_with_weighing_activities_details: Procesando {len(recent_orders)} órdenes recientes")
-        
         # Extraer solo lote, quantity y code usando las funciones utilitarias
         extracted_orders = extract_created_orders_data(recent_orders)
         summary = get_orders_summary(recent_orders)
@@ -1130,7 +1055,6 @@ def extract_recent_orders_with_weighing_activities_details(
             "message": f"Se extrajeron {len(recent_orders)} órdenes recientes con sus actividades de pesado y detalles"
         }
         
-        print(f"[DEBUG] extract_recent_orders_with_weighing_activities_details: Respuesta final - {response_data}")
         return response_data
         
     except Exception as e:
@@ -1158,8 +1082,6 @@ def get_activity_details_for_code_and_activity(
         if not code or not activity:
             raise HTTPException(status_code=400, detail="Se requiere código y actividad")
         
-        print(f"[DEBUG] get_activity_details_for_code_and_activity: Obteniendo detalles para código '{code}' y actividad '{activity}'")
-        
         # Obtener detalles de la actividad específica
         activity_details = weighing_service.get_activity_details_by_code_and_activity(code, activity, db)
         
@@ -1169,7 +1091,6 @@ def get_activity_details_for_code_and_activity(
             "message": f"Detalles obtenidos para código '{code}' y actividad '{activity}'"
         }
         
-        print(f"[DEBUG] get_activity_details_for_code_and_activity: Respuesta final - {response_data}")
         return response_data
         
     except Exception as e:
@@ -1197,8 +1118,6 @@ def calculate_minutes_for_activity(
         
         if not code or not activity or order_quantity is None:
             raise HTTPException(status_code=400, detail="Se requiere código, actividad y cantidad de la orden")
-        
-        print(f"[DEBUG] calculate_minutes_for_activity: Calculando minutos para código '{code}', actividad '{activity}', cantidad {order_quantity}")
         
         # Obtener detalles de la actividad con cálculo de minutos
         activity_details_result = weighing_service.get_activity_details_by_code_and_activity(code, activity, db)
@@ -1238,7 +1157,6 @@ def calculate_minutes_for_activity(
             "message": f"Minutos calculados para código '{code}' y actividad '{activity}'"
         }
         
-        print(f"[DEBUG] calculate_minutes_for_activity: Respuesta final - {response_data}")
         return response_data
         
     except Exception as e:
@@ -1264,8 +1182,6 @@ def extract_orders_with_weighing_activities_minutes(
         if not order_ids:
             raise HTTPException(status_code=400, detail="Se requiere al menos un order_id")
         
-        print(f"[DEBUG] extract_orders_with_weighing_activities_minutes: Procesando {len(order_ids)} órdenes")
-        
         # Buscar las órdenes en la base de datos
         orders = db.query(order_model.Order).filter(order_model.Order.lote.in_(order_ids)).all()
         
@@ -1290,7 +1206,6 @@ def extract_orders_with_weighing_activities_minutes(
             "message": f"Se extrajeron {len(orders)} órdenes con sus actividades de pesado y minutos calculados"
         }
         
-        print(f"[DEBUG] extract_orders_with_weighing_activities_minutes: Respuesta final - {response_data}")
         return response_data
         
     except Exception as e:
@@ -1336,8 +1251,6 @@ def extract_recent_orders_with_weighing_activities_minutes(
                 "message": "No se encontraron órdenes recientes"
             }
         
-        print(f"[DEBUG] extract_recent_orders_with_weighing_activities_minutes: Procesando {len(recent_orders)} órdenes recientes")
-        
         # Extraer solo lote, quantity y code usando las funciones utilitarias
         extracted_orders = extract_created_orders_data(recent_orders)
         summary = get_orders_summary(recent_orders)
@@ -1354,7 +1267,6 @@ def extract_recent_orders_with_weighing_activities_minutes(
             "message": f"Se extrajeron {len(recent_orders)} órdenes recientes con sus actividades de pesado y minutos calculados"
         }
         
-        print(f"[DEBUG] extract_recent_orders_with_weighing_activities_minutes: Respuesta final - {response_data}")
         return response_data
         
     except Exception as e:
@@ -1375,17 +1287,13 @@ def get_most_suitable_weighing_team_endpoint(
         Información del equipo más idóneo para pesado con ID y nombre
     """
     try:
-        print(f"[DEBUG] get_most_suitable_weighing_team_endpoint: Iniciando búsqueda de equipo más idóneo para pesado")
         
         weighing_service, _ = get_task_services()
         result = weighing_service.get_most_suitable_weighing_team(db)
         
-        print(f"[DEBUG] get_most_suitable_weighing_team_endpoint: Resultado obtenido - {result}")
-        
         return result
         
     except Exception as e:
-        print(f"[DEBUG] get_most_suitable_weighing_team_endpoint: Error - {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error obteniendo equipo más idóneo para pesado: {str(e)}")
 
 
@@ -1401,7 +1309,6 @@ def get_most_suitable_weighing_team_with_programmings_endpoint(
         Información del equipo más idóneo para pesado con sus programaciones disponibles
     """
     try:
-        print(f"[DEBUG] get_most_suitable_weighing_team_with_programmings_endpoint: Iniciando búsqueda de equipo y programaciones")
         
         team_result = weighing_service.get_most_suitable_weighing_team(db)
         
@@ -1431,12 +1338,9 @@ def get_most_suitable_weighing_team_with_programmings_endpoint(
                 }
             }
         
-        print(f"[DEBUG] get_most_suitable_weighing_team_with_programmings_endpoint: Resultado obtenido - {result}")
-        
         return result
         
     except Exception as e:
-        print(f"[DEBUG] get_most_suitable_weighing_team_with_programmings_endpoint: Error - {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error obteniendo equipo y programaciones: {str(e)}")
 
 
@@ -1462,19 +1366,12 @@ def verify_programming_time_limit_endpoint(
         if not programmings or task_minutes is None:
             raise HTTPException(status_code=400, detail="Se requiere programmings (lista) y task_minutes (entero)")
         
-        print(f"[DEBUG] verify_programming_time_limit_endpoint: Verificando límite de tiempo")
-        print(f"[DEBUG] verify_programming_time_limit_endpoint: Programaciones: {len(programmings)}")
-        print(f"[DEBUG] verify_programming_time_limit_endpoint: Minutos de tarea: {task_minutes}")
-        
         weighing_service, _ = get_task_services()
         result = weighing_service.verify_programming_time_limit(programmings, task_minutes, db)
-        
-        print(f"[DEBUG] verify_programming_time_limit_endpoint: Resultado obtenido - {result}")
         
         return result
         
     except Exception as e:
-        print(f"[DEBUG] verify_programming_time_limit_endpoint: Error - {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error verificando límite de tiempo: {str(e)}")
 
 
@@ -1498,9 +1395,6 @@ def get_most_suitable_weighing_team_with_time_verification_endpoint(
         
         if task_minutes is None:
             raise HTTPException(status_code=400, detail="Se requiere task_minutes (entero)")
-        
-        print(f"[DEBUG] get_most_suitable_weighing_team_with_time_verification_endpoint: Iniciando búsqueda con verificación de tiempo")
-        print(f"[DEBUG] get_most_suitable_weighing_team_with_time_verification_endpoint: Minutos de tarea: {task_minutes}")
         
         team_result = weighing_service.get_most_suitable_weighing_team(db)
         
@@ -1539,8 +1433,6 @@ def get_most_suitable_weighing_team_with_time_verification_endpoint(
                     "time_verification": time_verification
                 }
 
-        print(f"[DEBUG] get_most_suitable_weighing_team_with_time_verification_endpoint: Resultado obtenido - {result}")
-
         return result
         
     except Exception as e:
@@ -1563,9 +1455,7 @@ def get_surplus_orders(
     Busca en órdenes manufacturadas, entregadas y completadas con missing_quantity negativo.
     Solo accesible para admin, planner y supervisor.
     """
-    
-    
-    
+
     query = db.query(order_model.Order).filter(
         or_(
             and_(
@@ -1642,7 +1532,6 @@ def get_available_orders_for_transfer(
     # Si no encontramos candidatos con la consulta estricta, intentar una búsqueda más laxa
     if not available_orders:
         try:
-            print(f"[DEBUG] No candidates with strict filters for code_base={code_base}, trying relaxed query...")
             relaxed_query = db.query(order_model.Order).filter(
                 order_model.Order.code.ilike(f"{code_base}%")
             )
