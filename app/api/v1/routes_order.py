@@ -323,21 +323,38 @@ def sync_all_orders_status(
 
 @router.get("/", response_model=OrderPageOut)
 def get_orders(
-    status: Optional[OrderStatus] = Query(None, description="Filtrar por status"),
+    status: Optional[List[OrderStatus]] = Query(None, description="Filtrar por uno o más estados"),
     lote: int = Query(None, description="Filtrar por lote"),
     code: str = Query(None, description="Filtrar por código"),
+    has_surplus: Optional[bool] = Query(None, description="Filtrar órdenes con sobrantes (missing_quantity < 0)"),
+    bin_number: Optional[int] = Query(None, description="Filtrar por número de bin"),
     skip: int = Query(0, ge=0, description="Cuántos registros omitir (paginación)"),
     limit: int = Query(10, ge=1, le=100, description="Cuántos registros devolver (paginación)"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.PLANNER, UserRole.SUPERVISOR))
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.WAREHOUSE, UserRole.USER))
 ):
+    """
+    Obtiene una lista paginada de órdenes con filtros avanzados.
+
+    - **status**: Filtra por uno o más estados de orden (ej: `?status=delivered&status=pending`).
+    - **lote**: Filtra por un número de lote exacto.
+    - **code**: Filtra por un código de producto exacto.
+    - **has_surplus**: Si es `true`, filtra órdenes con sobrantes (`missing_quantity < 0`).
+    - **bin_number**: Filtra por el número de `bin`.
+    - **skip**, **limit**: Para paginación.
+    """
     query = db.query(order_model.Order)
     if status:
-        query = query.filter(order_model.Order.status == status)
+        query = query.filter(order_model.Order.status.in_(status))
     if lote:
         query = query.filter(order_model.Order.lote == lote)
     if code:
         query = query.filter(order_model.Order.code == code)
+    if has_surplus is True:
+        query = query.filter(order_model.Order.missing_quantity < 0)
+    if bin_number is not None:
+        query = query.filter(order_model.Order.bin == bin_number)
+
     total = query.count()
     orders = query.offset(skip).limit(limit).all()
     
@@ -559,56 +576,6 @@ def extract_recent_orders_with_activities(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error extrayendo órdenes recientes con actividades: {str(e)}")
 
-@router.get("/delivered", response_model=OrderPageOut)
-def get_delivered_orders(
-    lote: int = Query(None, description="Filtrar por lote"),
-    code: str = Query(None, description="Filtrar por código"),
-    skip: int = Query(0, ge=0, description="Cuántos registros omitir (paginación)"),
-    limit: int = Query(10, ge=1, le=100, description="Cuántos registros devolver (paginación)"),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.WAREHOUSE))
-):
-    """
-    Obtiene órdenes que han sido entregadas pero no completadas.
-    Solo muestra órdenes en estado 'delivered' que están pendientes de recepción en almacén.
-    Solo accesible para admin, supervisor y warehouse (recepción).
-    """
-  
-    query = db.query(order_model.Order).filter(
-        order_model.Order.status == OrderStatus.delivered  # Órdenes entregadas pero no completadas
-    )
-    
-    if lote:
-        query = query.filter(order_model.Order.lote == lote)
-    if code:
-        query = query.filter(order_model.Order.code == code)
-    
-    total = query.count()
-    orders = query.offset(skip).limit(limit).all()
-    
-    # Serializar las órdenes usando el esquema OrderOut
-    serialized_orders = []
-    for order in orders:
-        order_dict = {
-            "lote": order.lote,
-            "code": order.code,
-            "status": order.status,
-            "description": order.description,
-            "quantity": order.quantity,
-            "bin": order.bin,
-            "dueDate": order.dueDate,
-            "received_user": order.received_user,
-            "received_date": order.received_date,
-            "received_quantity": order.received_quantity,
-            "missing_quantity": order.missing_quantity,
-            "submitted_user": order.submitted_user,
-            "submitted_date": order.submitted_date,
-            "submitted_observations": order.submitted_observations
-        }
-        serialized_orders.append(order_dict)
-    
-    return {"orders": serialized_orders, "total": total}
-
 @router.post("/{order_id}/receive")
 def receive_order(
     order_id: str,
@@ -669,56 +636,6 @@ def receive_order(
         "status": db_order.status,
         "status_message": status_message
     }
-
-@router.get("/manufactured")
-def get_manufactured_orders(
-    skip: int = Query(0, ge=0, description="Cuántos registros omitir (paginación)"),
-    limit: int = Query(10, ge=1, le=100, description="Cuántos registros devolver (paginación)"),
-    lote: Optional[int] = Query(None, description="Filtrar por lote"),
-    code: Optional[str] = Query(None, description="Filtrar por código"),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.WAREHOUSE))
-):    
-    # Buscar órdenes manufacturadas y pendientes que están listas para entregar
-    query = db.query(order_model.Order).filter(
-        and_(
-            order_model.Order.bin == 8,
-            or_(
-                order_model.Order.status == OrderStatus.manufactured,
-                order_model.Order.status == OrderStatus.pending
-            )
-        )
-    )
-    
-    if lote:
-        query = query.filter(order_model.Order.lote == lote)
-    if code:
-        query = query.filter(order_model.Order.code.ilike(f"%{code}%"))
-    
-    total = query.count()
-    orders = query.offset(skip).limit(limit).all()
-    
-    # Serializar las órdenes
-    serialized_orders = []
-    for order in orders:
-        order_dict = {
-            "lote": order.lote,
-            "code": order.code,
-            "status": order.status,
-            "description": order.description,
-            "quantity": order.quantity,
-            "bin": order.bin,
-            "dueDate": order.dueDate,
-            "received_user": order.received_user,
-            "received_date": order.received_date,
-            "received_quantity": order.received_quantity or 0,
-            "missing_quantity": order.missing_quantity or order.quantity,
-            "submitted_user": order.submitted_user,
-            "submitted_date": order.submitted_date
-        }
-        serialized_orders.append(order_dict)
-    
-    return {"orders": serialized_orders, "total": total}
 
 @router.post("/{order_id}/deliver")
 def deliver_order(
@@ -1427,69 +1344,6 @@ def get_most_suitable_weighing_team_with_time_verification_endpoint(
         raise HTTPException(status_code=500, detail=f"Error obteniendo equipo con verificación de tiempo: {str(e)}")
 
 
-
-
-@router.get("/surplus", response_model=OrderPageOut)
-def get_surplus_orders(
-    lote: int = Query(None, description="Filtrar por lote"),
-    code: str = Query(None, description="Filtrar por código"),
-    skip: int = Query(0, ge=0, description="Cuántos registros omitir (paginación)"),
-    limit: int = Query(10, ge=1, le=100, description="Cuántos registros devolver (paginación)"),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
-):
-    """
-    Obtiene órdenes que tienen sobrantes (cantidad entregada mayor a la original).
-    Busca en órdenes manufacturadas, entregadas y completadas con missing_quantity negativo.
-    Solo accesible para admin, planner y supervisor.
-    """
-
-    query = db.query(order_model.Order).filter(
-        or_(
-            and_(
-                order_model.Order.status == OrderStatus.manufactured,
-                order_model.Order.missing_quantity < 0  # Con sobrantes (negativo indica exceso)
-            ),
-            and_(
-                order_model.Order.status == OrderStatus.delivered,
-                order_model.Order.missing_quantity < 0  # Con sobrantes (negativo indica exceso)
-            ),
-            and_(
-                order_model.Order.status == OrderStatus.completed,
-                order_model.Order.missing_quantity < 0  # Con sobrantes (negativo indica exceso)
-            )
-        )
-    )
-    
-    if lote:
-        query = query.filter(order_model.Order.lote == lote)
-    if code:
-        query = query.filter(order_model.Order.code == code)
-    
-    total = query.count()
-    orders = query.offset(skip).limit(limit).all()
-    
-    # Serializar las órdenes usando el esquema OrderOut
-    serialized_orders = []
-    for order in orders:
-        order_dict = {
-            "lote": order.lote,
-            "code": order.code,
-            "status": order.status,
-            "description": order.description,
-            "quantity": order.quantity,
-            "bin": order.bin,
-            "dueDate": order.dueDate,
-            "received_user": order.received_user,
-            "received_date": order.received_date,
-            "received_quantity": order.received_quantity,
-            "missing_quantity": order.missing_quantity,
-            "submitted_user": order.submitted_user,
-            "submitted_date": order.submitted_date
-        }
-        serialized_orders.append(order_dict)
-    
-    return {"orders": serialized_orders, "total": total}
 
 @router.get("/available-for-transfer/{code}")
 def get_available_orders_for_transfer(
