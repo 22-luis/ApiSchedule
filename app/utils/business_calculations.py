@@ -145,7 +145,7 @@ class BusinessCalculations:
             return 0
             
         # Fórmula de negocio: (cantidad * productividad * 60) / personas
-        minutes = (quantity * productivity * 60) / people
+        minutes = (quantity * (1 / productivity) * 60)
         
         # Redondear hacia arriba (ceiling)
         return math.ceil(minutes)
