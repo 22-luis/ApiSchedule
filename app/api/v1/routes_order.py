@@ -259,13 +259,13 @@ def sync_order_status(
 
 @router.get("/", response_model=OrderPageOut)
 def get_orders(
-    status: Optional[List[OrderStatus]] = Query(None, description="Filtrar por uno o más estados"),
+    status: Optional[List[str]] = Query(None, description="Filtrar por uno o más estados"),
     lote: int = Query(None, description="Filtrar por lote"),
     code: str = Query(None, description="Filtrar por código"),
     has_surplus: Optional[bool] = Query(None, description="Filtrar órdenes con sobrantes (missing_quantity < 0)"),
     bin_number: Optional[int] = Query(None, description="Filtrar por número de bin"),
     skip: int = Query(0, ge=0, description="Cuántos registros omitir (paginación)"),
-    limit: int = Query(10, ge=1, le=100, description="Cuántos registros devolver (paginación)"),
+    limit: int = Query(10, ge=1, le=1000, description="Cuántos registros devolver (paginación)"),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.WAREHOUSE, UserRole.USER))
 ):
