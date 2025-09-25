@@ -70,6 +70,7 @@ def create_orders(
             code=cleaned_order['code'],
             description=cleaned_order['description'],
             quantity=order.quantity,
+            missing_quantity=order.quantity,
             bin=order.bin,
             status=initial_status
         )
