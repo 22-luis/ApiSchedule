@@ -1,7 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Lógica automática para replicar tareas en equipos de tipo 'pesado' cuando se asigna una tarea a un equipo 'fabricado' o 'molino' con ciertas actividades.
-"""
 import logging
 from typing import List
 from sqlalchemy.orm import Session

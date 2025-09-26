@@ -1,6 +1,3 @@
-"""
-Rutas de la API para autenticación de usuarios: login y logout con manejo de tokens JWT.
-"""
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from app.utils.dependencies import get_current_user
@@ -37,4 +34,4 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
 
 @router.post("/logout")
 def logout(current_user=Depends(get_current_user)):
-    return 
+    return {"message": "Logout successful"}

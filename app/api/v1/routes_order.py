@@ -155,10 +155,7 @@ def delete_order(order_id: str, db: Session = Depends(get_db), current_user: Use
 
 @router.patch("/{order_id}/status")
 def update_order_status(order_id: str, status_update: OrderStatusUpdate, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.WAREHOUSE, UserRole.USER))):
-    """
-    Actualiza manualmente el estado de una orden.
-    Todos los roles excepto USER pueden actualizar el estado.
-    """
+    
     db_order = db.query(order_model.Order).filter(order_model.Order.lote == order_id).first()
     if not db_order:
         raise HTTPException(status_code=404, detail="Order not found")
@@ -229,10 +226,6 @@ def sync_order_status(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))
 ):
-    """
-    Sincroniza el estado de una o más órdenes basándose en el estado actual de todas sus tareas.
-    Si no se proporcionan IDs, sincroniza todas las órdenes.
-    """
     if order_ids:
         orders = db.query(order_model.Order).filter(order_model.Order.lote.in_(order_ids)).all()
         if not orders:
@@ -320,9 +313,6 @@ def extract_orders_data(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))
 ):
-    """
-    Extrae datos de órdenes, con opciones para obtener actividades y detalles.
-    """
     from app.core.task_config import extract_created_orders_data, get_orders_summary
 
     query = db.query(order_model.Order)
@@ -447,11 +437,6 @@ def deliver_order(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
 ):
-    """
-    Realiza la entrega de una orden manufacturada o pendiente.
-    Solo para roles admin, planner y supervisor.
-    """
-    
     db_order = db.query(order_model.Order).filter(order_model.Order.lote == order_id).first()
     if not db_order:
         raise HTTPException(status_code=404, detail="Order not found")
@@ -506,15 +491,6 @@ def get_activity_details_for_code_and_activity(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))
 ):
-    """
-    Obtiene los detalles específicos de una actividad basándose en el código y la actividad.
-    
-    Args:
-        request: Diccionario con code y activity
-        
-    Returns:
-        Datos detallados de la actividad específica
-    """
     try:
         code = request.get("code")
         activity = request.get("activity")
@@ -543,15 +519,6 @@ def calculate_minutes_for_activity(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))
 ):
-    """
-    Calcula los minutos para una actividad específica basándose en el performance y la cantidad.
-    
-    Args:
-        request: Diccionario con code, activity y order_quantity
-        
-    Returns:
-        Datos de la actividad con minutos calculados
-    """
     try:
         code = request.get("code")
         activity = request.get("activity")
@@ -611,9 +578,6 @@ def find_suitable_programming(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))
 ):
-    """
-    Obtiene el equipo más idóneo para pesado, sus programaciones disponibles y verifica el límite de tiempo.
-    """
     try:
         weighing_service, _ = get_task_services()
         team_result = weighing_service.get_most_suitable_weighing_team(db)
@@ -648,12 +612,7 @@ def get_available_orders_for_transfer(
     exclude_lote: Optional[int] = Query(None, description="Lote a excluir de los resultados"),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
-):
-    """
-    Obtiene órdenes disponibles para recibir transferencia de sobrantes.
-    Busca órdenes del mismo código que no estén completadas y tengan cantidad faltante.
-    """
-    
+): 
     # Normalizar el código base (parte antes de '-') y buscar por prefijo
     code_base = code.split('-')[0].strip()
 
@@ -716,15 +675,6 @@ def transfer_surplus_to_order(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
 ):
-    """
-    Transfiere sobrantes de una orden a otra orden del mismo código.
-    
-    Body esperado:
-    {
-        "target_lote": int,
-        "transfer_quantity": int
-    }
-    """
     target_lote = transfer_data.get("target_lote")
     transfer_quantity = transfer_data.get("transfer_quantity")
     

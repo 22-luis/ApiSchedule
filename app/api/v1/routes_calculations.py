@@ -1,7 +1,3 @@
-"""
-Rutas de la API para cálculos de negocio centralizados.
-Expone funciones de cálculo que anteriormente estaban en el frontend.
-"""
 from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from sqlalchemy.orm import Session
 from app.db.dependency import get_db
