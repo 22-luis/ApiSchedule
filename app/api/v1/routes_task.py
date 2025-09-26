@@ -1,7 +1,4 @@
-"""
-Rutas de la API para la gestión de tareas: creación, consulta, actualización y eliminación, así como operaciones relacionadas con equipos y programaciones.
-"""
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from app.db.dependency import get_db
 from typing import List
@@ -19,7 +16,6 @@ from pydantic import BaseModel
 from app.utils.order_status_service import OrderStatusService
 from app.utils.programming_availability import update_programming_availability_by_task
 
-# Opción 1: Router con prefijo específico
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
 @router.post("/", response_model=TaskOut)
@@ -316,6 +312,19 @@ def delete_task(
     db.commit()
     return {"message": "Task deleted successfully"}
 
+@router.get("/check/{lote}", response_model=dict)
+def check_pending_tasks(
+        lote: int,
+        db: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user)
+):
+    pending_tasks = db.query(Task).filter(
+        Task.lote == lote,
+        Task.end_time == None,
+    ).first()
+
+    return {"pending_tasks": pending_tasks}
+
 # Router adicional para rutas anidadas
 nested_router = APIRouter()
 
@@ -336,3 +345,4 @@ def get_tasks_by_team(
         joinedload(Task.created_by_user)
     ).filter(Task.team_id == team_id).all()
     return tasks
+
