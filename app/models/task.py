@@ -1,9 +1,6 @@
-"""
-Modelo que representa una tarea individual dentro de una programación, incluyendo información relevante para su ejecución y relaciones con otros modelos.
-"""
 import uuid
 
-from sqlalchemy import Column, String, Integer, ForeignKey, DateTime, Float
+from sqlalchemy import Column, String, Integer, ForeignKey, DateTime, Float, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
 from app.db.database import Base
@@ -43,3 +40,4 @@ class Task(Base):
     type = Column(String, nullable=True)
     activity = Column(String, nullable=True)
     description = Column(String, nullable=True)
+    is_completed = Column(Boolean, default=False, nullable=False)

@@ -91,10 +91,7 @@ class OrderStatusService:
             if not order:
                 return
                 
-            # Si la orden está en estado programmed y se inicia una tarea, cambiar a pending
-            if order.status == OrderStatus.programmed:
-                order.status = OrderStatus.pending
-                db.commit()
+            pass
                 
         except (ValueError, TypeError):
             # Si el lote no es un número válido, no hacer nada
@@ -125,41 +122,7 @@ class OrderStatusService:
             # Solo procesar si la tarea está marcada como completada
             if programming_task.is_completed:
                 
-                # Verificar si la tarea tiene un código asociado con actividad
-                if task.code and task.code.activity:
-                    activity = task.code.activity.lower().strip()
-                    print(f"[DEBUG] Actividad del código: '{activity}'")
-                    
-                    # Si la actividad es de empaque, cambiar estado a manufactured
-                    if ('empaque' in activity or 'empacado' in activity or 'packaging' in activity or 
-                        'empaque manual' in activity or 'empaque automatico' in activity):
-                        if order.status != OrderStatus.manufactured:
-                            print(f"[DEBUG] Cambiando estado de orden {order.lote} de {order.status} a manufactured por tarea de empaque completada")
-                            order.status = OrderStatus.manufactured
-                            db.commit()
-                            print(f"[DEBUG] Estado de orden {order.lote} actualizado a {order.status}")
-                        else:
-                            print(f"[DEBUG] Orden {order.lote} ya está en estado manufactured")
-                    else:
-                        print(f"[DEBUG] Actividad '{activity}' no es de empaque")
-                
-                # También verificar por el tipo de tarea si no hay actividad en el código
-                elif task.activity:
-                    activity = task.activity.lower().strip()
-                    print(f"[DEBUG] Actividad de la tarea: '{activity}'")
-                    if ('empaque' in activity or 'empacado' in activity or 'packaging' in activity or 
-                        'empaque manual' in activity or 'empaque automatico' in activity):
-                        if order.status != OrderStatus.manufactured:
-                            print(f"[DEBUG] Cambiando estado de orden {order.lote} de {order.status} a manufactured por actividad de tarea de empaque")
-                            order.status = OrderStatus.manufactured
-                            db.commit()
-                            print(f"[DEBUG] Estado de orden {order.lote} actualizado a {order.status}")
-                        else:
-                            print(f"[DEBUG] Orden {order.lote} ya está en estado manufactured")
-                    else:
-                        print(f"[DEBUG] Actividad de tarea '{activity}' no es de empaque")
-                else:
-                    print(f"[DEBUG] Tarea no tiene actividad definida")
+                pass
             else:
                 print(f"[DEBUG] Tarea no está marcada como completada")
                 

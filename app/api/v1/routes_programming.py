@@ -17,6 +17,8 @@ import sys
 from pytz import timezone
 from app.utils.order_status_service import OrderStatusService
 from app.utils.programming_availability import update_programming_availability, update_all_programmings_availability_for_date
+from app.models.order import Order as OrderModel
+from app.models.state import OrderStatus
 from app.models.programming import ProgrammingStatus
 
 router = APIRouter(prefix="/programmings", tags=["programmings"])
@@ -356,13 +358,44 @@ def stop_task_timer(programming_id: str, task_id: str, data: ProgrammingTaskRepo
     else:
         pt.real_end_time = datetime.now(sv_tz)
     pt.real_quantity = data.real_quantity
+    
+    lote = None
+    has_pending_tasks = None
+    # Si se establece real_end_time, marcar la tarea y la asociación como completadas
+    if pt.real_end_time:
+        pt.is_completed = True
+        if pt.task:
+            pt.task.is_completed = True
+            lote = pt.task.lote
+            
+            # Si tenemos un lote, verificamos si quedan tareas pendientes para él.
+            if lote:
+                incomplete_task = db.query(Task).filter(
+                    Task.lote == lote,
+                    Task.is_completed == False
+                ).first()
+                has_pending_tasks = incomplete_task is not None
+
+                # Si ya no hay tareas pendientes para el lote, actualizar estado de la orden
+                if has_pending_tasks is False:
+                    try:
+                        order = db.query(OrderModel).filter(OrderModel.lote == int(lote)).first()
+                        if order:
+                            if order.bin == 8:
+                                order.status = OrderStatus.manufactured
+                            else:
+                                order.status = OrderStatus.completed
+                    except (ValueError, TypeError):
+                        # Ignorar si el lote no es un número válido
+                        pass
+
     db.commit()
     
     # Actualizar estado de la orden usando el servicio centralizado
     OrderStatusService.update_order_status_for_task_completion(db, pt)
     
     db.commit()
-    return {"ok": True, "real_end_time": pt.real_end_time, "real_quantity": pt.real_quantity}
+    return {"ok": True, "real_end_time": pt.real_end_time, "real_quantity": pt.real_quantity, "lote": lote, "has_pending_tasks": has_pending_tasks}
 
 @router.post("/{programming_id}/tasks/{task_id}/comment")
 def add_task_comment(programming_id: str, task_id: str, data: ProgrammingTaskReportIn = Body(...), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
