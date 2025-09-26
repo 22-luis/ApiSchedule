@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query, Body, Requ
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from app.models.programming import Programming
+from app.models.role import UserRole
 from app.models.task import Task
 from app.models.team import Team
 from app.schemas.programming import ProgrammingCreate, ProgrammingRead, ProgrammingUpdate, ProgrammingTaskOrderIn, ProgrammingReorderResponse, ProgrammingTaskOrderOut, AvailableProgrammingResponse, AvailableProgrammingItem
@@ -242,9 +243,7 @@ async def reorder_programming_tasks(
     programming_id: UUID,
     request: Request,
     tasks_order: list[ProgrammingTaskOrderIn] = Body(...),
-    base_time: Optional[str] = Body(None),
-    db: Session = Depends(get_db),
-    current_user=Depends(require_roles(["admin", "planner", "supervisor"]))
+    current_user=Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
 ):
     raw_body = await request.body()
     print("RAW PAYLOAD (antes de parsear):", raw_body)
