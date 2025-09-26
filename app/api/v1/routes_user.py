@@ -1,8 +1,5 @@
-"""
-Rutas de la API para la gestión de usuarios: creación, actualización, eliminación y consulta con filtros por estado, rol y búsqueda.
-"""
 from fastapi import APIRouter, Depends, HTTPException, Query
-from app.utils.dependencies import get_current_user, require_roles
+from app.utils.dependencies import get_current_user, require_roles, check_user_modification_permission
 from sqlalchemy.orm import Session
 from app.models.user import User
 from app.schemas.user import UserCreate, UserOut, UserStateUpdate, UserUpdate
@@ -31,13 +28,14 @@ def create_user(
     current_user_role_str = current_user.role.value
     target_user_role_str = user.role.value
 
-    current_role_level = hierarchy.get(current_user_role_str, -1)
-    target_role_level = hierarchy.get(target_user_role_str, -1)
+    current_level = hierarchy.get(current_user_role_str, 0)
+    target_level = hierarchy.get(target_user_role_str, 0)
 
-    if current_user.role != UserRole.ADMIN and current_role_level <= target_role_level:
+    # Solo un admin puede crear otros admins. Nadie puede crear un rol superior al suyo.
+    if current_level < target_level or (current_level == target_level and current_user.role != UserRole.ADMIN):
         raise HTTPException(
             status_code=403,
-            detail=f"No tienes permisos para crear usuarios con el rol {user.role.value}"
+            detail=f"No tienes permisos para crear usuarios con el rol '{user.role.value}'"
         )
 
     # Verificar que el username no exista
@@ -56,64 +54,51 @@ def create_user(
     return db_user
 
 @router.delete("/{user_id}")
-def delete_user(user_id: str, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))):
-    db_user = db.query(User).filter(User.id == user_id).first()
-    if not db_user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    # Verificar que el usuario actual puede modificar al usuario objetivo
-    from app.utils.dependencies import check_user_permission_for_target_user
-    check_user_permission_for_target_user(current_user, db_user)
-    
-    db.delete(db_user)
+def delete_user(
+    db: Session = Depends(get_db), 
+    target_user: User = Depends(check_user_modification_permission),
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))
+):
+    db.delete(target_user)
     db.commit()
     return {"message": "User deleted successfully"}
 
 @router.patch("/{user_id}", response_model=UserOut)
-def update_user(user_id: str, user: UserUpdate, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))):
-    db_user = db.query(User).filter(User.id == user_id).first()
-    if not db_user:
-        raise HTTPException(status_code=404, detail="User not found")
+def update_user(
+    user: UserUpdate, 
+    db: Session = Depends(get_db), 
+    target_user: User = Depends(check_user_modification_permission), 
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))
+):
+    past_state = target_user.state
 
-    # Verificar que el usuario actual puede modificar al usuario objetivo
-    from app.utils.dependencies import check_user_permission_for_target_user
-    check_user_permission_for_target_user(current_user, db_user)
-
-    past_state = db_user.state
-
-    # Usar setattr para evitar errores de tipo
-    setattr(db_user, "username", user.username)
-    # Solo actualizar la contraseña si se proporciona una nueva
+    setattr(target_user, "username", user.username)
     if user.password is not None and user.password.strip():
-        setattr(db_user, "password", hash_password(user.password))
-    setattr(db_user, "role", user.role)
-    setattr(db_user, "state", user.state)
+        setattr(target_user, "password", hash_password(user.password))
+    setattr(target_user, "role", user.role)
+    setattr(target_user, "state", user.state)
 
-    # Use .value for Enum comparisons to avoid linter errors
     if user.state.value == UserState.INACTIVE.value and past_state.value == UserState.ACTIVE.value:
-        db_user.teams = []
+        target_user.teams = []
 
     if user.teamIds is not None and user.state.value == UserState.ACTIVE.value:
-        db_user.teams = db.query(Team).filter(Team.id.in_(user.teamIds)).all()
+        target_user.teams = db.query(Team).filter(Team.id.in_(user.teamIds)).all()
 
     db.commit()
-    db.refresh(db_user)
-    return db_user
+    db.refresh(target_user)
+    return target_user
 
 @router.patch("/{user_id}/state", response_model=UserOut)
-def update_user_state(user_id: str, state_update: UserStateUpdate, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))):
-    db_user = db.query(User).filter(User.id == user_id).first()
-    if not db_user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    # Verificar que el usuario actual puede modificar al usuario objetivo
-    from app.utils.dependencies import check_user_permission_for_target_user
-    check_user_permission_for_target_user(current_user, db_user)
-    
-    setattr(db_user, "state", state_update.state)
+def update_user_state(
+    state_update: UserStateUpdate, 
+    db: Session = Depends(get_db), 
+    target_user: User = Depends(check_user_modification_permission), 
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))
+):
+    setattr(target_user, "state", state_update.state)
     db.commit()
-    db.refresh(db_user)
-    return db_user
+    db.refresh(target_user)
+    return target_user
 
 @router.get("/", response_model=UsersPageOut)
 def get_users(
@@ -146,4 +131,3 @@ def get_users(
             "teamIds": team_ids
         })
     return {"users": result, "total": total}
-
