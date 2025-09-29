@@ -493,19 +493,6 @@ def get_available_programmings_for_team(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    """
-    Obtiene las programaciones con estado 'available' para un equipo específico,
-    desde la fecha actual hacia adelante. Si no existen programaciones futuras,
-    crea una programación para el día siguiente a la última programación existente.
-    
-    Args:
-        team_uuid: UUID del equipo
-        db: Sesión de base de datos
-        current_user: Usuario autenticado
-        
-    Returns:
-        Lista de programaciones disponibles con id, nombre del equipo y fecha
-    """
     # Verificar que el equipo existe
     team = db.query(Team).filter(Team.id == team_uuid).first()
     if not team:
@@ -580,18 +567,6 @@ def get_only_available_programmings_for_team(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    """
-    Obtiene SOLO las programaciones existentes con estado 'available' para un equipo específico,
-    desde la fecha actual hacia adelante. NO crea nuevas programaciones automáticamente.
-    
-    Args:
-        team_uuid: UUID del equipo
-        db: Sesión de base de datos
-        current_user: Usuario autenticado
-        
-    Returns:
-        Lista de programaciones disponibles existentes con id, nombre del equipo y fecha
-    """
     # Verificar que el equipo existe
     team = db.query(Team).filter(Team.id == team_uuid).first()
     if not team:
@@ -637,18 +612,6 @@ def create_next_available_programming_for_team(
     db: Session = Depends(get_db),
     current_user=Depends(require_roles(["admin", "planner", "supervisor"]))
 ):
-    """
-    Crea una nueva programación disponible para el día siguiente a la última programación existente del equipo.
-    Solo para administradores, planners y supervisores.
-    
-    Args:
-        team_uuid: UUID del equipo
-        db: Sesión de base de datos
-        current_user: Usuario autenticado (debe ser admin/planner/supervisor)
-        
-    Returns:
-        La nueva programación creada
-    """
     # Verificar que el equipo existe
     team = db.query(Team).filter(Team.id == team_uuid).first()
     if not team:
@@ -703,17 +666,6 @@ def get_next_available_time_for_programming(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    """
-    Obtiene el siguiente horario disponible para agregar una nueva tarea en una programación específica.
-    
-    Args:
-        programming_id: UUID de la programación
-        db: Sesión de base de datos
-        current_user: Usuario autenticado
-        
-    Returns:
-        Diccionario con el siguiente horario disponible
-    """
     from datetime import time
     
     # Verificar que la programación existe
@@ -774,19 +726,6 @@ def get_first_available_programming_for_task(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    """
-    Obtiene la primera programación disponible que pueda acomodar una tarea de duración específica.
-    Implementa la lógica de "primer espacio disponible".
-    
-    Args:
-        team_id: UUID del equipo
-        task_minutes: Duración de la tarea en minutos
-        db: Sesión de base de datos
-        current_user: Usuario autenticado
-        
-    Returns:
-        Diccionario con la primera programación disponible que cumple las condiciones
-    """
     from datetime import time
     
     # Verificar que el equipo existe

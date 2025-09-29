@@ -128,12 +128,6 @@ def get_most_suitable_weighing_team_endpoint(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))
 ):
-    """
-    Obtiene el equipo más idóneo para actividades de pesado.
-    
-    Returns:
-        Información del equipo más idóneo para pesado con ID y nombre
-    """
     try:
         print(f"[DEBUG] get_most_suitable_weighing_team_endpoint: Iniciando búsqueda de equipo más idóneo para pesado")
         

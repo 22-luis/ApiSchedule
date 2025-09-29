@@ -20,7 +20,6 @@ router = APIRouter(prefix="/tasks", tags=["tasks"])
 # --- Helpers / Service Functions ---
 
 def _get_task_with_relations(db: Session, task_id: str) -> Task:
-    """Helper to query a single task with all its relationships eagerly loaded."""
     return db.query(Task).options(
         joinedload(Task.code),
         joinedload(Task.preparation),
@@ -29,14 +28,12 @@ def _get_task_with_relations(db: Session, task_id: str) -> Task:
     ).filter(Task.id == task_id).first()
 
 def _check_user_team_permission(current_user: User, programming: Programming):
-    """Checks if a user with USER role is allowed to modify a programming for a specific team."""
     if current_user.role == UserRole.USER:
         user_team_ids = {str(team.id) for team in current_user.teams}
         if str(programming.team_id) not in user_team_ids:
             raise HTTPException(status_code=403, detail="You can only create tasks for your assigned teams")
 
 def _clean_task_response(task: Task) -> Task:
-    """Ensure specific fields are empty strings instead of None in the response."""
     if task:
         task.usefulLife = task.usefulLife or ""
         task.material = task.material or ""
@@ -44,7 +41,6 @@ def _clean_task_response(task: Task) -> Task:
     return task
 
 def _create_task_logic(db: Session, task_data: Dict[str, Any], teams: List[Team], programming: Programming, current_user: User) -> Task:
-    """Core logic to create a task, its associations, and trigger side effects."""
     db_task = Task(
         **task_data,
         teams=teams,
@@ -97,7 +93,6 @@ def create_task(
     if len(teams) != len(task.teamIds):
         raise HTTPException(status_code=400, detail="One or more teams not found")
 
-    # --- Core Logic ---
     task_data = task.dict(exclude={"teamIds", "programming_id", "total_time"})
     return _create_task_logic(db, task_data, teams, programming, current_user)
 
