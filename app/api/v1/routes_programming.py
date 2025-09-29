@@ -366,33 +366,37 @@ def stop_task_timer(programming_id: str, task_id: str, data: ProgrammingTaskRepo
         if pt.task:
             pt.task.is_completed = True
             lote = pt.task.lote
-            
-            # Si tenemos un lote, verificamos si quedan tareas pendientes para él.
-            if lote:
-                incomplete_task = db.query(Task).filter(
-                    Task.lote == lote,
-                    Task.is_completed == False
-                ).first()
-                has_pending_tasks = incomplete_task is not None
 
-                # Si ya no hay tareas pendientes para el lote, actualizar estado de la orden
-                if has_pending_tasks is False:
-                    try:
-                        order = db.query(OrderModel).filter(OrderModel.lote == int(lote)).first()
-                        if order:
-                            if order.bin == 8:
-                                order.status = OrderStatus.manufactured
-                            else:
-                                order.status = OrderStatus.completed
-                    except (ValueError, TypeError):
-                        # Ignorar si el lote no es un número válido
-                        pass
-
+    # Primer commit para guardar los cambios de la tarea actual
     db.commit()
+    
+    # Ahora que la tarea actual está guardada, verificamos las tareas pendientes
+    if lote:
+        incomplete_task = db.query(Task).filter(
+            Task.lote == lote,
+            Task.is_completed == False
+        ).first()
+        has_pending_tasks = incomplete_task is not None
+
+        # Si ya no hay tareas pendientes para el lote, actualizar estado de la orden
+        if has_pending_tasks is False:
+            try:
+                order = db.query(OrderModel).filter(OrderModel.lote == int(lote)).first()
+                if order:
+                    if order.bin == 8:
+                        order.status = OrderStatus.manufactured
+                    else:
+                        order.status = OrderStatus.completed
+                    # Commit para guardar el cambio de estado de la orden
+                    db.commit()
+            except (ValueError, TypeError):
+                # Ignorar si el lote no es un número válido
+                pass
     
     # Actualizar estado de la orden usando el servicio centralizado
     OrderStatusService.update_order_status_for_task_completion(db, pt)
     
+    # Commit final para asegurar que todos los cambios se guarden
     db.commit()
     return {"ok": True, "real_end_time": pt.real_end_time, "real_quantity": pt.real_quantity, "lote": lote, "has_pending_tasks": has_pending_tasks}
 
