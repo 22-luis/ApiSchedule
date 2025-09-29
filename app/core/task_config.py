@@ -6,11 +6,10 @@ from app.models.team import Team
 from app.models.programming import Programming, ProgrammingStatus
 from app.core.enums import (
     WeighingTeams, WeighingActivities, ManufacturingTeams, ManufacturingActivities,
-    PackagingTeams, PackagingActivities, MandatoryTasks
+    PackagingTeams, PackagingActivities
 )
 
 class WorkingHours(BaseModel):
-    """Configuración de horarios laborales"""
     monday_friday: Dict[str, time] = Field(
         default={
             "start": time(7, 0),
@@ -38,21 +37,6 @@ class ScheduleLimits(BaseModel):
     weigh: time = Field(default=time(17,40), description="Maximum time for weigh activities")
     
 schedule_limits = ScheduleLimits()
-
-class MandatoryTaskDurations(BaseModel):
-    """Duración en minutos de las tareas obligatorias por equipo"""
-    reunion_preparacion: Dict[str, int] = Field(
-        default={
-            "MAQUINA 1": 20,
-            "MAQUINA 2": 40,
-            "default": 10
-        },
-        description="Duración en minutos de la reunión y preparación por equipo"
-    )
-    almuerzo: int = Field(default=60, description="Duración en minutos del almuerzo")
-    limpieza: int = Field(default=20, description="Duración en minutos de la limpieza")
-
-mandatory_task_durations = MandatoryTaskDurations()
 working_hours = WorkingHours()
 
 
@@ -63,34 +47,6 @@ def get_task_services():
     fabrication_service = TaskServiceFactory.create_fabrication_service()
     return weighing_service, fabrication_service
 
-
-def get_reunion_preparacion_duration(team_name: str) -> int:
-    """Obtiene la duración de la reunión y preparación para un equipo específico"""
-    return mandatory_task_durations.reunion_preparacion.get(
-        team_name, 
-        mandatory_task_durations.reunion_preparacion["default"]
-    )
-
-def get_mandatory_tasks_info() -> Dict[str, Any]:
-    """Retorna información completa de las tareas obligatorias"""
-    return {
-        "start_task": {
-            "name": MandatoryTasks.REUNION_PREPARACION,
-            "durations": mandatory_task_durations.reunion_preparacion
-        },
-        "end_tasks": [
-            {
-                "name": MandatoryTasks.ALMUERZO,
-                "duration": mandatory_task_durations.almuerzo,
-                "position": "penúltima"
-            },
-            {
-                "name": MandatoryTasks.LIMPIEZA,
-                "duration": mandatory_task_durations.limpieza,
-                "position": "última"
-            }
-        ]
-    }
 
 def get_working_hours_for_day(weekday: int) -> Dict[str, time]:
     """
@@ -158,7 +114,7 @@ def extract_created_orders_data(created_orders: list) -> list:
     Returns:
         Lista de diccionarios con solo lote, quantity y code
     """
-    weighing_service, fabrication_service = get_task_services()
+    
     # from app.services.weighing_task_service import WeighingTaskService  # MIGRATED
     return weighing_service.extract_order_data(created_orders)
 
@@ -216,19 +172,19 @@ def get_orders_summary(created_orders: list) -> dict:
     
 # Funciones de compatibilidad que redirigen al servicio de pesado
 def get_activities_by_code(code: str, db) -> dict:
-    weighing_service, fabrication_service = get_task_services()
+    
     """Redirige al servicio de pesado"""
     # from app.services.weighing_task_service import WeighingTaskService  # MIGRATED
     return weighing_service.get_activities_by_code(code, db)
 
 def get_activities_for_extracted_orders(extracted_orders: list, db) -> dict:
-    weighing_service, fabrication_service = get_task_services()
+    
     """Redirige al servicio de pesado"""
     # from app.services.weighing_task_service import WeighingTaskService  # MIGRATED
     return weighing_service.get_activities_for_orders(extracted_orders, db)
 
 def get_weighing_activities_for_orders(extracted_orders: list, db) -> dict:
-    weighing_service, fabrication_service = get_task_services()
+    
     """Redirige al servicio de pesado"""
     # from app.services.weighing_task_service import WeighingTaskService  # MIGRATED
     all_activities = weighing_service.get_activities_for_orders(extracted_orders, db)
@@ -240,7 +196,7 @@ def get_weighing_activities_for_orders(extracted_orders: list, db) -> dict:
     }
 
 def get_weighing_activities_with_details(extracted_orders: list, db) -> dict:
-    weighing_service, fabrication_service = get_task_services()
+    
     """Redirige al servicio de pesado"""
     # from app.services.weighing_task_service import WeighingTaskService  # MIGRATED
     all_activities = weighing_service.get_activities_for_orders(extracted_orders, db)
@@ -283,13 +239,13 @@ def get_weighing_activities_with_details(extracted_orders: list, db) -> dict:
     }
     
 def get_activity_details_by_code_and_activity(code: str, activity: str, db) -> dict:
-    weighing_service, fabrication_service = get_task_services()
+    
     """Redirige al servicio de pesado"""
     # from app.services.weighing_task_service import WeighingTaskService  # MIGRATED
     return weighing_service.get_activity_details_by_code_and_activity(code, activity, db)
 
 def get_activity_details_with_minutes_calculation(code: str, activity: str, order_quantity: int, db) -> dict:
-    weighing_service, fabrication_service = get_task_services()
+    
     """Redirige al servicio de pesado"""
     # from app.services.weighing_task_service import WeighingTaskService  # MIGRATED
     activity_details_result = weighing_service.get_activity_details_by_code_and_activity(code, activity, db)
@@ -323,19 +279,19 @@ def get_activity_details_with_minutes_calculation(code: str, activity: str, orde
     }
 
 def get_weighing_activities_with_minutes_calculation(extracted_orders: list, db) -> dict:
-    weighing_service, fabrication_service = get_task_services()
+    
     """Redirige al servicio de pesado"""
     # from app.services.weighing_task_service import WeighingTaskService  # MIGRATED
     return weighing_service.get_weighing_activities_with_minutes(extracted_orders, db)
 
 def calculate_minutes_from_performance_and_quantity(performance: float, quantity: int) -> int:
-    weighing_service, fabrication_service = get_task_services()
+    
     """Redirige al servicio de pesado"""
     # from app.services.weighing_task_service import WeighingTaskService  # MIGRATED
     return weighing_service.calculate_minutes_from_performance_and_quantity(performance, quantity)
 
 def get_most_suitable_weighing_team(db) -> dict:
-    weighing_service, fabrication_service = get_task_services()
+    
     """Redirige al servicio de pesado"""
     # from app.services.weighing_task_service import WeighingTaskService  # MIGRATED
     return weighing_service.get_most_suitable_weighing_team(db)
@@ -441,13 +397,13 @@ def get_most_suitable_weighing_team_with_available_programmings_sorted(db) -> di
     return get_most_suitable_weighing_team_with_available_programmings(db)
 
 def get_pesado_activity_for_order(order_data: dict, weighing_activities_with_minutes_data: dict) -> dict:
-    weighing_service, fabrication_service = get_task_services()
+    
     """Redirige al servicio de pesado"""
     # from app.services.weighing_task_service import WeighingTaskService  # MIGRATED
     return weighing_service._get_pesado_activity_for_order(order_data, weighing_activities_with_minutes_data)
 
 def update_programming_list_after_task_creation(programming_id: str, task_minutes: int, db) -> list:
-    weighing_service, fabrication_service = get_task_services()
+    
     """Redirige al servicio de pesado"""
     # from app.services.weighing_task_service import WeighingTaskService  # MIGRATED
     team_result = weighing_service.get_most_suitable_weighing_team(db)
@@ -461,7 +417,7 @@ def update_programming_list_after_task_creation(programming_id: str, task_minute
     return weighing_service.get_available_programmings_for_team(team_id, db)
 
 def create_single_weighing_task(order_data: dict, task_minutes: int, activity_details: dict, available_programmings: list, db) -> dict:
-    weighing_service, fabrication_service = get_task_services()
+    
     """Redirige al servicio de pesado"""
     # from app.services.weighing_task_service import WeighingTaskService  # MIGRATED
     time_verification_data = weighing_service.verify_programming_time_limit(
@@ -496,19 +452,19 @@ def create_single_weighing_task(order_data: dict, task_minutes: int, activity_de
 # ============================================================================
 
 def get_fabrication_activities_by_code(code: str, db) -> dict:
-    weighing_service, fabrication_service = get_task_services()
+    
     """Redirige al servicio de fabricación"""
     # from app.services.fabrication_task_service import FabricationTaskService  # MIGRATED
     return fabrication_service.get_activities_by_code(code, db)
 
 def get_fabrication_activities_for_extracted_orders(extracted_orders: list, db) -> dict:
-    weighing_service, fabrication_service = get_task_services()
+    
     """Redirige al servicio de fabricación"""
     # from app.services.fabrication_task_service import FabricationTaskService  # MIGRATED
     return fabrication_service.get_activities_for_orders(extracted_orders, db)
 
 def get_fabrication_activities_for_orders(extracted_orders: list, db) -> dict:
-    weighing_service, fabrication_service = get_task_services()
+    
     """Redirige al servicio de fabricación"""
     # from app.services.fabrication_task_service import FabricationTaskService  # MIGRATED
     all_activities = fabrication_service.get_activities_for_orders(extracted_orders, db)
@@ -520,7 +476,7 @@ def get_fabrication_activities_for_orders(extracted_orders: list, db) -> dict:
     }
 
 def get_fabrication_activities_with_details(extracted_orders: list, db) -> dict:
-    weighing_service, fabrication_service = get_task_services()
+    
     """Redirige al servicio de fabricación"""
     # from app.services.fabrication_task_service import FabricationTaskService  # MIGRATED
     all_activities = fabrication_service.get_activities_for_orders(extracted_orders, db)
@@ -563,13 +519,13 @@ def get_fabrication_activities_with_details(extracted_orders: list, db) -> dict:
     }
 
 def get_fabrication_activity_details_by_code_and_activity(code: str, activity: str, db) -> dict:
-    weighing_service, fabrication_service = get_task_services()
+    
     """Redirige al servicio de fabricación"""
     # from app.services.fabrication_task_service import FabricationTaskService  # MIGRATED
     return fabrication_service.get_activity_details_by_code_and_activity(code, activity, db)
 
 def get_fabrication_activity_details_with_minutes_calculation(code: str, activity: str, order_quantity: int, db) -> dict:
-    weighing_service, fabrication_service = get_task_services()
+    
     """Redirige al servicio de fabricación"""
     # from app.services.fabrication_task_service import FabricationTaskService  # MIGRATED
     activity_details_result = fabrication_service.get_activity_details_by_code_and_activity(code, activity, db)
@@ -603,19 +559,19 @@ def get_fabrication_activity_details_with_minutes_calculation(code: str, activit
     }
 
 def get_fabrication_activities_with_minutes_calculation(extracted_orders: list, db) -> dict:
-    weighing_service, fabrication_service = get_task_services()
+    
     """Redirige al servicio de fabricación"""
     # from app.services.fabrication_task_service import FabricationTaskService  # MIGRATED
     return fabrication_service.get_fabrication_activities_with_minutes(extracted_orders, db)
 
 def calculate_fabrication_minutes_from_performance_and_quantity(performance: float, quantity: int) -> int:
-    weighing_service, fabrication_service = get_task_services()
+    
     """Redirige al servicio de fabricación"""
     # from app.services.fabrication_task_service import FabricationTaskService  # MIGRATED
     return fabrication_service.calculate_minutes_from_performance_and_quantity(performance, quantity)
 
 def get_most_suitable_fabrication_team(db) -> dict:
-    weighing_service, fabrication_service = get_task_services()
+    
     """Redirige al servicio de fabricación"""
     # from app.services.fabrication_task_service import FabricationTaskService  # MIGRATED
     return fabrication_service.get_most_suitable_fabrication_team(db)
@@ -649,13 +605,13 @@ def get_most_suitable_fabrication_team_with_available_programmings(db) -> dict:
     }
 
 def verify_fabrication_programming_time_limit_simple(programmings: list, task_minutes: int, db, order_data: dict = None, activity_details: dict = None) -> dict:
-    weighing_service, fabrication_service = get_task_services()
+    
     """Redirige al servicio de fabricación"""
     # from app.services.fabrication_task_service import FabricationTaskService  # MIGRATED
     return fabrication_service.verify_programming_time_limit(programmings, task_minutes, db, order_data, activity_details)
 
 def get_most_suitable_fabrication_team_with_time_verification(db, task_minutes: int) -> dict:
-    weighing_service, fabrication_service = get_task_services()
+    
     """Redirige al servicio de fabricación"""
     # from app.services.fabrication_task_service import FabricationTaskService  # MIGRATED
     team_result = fabrication_service.get_most_suitable_fabrication_team(db)
@@ -696,13 +652,13 @@ def get_most_suitable_fabrication_team_with_time_verification(db, task_minutes: 
     }
 
 def create_fabrication_task_for_order(extracted_orders: list, db) -> dict:
-    weighing_service, fabrication_service = get_task_services()
+    
     """Redirige al servicio de fabricación"""
     # from app.services.fabrication_task_service import FabricationTaskService  # MIGRATED
     return fabrication_service.create_fabrication_tasks_for_orders(extracted_orders, db)
 
 def create_fabrication_tasks_for_multiple_orders(extracted_orders: list, db) -> dict:
-    weighing_service, fabrication_service = get_task_services()
+    
     """Redirige al servicio de fabricación"""
     # from app.services.fabrication_task_service import FabricationTaskService  # MIGRATED
     return fabrication_service.create_fabrication_tasks_for_orders(extracted_orders, db)
@@ -712,13 +668,13 @@ def get_most_suitable_fabrication_team_with_available_programmings_sorted(db) ->
     return get_most_suitable_fabrication_team_with_available_programmings(db)
 
 def get_fabrication_activity_for_order(order_data: dict, fabrication_activities_with_minutes_data: dict) -> dict:
-    weighing_service, fabrication_service = get_task_services()
+    
     """Redirige al servicio de fabricación"""
     # from app.services.fabrication_task_service import FabricationTaskService  # MIGRATED
     return fabrication_service._get_fabrication_activity_for_order(order_data, fabrication_activities_with_minutes_data)
 
 def update_fabrication_programming_list_after_task_creation(programming_id: str, task_minutes: int, db) -> list:
-    weighing_service, fabrication_service = get_task_services()
+    
     """Redirige al servicio de fabricación"""
     # from app.services.fabrication_task_service import FabricationTaskService  # MIGRATED
     team_result = fabrication_service.get_most_suitable_fabrication_team(db)
@@ -732,7 +688,7 @@ def update_fabrication_programming_list_after_task_creation(programming_id: str,
     return fabrication_service.get_available_programmings_for_team(team_id, db)
 
 def create_single_fabrication_task(order_data: dict, task_minutes: int, activity_details: dict, available_programmings: list, db) -> dict:
-    weighing_service, fabrication_service = get_task_services()
+    
     """Redirige al servicio de fabricación"""
     # from app.services.fabrication_task_service import FabricationTaskService  # MIGRATED
     time_verification_data = fabrication_service.verify_programming_time_limit(
@@ -1031,4 +987,4 @@ def create_single_packaging_task(order_data: dict, task_minutes: int, activity_d
             "message": f"Programación seleccionada pero no se pudo crear la tarea para orden {order_data.get('lote')}",
             "order_data": order_data,
             "selected_programming": time_verification_data.get("selected_programming")
-        } 
+        }

@@ -1,8 +1,3 @@
-"""
-Enums para la configuración de tareas y equipos.
-Este archivo contiene todas las enumeraciones para evitar importaciones circulares.
-"""
-
 from enum import Enum
 
 class WeighingTeams(str, Enum):
@@ -39,9 +34,3 @@ class PackagingActivities(str, Enum):
     Emp_manual = "EMPAQUE MANUAL"
     Emp_semi = "EMPAQUE MAQUINA SEMI AUTOMATICA"
     Emp_auto = "EMPAQUE MAQUINA AUTOMATICA"
-
-class MandatoryTasks(str, Enum):
-    """Tareas obligatorias que deben incluirse en todas las programaciones"""
-    REUNION_PREPARACION = "REUNION Y PREPARACION DE AREA"
-    ALMUERZO = "ALMUERZO"
-    LIMPIEZA = "LIMPIEZA"

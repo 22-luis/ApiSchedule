@@ -86,7 +86,7 @@ def check_database_connection():
     
     # Intentar conectar usando las variables de entorno
     try:
-        from app.core.config_simple import settings
+        from app.core.config import settings
         print(f"   Usuario: {settings.POSTGRES_USER}")
         print(f"   Base de datos: {settings.POSTGRES_DB}")
         print(f"   Servidor: {settings.POSTGRES_SERVER}:{settings.POSTGRES_PORT}")

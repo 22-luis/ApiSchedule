@@ -11,7 +11,6 @@ import math
 
 from app.services.utils.programming_utils import ProgrammingUtils
 from app.utils.order_status_service import OrderStatusService
-from app.core.task_config import get_reunion_preparacion_duration
 
 
 class BaseTaskService(ABC):
@@ -214,7 +213,7 @@ class BaseTaskService(ABC):
         from app.models.task import Task
         from app.models.team import Team
         from datetime import datetime, date, time
-        from app.core.task_config import get_reunion_preparacion_duration
+        
         
         # Solo crear tarea de preparación si no hay tareas existentes
         if len(programming_tasks) > 0:
@@ -233,9 +232,7 @@ class BaseTaskService(ABC):
             if programming_obj and programming_obj.team_id:
                 team_obj = db.query(Team).filter(Team.id == programming_obj.team_id).first()
             
-            # Obtener la duración de preparación según el equipo
-            team_name = team_obj.name if team_obj else "default"
-            preparation_duration = get_reunion_preparacion_duration(team_name)
+            preparation_duration = 10
             
             # Crear datetime para start_time usando la fecha de la programación
             task_start_time = datetime.combine(programming_date, time(7, 0))  # 07:00

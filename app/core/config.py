@@ -1,7 +1,3 @@
-"""
-Configuración centralizada de la aplicación usando Pydantic Settings.
-Proporciona validación de tipos, valores por defecto seguros y gestión de variables de entorno.
-"""
 import os
 from typing import List, Optional
 from pydantic import Field, validator
@@ -9,7 +5,6 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    """Configuración principal de la aplicación"""
     
     # Configuración de la aplicación
     APP_NAME: str = "ApiSchedule"
@@ -107,18 +102,6 @@ class Settings(BaseSettings):
     
     @validator("SECRET_KEY")
     def validate_secret_key(cls, v):
-        """
-        Valida que la clave secreta cumpla con los requisitos de seguridad.
-        
-        Args:
-            v: Valor de SECRET_KEY a validar
-            
-        Returns:
-            str: SECRET_KEY validado
-            
-        Raises:
-            ValueError: Si la SECRET_KEY no cumple los requisitos de seguridad
-        """
         # Verificar longitud mínima
         if len(v) < 32:
             raise ValueError("SECRET_KEY debe tener al menos 32 caracteres para seguridad")
@@ -135,18 +118,6 @@ class Settings(BaseSettings):
     
     @validator("POSTGRES_PASSWORD")
     def validate_postgres_password(cls, v):
-        """
-        Valida que la contraseña de PostgreSQL cumpla con los requisitos de seguridad.
-        
-        Args:
-            v: Valor de POSTGRES_PASSWORD a validar
-            
-        Returns:
-            str: POSTGRES_PASSWORD validado
-            
-        Raises:
-            ValueError: Si la contraseña no cumple los requisitos de seguridad
-        """
         # Verificar que no esté vacía
         if not v:
             raise ValueError("POSTGRES_PASSWORD no puede estar vacía")
@@ -174,7 +145,6 @@ settings = Settings()
 
 # Configuración específica por entorno
 class DevelopmentSettings(Settings):
-    """Configuración para desarrollo"""
     DEBUG: bool = True
     ENVIRONMENT: str = "development"
     RATE_LIMIT_REQUESTS_PER_MINUTE: int = 1200
@@ -188,7 +158,6 @@ class DevelopmentSettings(Settings):
     DB_POOL_TIMEOUT: int = 20
 
 class ProductionSettings(Settings):
-    """Configuración para producción"""
     DEBUG: bool = False
     ENVIRONMENT: str = "production"
     RATE_LIMIT_REQUESTS_PER_MINUTE: int = 300
@@ -203,7 +172,6 @@ class ProductionSettings(Settings):
 
 
 class TestingSettings(Settings):
-    """Configuración para testing"""
     DEBUG: bool = True
     LOG_LEVEL: str = "DEBUG"
     POSTGRES_DB: str = "test_database"
@@ -211,7 +179,6 @@ class TestingSettings(Settings):
 
 
 def get_settings() -> Settings:
-    """Obtiene la configuración según el entorno"""
     environment = os.getenv("ENVIRONMENT", "development").lower()
     
     if environment == "production":
@@ -224,7 +191,6 @@ def get_settings() -> Settings:
 
 # Función para validar configuración crítica
 def validate_critical_settings():
-    """Valida que las configuraciones críticas estén presentes"""
     critical_vars = [
         "SECRET_KEY",
         "POSTGRES_USER", 
