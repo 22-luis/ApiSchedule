@@ -401,15 +401,18 @@ def add_task_comment(programming_id: str, task_id: str, data: ProgrammingTaskRep
     pt = db.query(ProgrammingTask).filter_by(programming_id=programming_id, task_id=task_id).first()
     if not pt:
         raise HTTPException(status_code=404, detail="ProgrammingTask not found")
-    if pt.completed_by_user_id != current_user.id:
-        raise HTTPException(status_code=403, detail="No autorizado")
-    pt.comment = data.comment
+    programming = db.query(Programming).get(programming_id)
+    if not programming:
+        raise HTTPException(status_code=404, detail="Programming not found")
+
+    if current_user.role.value not in ("admin", "planner", "supervisor") and not user_belongs_to_team(current_user, programming.team_id):
+        raise HTTPException(status_code=403, detail="Not authorized to comment on this task")
     db.commit()
     return {"ok": True, "comment": pt.comment}
 
 @router.post("/{programming_id}/tasks/{task_id}/toggle_status")
 def toggle_task_status(programming_id: str, task_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    pt = db.query(ProgrammingTask).filter_by(programming_id=programming_id, task_id=task_id).first()
+    pt = db.query(ProgrammingTask).options(joinedload(ProgrammingTask.task)).filter_by(programming_id=programming_id, task_id=task_id).first()
     if not pt:
         raise HTTPException(status_code=404, detail="ProgrammingTask not found")
     
@@ -417,8 +420,11 @@ def toggle_task_status(programming_id: str, task_id: str, db: Session = Depends(
     if pt.completed_by_user_id and pt.completed_by_user_id != current_user.id:
         raise HTTPException(status_code=403, detail="No autorizado")
     
-    # Alternar el estado
-    pt.is_completed = not bool(pt.is_completed)
+    # Alternar el estado en la tarea de programación y en la tarea principal
+    new_status = not bool(pt.is_completed)
+    pt.is_completed = new_status
+    if pt.task:
+        pt.task.is_completed = new_status
     
     # Si se marca como completada, asignar el usuario actual
     if pt.is_completed:

@@ -62,7 +62,6 @@ def _create_task_logic(db: Session, task_data: Dict[str, Any], teams: List[Team]
 
     # Trigger side effects (business logic)
     OrderStatusService.update_order_status_for_task_creation(db, db_task)
-    OrderStatusService.update_order_status_for_programming_date(db, programming_task)
 
     db.commit()
 
@@ -143,7 +142,7 @@ def get_tasks(
 def get_task(
     task_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))
 ):
     task = _get_task_with_relations(db, task_id)
     if not task:
