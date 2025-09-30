@@ -10,7 +10,6 @@ import pytz
 
 
 class TaskDurationRequest(BaseModel):
-    """Esquema para solicitud de cálculo de duración de tarea"""
     quantity: int
     productivity: float
     people: int
@@ -18,19 +17,16 @@ class TaskDurationRequest(BaseModel):
 
 
 class TaskDurationResponse(BaseModel):
-    """Esquema para respuesta de cálculo de duración de tarea"""
     minutes: int
     hours: float
     formula_used: str
 
 
 class WorkingHoursRequest(BaseModel):
-    """Esquema para solicitud de horas de trabajo"""
     date: date
 
 
 class WorkingHoursResponse(BaseModel):
-    """Esquema para respuesta de horas de trabajo"""
     start_hour: int
     start_minute: int
     end_hour: int
@@ -40,23 +36,19 @@ class WorkingHoursResponse(BaseModel):
 
 
 class TimeZoneUtils:
-    """Utilidades para manejo de zonas horarias"""
     
     @staticmethod
     def get_el_salvador_timezone():
-        """Obtiene la zona horaria de El Salvador"""
         return pytz.timezone('America/El_Salvador')
     
     @staticmethod
     def convert_to_el_salvador_time(utc_datetime: datetime) -> datetime:
-        """Convierte una fecha UTC a hora de El Salvador"""
         if utc_datetime.tzinfo is None:
             utc_datetime = pytz.UTC.localize(utc_datetime)
         return utc_datetime.astimezone(TimeZoneUtils.get_el_salvador_timezone())
     
     @staticmethod
     def format_time_el_salvador(time_str: str) -> str:
-        """Formatea una hora para mostrar en la zona horaria de El Salvador"""
         if not time_str:
             return '-'
         
@@ -90,7 +82,6 @@ class TimeZoneUtils:
     
     @staticmethod
     def get_programming_base_time_utc(target_date: date) -> Optional[datetime]:
-        """Calcula la hora base de programación en UTC para una fecha"""
         try:
             # Determinar hora base según el día
             day_of_week = target_date.weekday()  # 0=Lunes, 6=Domingo
@@ -121,22 +112,9 @@ class TimeZoneUtils:
             return None
 
 class BusinessCalculations:
-    """Servicio centralizado para cálculos de negocio"""
     
     @staticmethod
     def calculate_task_minutes(quantity: float, productivity: float, people: float, code_people: Optional[float] = None) -> int:
-        """
-        Calcula los minutos de una tarea basado en la fórmula de negocio.
-        
-        Args:
-            quantity: Cantidad a producir
-            productivity: Productividad (unidades por hora)
-            people: Número de personas asignadas en el modal
-            code_people: Número de personas del código
-            
-        Returns:
-            int: Minutos calculados (redondeado hacia arriba)
-        """
         # Validaciones
         if not quantity or quantity <= 0:
             return 0
@@ -158,15 +136,6 @@ class BusinessCalculations:
     
     @staticmethod
     def calculate_task_duration(request: TaskDurationRequest) -> TaskDurationResponse:
-        """
-        Calcula la duración de una tarea con información detallada.
-        
-        Args:
-            request: Solicitud con cantidad, productividad y personas
-            
-        Returns:
-            TaskDurationResponse: Respuesta con minutos, horas y fórmula utilizada
-        """
         minutes = BusinessCalculations.calculate_task_minutes(
             request.quantity,
             request.productivity,
@@ -192,15 +161,6 @@ class BusinessCalculations:
     
     @staticmethod
     def get_working_hours(target_date: date) -> WorkingHoursResponse:
-        """
-        Obtiene las horas de trabajo para una fecha específica.
-        
-        Args:
-            target_date: Fecha para la cual obtener las horas de trabajo
-            
-        Returns:
-            WorkingHoursResponse: Horas de trabajo configuradas
-        """
         weekday = target_date.weekday()  # 0=Lunes, 6=Domingo
         
         # Configuración de horas de trabajo actualizada
@@ -240,15 +200,6 @@ class BusinessCalculations:
     
     @staticmethod
     def calculate_programming_base_time(target_date: date) -> Optional[datetime]:
-        """
-        Calcula la hora base de programación para una fecha específica.
-        
-        Args:
-            target_date: Fecha para la cual calcular la hora base
-            
-        Returns:
-            datetime: Hora base de programación o None si no es día laboral
-        """
         working_hours = BusinessCalculations.get_working_hours(target_date)
         
         if not working_hours.is_working_day:
@@ -268,17 +219,6 @@ class BusinessCalculations:
         tasks: list,
         base_time: Optional[str] = None
     ) -> list:
-        """
-        Calcula tiempos secuenciales para una lista de tareas.
-        
-        Args:
-            base_date: Fecha base de programación
-            tasks: Lista de tareas con campo 'minutes'
-            base_time: Hora base opcional (formato "HH:MM")
-            
-        Returns:
-            list: Lista de tareas con start_time y end_time calculados
-        """
         print(f"[DEBUG] calculate_sequential_times called with:")
         print(f"  base_date: {base_date}")
         print(f"  tasks: {tasks}")
@@ -340,17 +280,6 @@ class BusinessCalculations:
     
     @staticmethod
     def validate_task_parameters(quantity: float, productivity: float, people: float) -> Dict[str, Any]:
-        """
-        Valida los parámetros de una tarea y retorna errores si los hay.
-        
-        Args:
-            quantity: Cantidad a producir
-            productivity: Productividad
-            people: Número de personas
-            
-        Returns:
-            Dict: Diccionario con validación y errores
-        """
         print(f"[DEBUG] validate_task_parameters - Validando: quantity={quantity}, productivity={productivity}, people={people}")
         
         errors = []
@@ -377,15 +306,6 @@ class BusinessCalculations:
     
     @staticmethod
     def validate_task_form_data(form_data: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Valida los datos completos de un formulario de tarea.
-        
-        Args:
-            form_data: Diccionario con todos los campos del formulario
-            
-        Returns:
-            Dict: Resultado de validación con errores y advertencias
-        """
         errors = []
         warnings = []
         
@@ -439,18 +359,6 @@ class BusinessCalculations:
     
     @staticmethod
     def validate_extra_task_data(description: str, minutes: str, selected_team: str, programming_id: str) -> Dict[str, Any]:
-        """
-        Valida los datos de una tarea extra.
-        
-        Args:
-            description: Descripción de la tarea
-            minutes: Minutos de duración
-            selected_team: Equipo seleccionado
-            programming_id: ID de programación
-            
-        Returns:
-            Dict: Resultado de validación
-        """
         errors = []
         
         if not description or not description.strip():
@@ -473,16 +381,6 @@ class BusinessCalculations:
     
     @staticmethod
     def calculate_task_efficiency(planned_minutes: int, actual_minutes: int) -> Dict[str, Any]:
-        """
-        Calcula la eficiencia de una tarea comparando tiempo planificado vs real.
-        
-        Args:
-            planned_minutes: Minutos planificados
-            actual_minutes: Minutos reales
-            
-        Returns:
-            Dict: Métricas de eficiencia
-        """
         if planned_minutes <= 0:
             return {
                 'efficiency_percentage': 0,
@@ -513,16 +411,6 @@ class BusinessCalculations:
     
     @staticmethod
     def calculate_team_workload(tasks: List[Dict[str, Any]], working_hours: int = 8) -> Dict[str, Any]:
-        """
-        Calcula la carga de trabajo de un equipo.
-        
-        Args:
-            tasks: Lista de tareas del equipo
-            working_hours: Horas de trabajo por día
-            
-        Returns:
-            Dict: Métricas de carga de trabajo
-        """
         total_minutes = sum(task.get('minutes', 0) for task in tasks)
         total_hours = total_minutes / 60
         

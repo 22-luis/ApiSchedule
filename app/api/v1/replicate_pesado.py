@@ -51,7 +51,7 @@ def get_pesado_data_for_code(db: Session, code_id: str) -> dict:
     # Buscar si existe un código específico para PESADO con el mismo código base
     pesado_code = db.query(Code).filter(
         Code.code == original_code.code,
-        Code.activity == "PESADO"
+        Code.activity.ilike("%PESADO%")
     ).first()
     
     if pesado_code:
@@ -68,7 +68,8 @@ def get_pesado_data_for_code(db: Session, code_id: str) -> dict:
             'usefulLife': pesado_code.usefulLife,
             'unit': pesado_code.unit,
             'type': pesado_code.type,
-            'description': pesado_code.description
+            'description': pesado_code.description,
+            'activity': pesado_code.activity
         }
     else:
         logger.info(f"⚠️ No se encontró código específico para PESADO, usando datos del código original")
@@ -84,7 +85,8 @@ def get_pesado_data_for_code(db: Session, code_id: str) -> dict:
             'usefulLife': original_code.usefulLife,
             'unit': original_code.unit,
             'type': original_code.type,
-            'description': original_code.description
+            'description': original_code.description,
+            'activity': "PESADO"  # Actividad por defecto
         }
 
 def replicate_task_to_pesado_if_needed(
@@ -125,8 +127,9 @@ def replicate_task_to_pesado_if_needed(
     logger.info(f"🔍 Verificando actividad: '{original_task.activity}' (upper: '{activity_upper}')")
     logger.info(f"📋 Actividades trigger: {ACTIVIDADES_TRIGGER}")
     
-    if activity_upper not in ACTIVIDADES_TRIGGER:
-        logger.info(f"❌ Actividad '{activity_upper}' no está en la lista de triggers")
+    # Validar si alguna de las actividades trigger está contenida en la actividad de la tarea
+    if not any(trigger in activity_upper for trigger in ACTIVIDADES_TRIGGER):
+        logger.info(f"❌ La actividad '{activity_upper}' no contiene ninguna de las palabras clave trigger.")
         return
 
     logger.info(f"✅ Actividad '{activity_upper}' es válida para replicación")
@@ -208,7 +211,7 @@ def replicate_task_to_pesado_if_needed(
                 related_task_code=None,  # No hay código relacionado disponible
                 unit=pesado_data['unit'],  # Unidad específica para PESADO
                 type=pesado_data['type'],  # Tipo específico para PESADO
-                activity="PESADO",  # Actividad específica para pesado
+                activity=pesado_data.get('activity', 'PESADO'),  # Actividad específica para pesado
                 description=pesado_data['description'],  # Descripción específica para PESADO
                 created_by_user_id=original_task.created_by_user_id  # Mismo usuario creador
             )
