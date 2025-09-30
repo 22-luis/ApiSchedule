@@ -56,7 +56,8 @@ def calculate_task_duration(
             minutes = BusinessCalculations.calculate_task_minutes(
                 request.quantity,
                 request.productivity,
-                request.people
+                request.people,
+                request.code_people
             )
             return {"minutes": minutes}
 

@@ -14,6 +14,7 @@ class TaskDurationRequest(BaseModel):
     quantity: int
     productivity: float
     people: int
+    code_people: Optional[int] = None
 
 
 class TaskDurationResponse(BaseModel):
@@ -123,15 +124,15 @@ class BusinessCalculations:
     """Servicio centralizado para cálculos de negocio"""
     
     @staticmethod
-    def calculate_task_minutes(quantity: float, productivity: float, people: float) -> int:
+    def calculate_task_minutes(quantity: float, productivity: float, people: float, code_people: Optional[float] = None) -> int:
         """
-        Calcula los minutos de una tarea basado en la fórmula de negocio:
-        minutos = (cantidad * productividad * 60) / personas
+        Calcula los minutos de una tarea basado en la fórmula de negocio.
         
         Args:
             quantity: Cantidad a producir
-            productivity: Productividad (tiempo por unidad)
-            people: Número de personas asignadas
+            productivity: Productividad (unidades por hora)
+            people: Número de personas asignadas en el modal
+            code_people: Número de personas del código
             
         Returns:
             int: Minutos calculados (redondeado hacia arriba)
@@ -144,10 +145,15 @@ class BusinessCalculations:
         if not people or people < 1:
             return 0
             
-        # Fórmula de negocio: (cantidad * productividad * 60) / personas
-        minutes = (quantity * (1 / productivity) * 60)
-        
-        # Redondear hacia arriba (ceiling)
+        base_minutes = (quantity * (1 / productivity) * 60)
+
+        # Nueva formula
+        if code_people is not None and people > 0 and code_people > 0:
+            minutes = base_minutes * (code_people / people)
+        else:
+            # Fallback a la formula anterior si no hay code_people
+            minutes = base_minutes
+
         return math.ceil(minutes)
     
     @staticmethod
@@ -164,15 +170,24 @@ class BusinessCalculations:
         minutes = BusinessCalculations.calculate_task_minutes(
             request.quantity,
             request.productivity,
-            request.people
+            request.people,
+            getattr(request, 'code_people', None)
         )
         
         hours = minutes / 60.0
+
+        base_formula = f"({request.quantity} / {request.productivity} * 60)"
         
+        code_people = getattr(request, 'code_people', None)
+        if code_people is not None and request.people > 0 and code_people > 0:
+            formula_used = f"{base_formula} * ({code_people} / {request.people}) = {minutes} minutos"
+        else:
+            formula_used = f"{base_formula} = {minutes} minutos"
+
         return TaskDurationResponse(
             minutes=minutes,
             hours=round(hours, 2),
-            formula_used=f"({request.quantity} × {request.productivity} × 60) ÷ {request.people} = {minutes} minutos"
+            formula_used=formula_used
         )
     
     @staticmethod
