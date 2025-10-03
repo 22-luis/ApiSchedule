@@ -4,18 +4,18 @@ from typing import List, Optional
 
 class CodeCreate(BaseModel):
     code: str
-    description: str
-    unit: str
+    description: Optional[str] = None
+    unit: Optional[str] = None
     type: str
     activity: str
     quantity: Optional[str] = None
     time: Optional[float] = None
     people: Optional[int] = None
     performance: Optional[float] = None
-    material: str
-    presentation: str
+    material: Optional[str] = None
+    presentation: Optional[str] = None
     fabricationCode: Optional[str] = None
-    usefulLife: str
+    usefulLife: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -38,18 +38,18 @@ class CodeUpdate(BaseModel):
 class CodeOut(BaseModel):
     id: uuid.UUID
     code: str
-    description: str
-    unit: str
+    description: Optional[str] = None
+    unit: Optional[str] = None
     type: str
     activity: str
     quantity: Optional[str] = None
     time: Optional[float] = None
     people: Optional[int] = None
     performance: Optional[float] = None
-    material: str
-    presentation: str
+    material: Optional[str] = None
+    presentation: Optional[str] = None
     fabricationCode: Optional[str] = None
-    usefulLife: str
+    usefulLife: Optional[str] = None
 
     class Config:
         from_attributes = True

@@ -176,30 +176,30 @@ def get_lotes_by_code(code: str, db: Session = Depends(get_db), current_user: Us
 
 # --- Endpoints de Carga Masiva y Debug ---
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 from typing import Optional, Any
 
 class CodeBulkItem(BaseModel):
     code: str
-    activity: Optional[str]
-    description: Optional[str]
-    unit: Optional[str]
-    type: Optional[str]
-    quantity: Optional[Any]
-    time: Optional[Any]
-    people: Optional[Any]
-    performance: Optional[Any]
-    material: Optional[str]
-    presentation: Optional[str]
-    fabricationCode: Optional[str]
-    usefulLife: Optional[str]
+    activity: Optional[str] = None
+    description: Optional[str] = None
+    unit: Optional[str] = None
+    type: Optional[str] = None
+    quantity: Optional[Any] = None
+    time: Optional[Any] = None
+    people: Optional[Any] = None
+    performance: Optional[Any] = None
+    material: Optional[str] = None
+    presentation: Optional[str] = None
+    fabricationCode: Optional[str] = None
+    usefulLife: Optional[str] = None
 
     class Config:
         extra = "allow" # Permitir otros campos que puedan venir del Excel
 
 @router.post("/bulk_upload")
 @invalidate_cache(pattern="codes")
-def bulk_upload_codes(codes: List[CodeBulkItem], db: Session = Depends(get_db), current_user=Depends(require_roles(UserRole.ADMIN))):
+def bulk_upload_codes(codes: List[dict], db: Session = Depends(get_db), current_user=Depends(require_roles(UserRole.ADMIN))):
     logger.info(f"Iniciando carga masiva con {len(codes)} registros")
     
     all_db_codes = db.query(Code).all()
@@ -210,7 +210,13 @@ def bulk_upload_codes(codes: List[CodeBulkItem], db: Session = Depends(get_db), 
 
     created, updated, errors = 0, 0, []
     
-    for idx, item in enumerate(codes):
+    for idx, item_data in enumerate(codes):
+        try:
+            item = CodeBulkItem.parse_obj(item_data)
+        except ValidationError as e:
+            errors.append({"row": idx + 2, "error": e.errors()})
+            continue
+
         code_data = item.dict(exclude_unset=True) # Usar el dict del modelo pydantic
         code_str = code_data.get("code")
         
