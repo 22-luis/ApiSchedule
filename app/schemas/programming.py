@@ -33,6 +33,9 @@ class ProgrammingTaskOrderIn(BaseModel):
     comment: Optional[str] = None
     completed_by_user_id: Optional[UUID] = None
 
+class TasksOrderRequest(BaseModel):
+    tasks_order: List[ProgrammingTaskOrderIn]
+
 class ProgrammingTaskOrderOut(BaseModel):
     task_id: UUID
     order: int

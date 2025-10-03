@@ -5,7 +5,7 @@ from app.models.programming import Programming
 from app.models.role import UserRole
 from app.models.task import Task
 from app.models.team import Team
-from app.schemas.programming import ProgrammingCreate, ProgrammingRead, ProgrammingUpdate, ProgrammingTaskOrderIn, ProgrammingReorderResponse, ProgrammingTaskOrderOut, AvailableProgrammingResponse, AvailableProgrammingItem
+from app.schemas.programming import ProgrammingCreate, ProgrammingRead, ProgrammingUpdate, ProgrammingTaskOrderIn, ProgrammingReorderResponse, ProgrammingTaskOrderOut, AvailableProgrammingResponse, AvailableProgrammingItem, TasksOrderRequest
 from app.db.dependency import get_db
 from app.utils.dependencies import get_current_user, require_roles
 from datetime import date, datetime, timedelta, time
@@ -242,9 +242,11 @@ def remove_task_from_programming(
 async def reorder_programming_tasks(
     programming_id: UUID,
     request: Request,
-    tasks_order: list[ProgrammingTaskOrderIn] = Body(...),
+    data: TasksOrderRequest = Body(...),
+    db: Session = Depends(get_db),
     current_user=Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
 ):
+    tasks_order = data.tasks_order
     raw_body = await request.body()
     print("RAW PAYLOAD (antes de parsear):", raw_body)
     print("PARSED tasks_order:", tasks_order, file=sys.stderr)
@@ -254,6 +256,7 @@ async def reorder_programming_tasks(
     programming_tasks_map = {pt.task_id: pt for pt in programming.programming_tasks}
     result = []
     current_time = None
+    base_time = None # Fix for undefined base_time
     for item in sorted(tasks_order, key=lambda x: x.order):
         pt = programming_tasks_map.get(item.task_id)
         if not pt:
@@ -294,7 +297,7 @@ async def reorder_programming_tasks(
     return ProgrammingReorderResponse(
         programming_id=programming_id,
         tasks=result
-    ) 
+    )
 
 @router.get("/{programming_id}/last_task", response_model=dict)
 def get_last_task_of_programming(programming_id: UUID, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
