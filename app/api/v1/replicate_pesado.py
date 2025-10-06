@@ -18,6 +18,7 @@ def get_actividades_trigger():
         "MEZCLA MANUAL POLVO",
         "MEZCLA EN MAQUINA",
         "MEZCLA LIQUIDA",
+        "MEZCLAS LIQUIDAS",
         "FABICACION DE ADEREZOS, JALEAS"
     }
 
