@@ -61,7 +61,7 @@ def create_orders(
         initial_status = OrderStatus.unprogrammed
         
         #Not programable condition
-        if order.bin not in [8,10]:
+        if order.bin not in [8, 10, 100]:
             initial_status = OrderStatus.not_programmable
         
         db_order = order_model.Order(
