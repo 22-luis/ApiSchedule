@@ -205,6 +205,48 @@ def delete_task(
     db.commit()
     return {"message": "Task deleted successfully"}
 
+class DeleteTasksRequest(BaseModel):
+    task_ids: List[str]
+
+@router.post("/bulk-delete", status_code=200)
+def delete_many_tasks(
+    request: DeleteTasksRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
+):
+    """
+    Deletes multiple tasks by their IDs. This is an all-or-nothing operation.
+    If any task fails to delete, the entire transaction is rolled back.
+    """
+    if not request.task_ids:
+        raise HTTPException(status_code=400, detail="No task IDs provided.")
+
+    tasks_to_delete = db.query(Task).filter(Task.id.in_(request.task_ids)).all()
+
+    if len(tasks_to_delete) != len(set(request.task_ids)):
+        found_ids = {str(t.id) for t in tasks_to_delete}
+        missing_ids = set(request.task_ids) - found_ids
+        raise HTTPException(
+            status_code=404,
+            detail=f"Tasks with following IDs not found: {', '.join(missing_ids)}"
+        )
+
+    try:
+        for task in tasks_to_delete:
+            OrderStatusService.update_order_status_for_task_deletion(db, task)
+            update_programming_availability_by_task(db, str(task.id))
+            db.delete(task)
+        
+        db.commit()
+        
+        return {"message": f"Successfully deleted {len(tasks_to_delete)} tasks."}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"An error occurred during the deletion process: {e}"
+        )
+
 @router.get("/by-team/{team_id}", response_model=List[TaskOut])
 def get_tasks_by_team(
     team_id: str,
