@@ -414,6 +414,8 @@ def add_task_comment(programming_id: str, task_id: str, data: ProgrammingTaskRep
 
     if current_user.role.value not in ("admin", "planner", "supervisor") and not user_belongs_to_team(current_user, programming.team_id):
         raise HTTPException(status_code=403, detail="Not authorized to comment on this task")
+    
+    pt.comment = data.comment
     db.commit()
     return {"ok": True, "comment": pt.comment}
 
