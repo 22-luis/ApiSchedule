@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, Integer, ForeignKey, String, Date, UniqueConstraint, Boolean, Enum
+from sqlalchemy import Column, DateTime, Integer, ForeignKey, String, Date, UniqueConstraint, Boolean, Enum, Float
 from sqlalchemy.orm import relationship
 from app.models.state import ProgrammingStatus
 from app.db.database import Base
@@ -17,7 +17,7 @@ class ProgrammingTask(Base):
     end_time = Column(DateTime, nullable=True)
     real_start_time = Column(DateTime, nullable=True)
     real_end_time = Column(DateTime, nullable=True)
-    real_quantity = Column(Integer, nullable=True)
+    real_quantity = Column(Float, nullable=True)
     comment = Column(String, nullable=True)
     completed_by_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     is_completed = Column(Boolean, nullable=True, default=None)

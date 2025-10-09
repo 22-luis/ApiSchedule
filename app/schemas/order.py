@@ -10,7 +10,7 @@ class OrderCreate(BaseModel):
     code: str
     status: Optional[OrderStatus] = OrderStatus.unprogrammed
     description: str
-    quantity: int
+    quantity: float
     bin: int
     dueDate: datetime
 
@@ -27,13 +27,13 @@ class OrderOut(BaseModel):
     code: str
     status: OrderStatus
     description: str
-    quantity: int
+    quantity: float
     bin: int
     dueDate: Optional[datetime] = None
     received_user: Optional[str] = None
     received_date: Optional[datetime] = None
-    received_quantity: Optional[int] = None
-    missing_quantity: Optional[int] = None
+    received_quantity: Optional[float] = None
+    missing_quantity: Optional[float] = None
     submitted_user: Optional[str] = None
     submitted_date: Optional[datetime] = None
     submitted_observations: Optional[str] = None
@@ -60,8 +60,8 @@ class OrderPageOut(BaseModel):
 class OrderWarehouseUpdate(BaseModel):
     received_user: Optional[str] = None
     received_date: Optional[datetime] = None
-    received_quantity: Optional[int] = None
-    missing_quantity: Optional[int] = None
+    received_quantity: Optional[float] = None
+    missing_quantity: Optional[float] = None
     submitted_user: Optional[str] = None
     submitted_date: Optional[datetime] = None
     submitted_observations: Optional[str] = None
@@ -71,13 +71,13 @@ class OrderWarehouseOut(BaseModel):
     code: str
     status: OrderStatus
     description: str
-    quantity: int
+    quantity: float
     bin: int
     dueDate: datetime
     received_user: Optional[str] = None
     received_date: Optional[datetime] = None
-    received_quantity: Optional[int] = None
-    missing_quantity: Optional[int] = None
+    received_quantity: Optional[float] = None
+    missing_quantity: Optional[float] = None
     submitted_user: Optional[str] = None
     submitted_date: Optional[datetime] = None
     submitted_observations: Optional[str] = None

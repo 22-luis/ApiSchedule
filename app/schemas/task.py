@@ -17,7 +17,7 @@ class TaskCreate(BaseModel):
     programming_id: uuid.UUID
     code_id: Optional[uuid.UUID] = None
     lote: Optional[str] = None
-    quantity: Optional[int] = None
+    quantity: Optional[float] = None
     specification: Optional[str] = None
     preparation_id: Optional[uuid.UUID] = None
     people: Optional[int] = None
@@ -38,7 +38,7 @@ class TaskUpdate(BaseModel):
     start_time: Optional[datetime] = None
     end_time: Optional[datetime] = None
     lote: Optional[str] = None
-    quantity: Optional[int] = None
+    quantity: Optional[float] = None
     specification: Optional[str] = None
     minutes: Optional[int] = None
     people: Optional[int] = None
@@ -58,7 +58,7 @@ class TaskOut(BaseModel):
     id: uuid.UUID
     code: Optional[CodeOut] = None
     lote: Optional[str] = None
-    quantity: Optional[int] = None
+    quantity: Optional[float] = None
     specification: Optional[str] = None
     preparation: Optional[PreparationOut] = None
     minutes: Optional[int] = None

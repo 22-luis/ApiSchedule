@@ -29,7 +29,7 @@ class ProgrammingTaskOrderIn(BaseModel):
     # Campos para reporte real
     real_start_time: Optional[datetime] = None
     real_end_time: Optional[datetime] = None
-    real_quantity: Optional[int] = None
+    real_quantity: Optional[float] = None
     comment: Optional[str] = None
     completed_by_user_id: Optional[UUID] = None
 
@@ -44,7 +44,7 @@ class ProgrammingTaskOrderOut(BaseModel):
     # Campos para reporte real
     real_start_time: Optional[datetime] = None
     real_end_time: Optional[datetime] = None
-    real_quantity: Optional[int] = None
+    real_quantity: Optional[float] = None
     comment: Optional[str] = None
     completed_by_user_id: Optional[UUID] = None
 
@@ -56,7 +56,7 @@ class ProgrammingReorderResponse(BaseModel):
 class ProgrammingTaskReportIn(BaseModel):
     real_start_time: Optional[datetime] = None
     real_end_time: Optional[datetime] = None
-    real_quantity: Optional[int] = None
+    real_quantity: Optional[float] = None
     comment: Optional[str] = None
     completed_by_user_id: Optional[UUID] = None
 

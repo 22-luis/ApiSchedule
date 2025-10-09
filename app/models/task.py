@@ -24,7 +24,7 @@ class Task(Base):
     created_by_user = relationship('User', foreign_keys=[created_by_user_id])
     # Información principal de la tarea
     lote = Column(String, nullable=True)
-    quantity = Column(Integer, nullable=True)
+    quantity = Column(Float, nullable=True)
     specification = Column(String, nullable=True)
     minutes = Column(Integer, nullable=True)
     start_time = Column(DateTime(timezone=True), nullable=True)
