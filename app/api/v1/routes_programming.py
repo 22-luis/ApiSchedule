@@ -361,11 +361,22 @@ def stop_task_timer(programming_id: str, task_id: str, data: ProgrammingTaskRepo
         pt.real_end_time = datetime.now(sv_tz)
     pt.real_quantity = data.real_quantity
     
+
     lote = None
     has_pending_tasks = None
     # Si se establece real_end_time, marcar la tarea y la asociación como completadas
+
+    # Lógica para autocompletar tareas sin cantidad
+    # Si se establece real_end_time, marcar la tarea como completada.
+    # Si la cantidad es nula o no se proporciona (ej. tareas de preparación),
+    # también se considera completada al detener el temporizador.
     if pt.real_end_time:
         pt.is_completed = True
+        # Si la cantidad es None, 0, o no es un número válido, se considera completada.
+        # Esto aplica a tareas que no manejan cantidades, como "REUNION Y PREPARACION".
+        if pt.real_quantity is None or pt.real_quantity <= 0:
+            pt.is_completed = True
+
         if pt.task:
             pt.task.is_completed = True
             lote = pt.task.lote
@@ -425,8 +436,12 @@ def toggle_task_status(programming_id: str, task_id: str, db: Session = Depends(
     if not pt:
         raise HTTPException(status_code=404, detail="ProgrammingTask not found")
     
+    # Roles que pueden modificar cualquier tarea
+    privileged_roles = ("admin", "planner", "supervisor")
+    
     # Verificar que el usuario tenga permisos para modificar esta tarea
-    if pt.completed_by_user_id and pt.completed_by_user_id != current_user.id:
+    # Si el usuario no es privilegiado, solo puede modificar la tarea si es el que la completó
+    if current_user.role.value not in privileged_roles and pt.completed_by_user_id and pt.completed_by_user_id != current_user.id:
         raise HTTPException(status_code=403, detail="No autorizado")
     
     # Alternar el estado en la tarea de programación y en la tarea principal
@@ -434,6 +449,8 @@ def toggle_task_status(programming_id: str, task_id: str, db: Session = Depends(
     pt.is_completed = new_status
     if pt.task:
         pt.task.is_completed = new_status
+    if not pt.is_completed:
+        pt.completed_by_user_id = None
     
     # Si se marca como completada, asignar el usuario actual
     if pt.is_completed:
