@@ -53,12 +53,23 @@ class ProgrammingReorderResponse(BaseModel):
     tasks: List[ProgrammingTaskOrderOut]
 
 # Esquema para el reporte real del usuario
+from pydantic import validator
+
 class ProgrammingTaskReportIn(BaseModel):
     real_start_time: Optional[datetime] = None
     real_end_time: Optional[datetime] = None
     real_quantity: Optional[float] = None
     comment: Optional[str] = None
     completed_by_user_id: Optional[UUID] = None
+
+    @validator('real_quantity', pre=True)
+    def validate_real_quantity(cls, v):
+        if v is None or (isinstance(v, str) and v.strip() == ""):
+            return None
+        try:
+            return float(v)
+        except (ValueError, TypeError):
+            return None
 
 # Schema para programaciones disponibles por equipo
 class AvailableProgrammingItem(BaseModel):
