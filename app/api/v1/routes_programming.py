@@ -15,6 +15,7 @@ from app.schemas.task import TaskOut
 from app.schemas.programming import ProgrammingTaskReportIn
 from app.models.user import User
 import sys
+import traceback
 from pytz import timezone
 from app.utils.order_status_service import OrderStatusService
 from app.utils.programming_availability import update_programming_availability, update_all_programmings_availability_for_date
@@ -449,8 +450,29 @@ def stop_task_timer(programming_id: str, task_id: str, data: ProgrammingTaskRepo
                 completion_reason = "Task has no quantity configured"
             elif pt.real_quantity is not None:
                 # Caso 2: Tarea tiene cantidad real reportada
-                should_complete = True
-                completion_reason = "Task has real quantity reported"
+                # Solo completar si la cantidad real alcanza la asignada (si existe)
+                try:
+                    assigned_qty = None
+                    if pt.task and pt.task.quantity is not None:
+                        assigned_qty = float(pt.task.quantity)
+                    real_qty = float(pt.real_quantity)
+                    print(f"DEBUG - Quantity check - assigned: {assigned_qty}, real: {real_qty}")
+                    if assigned_qty is None or assigned_qty == 0:
+                        # Sin cantidad asignada significativa -> completar
+                        should_complete = True
+                        completion_reason = "Task has real quantity and no meaningful assigned qty"
+                    else:
+                        # Completar solo si real >= assigned
+                        if real_qty >= assigned_qty:
+                            should_complete = True
+                            completion_reason = "Real qty >= assigned qty"
+                        else:
+                            should_complete = False
+                            completion_reason = f"Real qty ({real_qty}) < assigned ({assigned_qty})"
+                except (ValueError, TypeError) as e:
+                    print(f"DEBUG - Error parsing quantities: {e}")
+                    should_complete = False
+                    completion_reason = "Error parsing quantities"
             else:
                 # Caso 3: Tarea necesita cantidad pero no tiene cantidad real
                 should_complete = False
@@ -510,8 +532,14 @@ def stop_task_timer(programming_id: str, task_id: str, data: ProgrammingTaskRepo
 
         except Exception as e:
             print(f"DEBUG - Error in auto-completion logic: {e}")
+            traceback.print_exc()
             db.rollback()
-            raise HTTPException(status_code=500, detail="Error processing task completion")
+            # If we have persisted a state, return it to the client instead of 500
+            try:
+                db.refresh(pt)
+                return {"ok": True, "real_end_time": getattr(pt, 'real_end_time', None), "real_quantity": getattr(pt, 'real_quantity', None), "lote": getattr(pt.task, 'lote', None) if pt.task else None, "has_pending_tasks": has_pending_tasks, "is_completed": bool(getattr(pt, 'is_completed', False)), "warning": "Error during auto-completion processing"}
+            except Exception:
+                raise HTTPException(status_code=500, detail="Error processing task completion")
 
     # Primer commit para guardar los cambios de la tarea actual
     db.commit()
@@ -540,10 +568,19 @@ def stop_task_timer(programming_id: str, task_id: str, data: ProgrammingTaskRepo
                 pass
     
     # Actualizar estado de la orden usando el servicio centralizado
-    OrderStatusService.update_order_status_for_task_completion(db, pt)
-    
+    try:
+        OrderStatusService.update_order_status_for_task_completion(db, pt)
+    except Exception as e:
+        # Registrar el error pero no bloquear la respuesta del endpoint
+        print(f"DEBUG - Error updating order status in stop_timer: {e}")
+
     # Commit final para asegurar que todos los cambios se guarden
-    db.commit()
+    try:
+        db.commit()
+    except Exception as e:
+        print(f"DEBUG - Error in final commit after stop_timer: {e}")
+        db.rollback()
+        raise
     # Refrescar el objeto para asegurar que devolvemos el estado actualizado
     try:
         db.refresh(pt)
@@ -641,9 +678,22 @@ def toggle_task_status(programming_id: str, task_id: str, db: Session = Depends(
                     can_toggle = pt.real_start_time is not None and pt.real_end_time is not None
                     toggle_message = "Task without quantity - needs real times"
                 else:
-                    # Tarea con cantidad - necesita cantidad real
-                    can_toggle = pt.real_quantity is not None
-                    toggle_message = "Task with quantity - needs real quantity"
+                    # Tarea con cantidad - necesita cantidad real y además real >= asignada
+                    try:
+                        assigned = None
+                        if pt.task and pt.task.quantity is not None:
+                            assigned = float(pt.task.quantity)
+                        real = float(pt.real_quantity) if pt.real_quantity is not None else None
+                        if assigned is None or assigned == 0:
+                            # Si no hay cantidad asignada significativa, requerir tiempos reales
+                            can_toggle = pt.real_start_time is not None and pt.real_end_time is not None
+                            toggle_message = "Task has no meaningful assigned quantity - needs real times"
+                        else:
+                            can_toggle = (real is not None and real >= assigned)
+                            toggle_message = f"Task with quantity - needs real quantity >= assigned ({assigned})"
+                    except (ValueError, TypeError) as e:
+                        can_toggle = False
+                        toggle_message = f"Error parsing quantities: {e}"
             
             print(f"DEBUG - Toggle decision:")
             print(f"DEBUG - Can toggle: {can_toggle}")
@@ -725,14 +775,26 @@ def toggle_task_status(programming_id: str, task_id: str, db: Session = Depends(
             
         except Exception as e:
             print(f"DEBUG - Error in toggle operation: {str(e)}")
+            traceback.print_exc()
             db.rollback()
-            raise HTTPException(status_code=500, detail=f"Error toggling status: {str(e)}")
+            # Return current known state instead of raising 500 so frontend can continue
+            try:
+                current_state = bool(pt.is_completed)
+            except Exception:
+                current_state = False
+            return {"is_completed": current_state, "error": "Error toggling status"}
             
     except HTTPException as he:
         raise he
     except Exception as e:
         print(f"DEBUG - Unexpected error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
+        traceback.print_exc()
+        # If possible, return the current is_completed to avoid 500 when state was persisted
+        try:
+            current_state = bool(pt.is_completed)
+        except Exception:
+            current_state = False
+        return {"is_completed": current_state, "error": "Unexpected error"}
     
     try:
         # Forzar el cambio al estado opuesto
