@@ -95,6 +95,11 @@ def get_programming_by_team_date(team_id: str, date: str, db: Session = Depends(
             else:
                 t['created_by_user'] = None
             t['is_completed'] = getattr(pt, 'is_completed', None)
+            # DEBUG: Log the is_completed value we are sending to the client for this pt
+            try:
+                print(f"DEBUG - Returning task for programming {programming.id}: task_id={pt.task_id}, pt.is_completed={t['is_completed']}, task.is_completed={getattr(task_obj, 'is_completed', None)}")
+            except Exception as e:
+                print(f"DEBUG - Error logging pt completion: {e}")
 
             tasks.append(t)
         response = {
@@ -345,9 +350,24 @@ def start_task_timer(programming_id: str, task_id: str, data: dict = Body(None),
 
 @router.post("/{programming_id}/tasks/{task_id}/stop_timer")
 def stop_task_timer(programming_id: str, task_id: str, data: ProgrammingTaskReportIn = Body(...), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    pt = db.query(ProgrammingTask).filter_by(programming_id=programming_id, task_id=task_id).first()
+    # Cargar ProgrammingTask con la tarea relacionada
+    pt = db.query(ProgrammingTask).options(
+        joinedload(ProgrammingTask.task)
+    ).filter_by(
+        programming_id=programming_id,
+        task_id=task_id
+    ).first()
+
     if not pt:
         raise HTTPException(status_code=404, detail="ProgrammingTask not found")
+    
+    print(f"DEBUG - Found ProgrammingTask:")
+    print(f"DEBUG - Programming ID: {pt.programming_id}")
+    print(f"DEBUG - Task ID: {pt.task_id}")
+    print(f"DEBUG - Task loaded: {pt.task is not None}")
+    print(f"DEBUG - Current completion status: {pt.is_completed}")
+    print(f"DEBUG - Task quantity: {pt.task.quantity if pt.task else None}")
+    
     if pt.completed_by_user_id != current_user.id:
         raise HTTPException(status_code=403, detail="No autorizado")
     sv_tz = timezone("America/El_Salvador")
@@ -359,27 +379,139 @@ def stop_task_timer(programming_id: str, task_id: str, data: ProgrammingTaskRepo
             pt.real_end_time = val
     else:
         pt.real_end_time = datetime.now(sv_tz)
-    pt.real_quantity = data.real_quantity
-    
+    # Si real_quantity es una cadena vacía o None, establecer como None
+    pt.real_quantity = None if data.real_quantity is None or (isinstance(data.real_quantity, str) and data.real_quantity.strip() == "") else data.real_quantity
+
+    print(f"DEBUG - Input real_quantity: {data.real_quantity}")
+    print(f"DEBUG - Processed real_quantity: {pt.real_quantity}")
 
     lote = None
     has_pending_tasks = None
-    # Si se establece real_end_time, marcar la tarea y la asociación como completadas
-
-    # Lógica para autocompletar tareas sin cantidad
-    # Si se establece real_end_time, marcar la tarea como completada.
-    # Si la cantidad es nula o no se proporciona (ej. tareas de preparación),
-    # también se considera completada al detener el temporizador.
+    # Si se establece real_end_time, evaluar autocompletado para tareas sin cantidad
     if pt.real_end_time:
-        pt.is_completed = True
-        # Si la cantidad es None, 0, o no es un número válido, se considera completada.
-        # Esto aplica a tareas que no manejan cantidades, como "REUNION Y PREPARACION".
-        if pt.real_quantity is None or pt.real_quantity <= 0:
-            pt.is_completed = True
+        # Use the current user as the completer when we auto-complete
+        completer_id = current_user.id
+        
+        print(f"DEBUG - Detailed Task Info:")
+        print(f"DEBUG - Task ID: {pt.task_id}")
+        print(f"DEBUG - Task quantity: {pt.task.quantity if pt.task else 'No task'}")
+        print(f"DEBUG - Task quantity type: {type(pt.task.quantity) if pt.task and pt.task.quantity is not None else 'None'}")
+        print(f"DEBUG - Current user ID: {completer_id}")
+        print(f"DEBUG - Real quantity reported: {pt.real_quantity}")
 
+        # Nueva lógica más clara para determinar si una tarea tiene cantidad asignada
+        task_has_quantity = False
+        quantity_value = None
+        
+        print(f"DEBUG - Starting quantity analysis...")
+        
+        # Verificación detallada de la cantidad
+        task_has_quantity = False
+        quantity_value = None
+        
         if pt.task:
-            pt.task.is_completed = True
-            lote = pt.task.lote
+            print(f"DEBUG - Analyzing task quantity:")
+            print(f"DEBUG - Raw quantity value: {pt.task.quantity}")
+            print(f"DEBUG - Quantity type: {type(pt.task.quantity)}")
+            
+            # Verificar si la cantidad es None o cadena vacía
+            if pt.task.quantity is None or (isinstance(pt.task.quantity, str) and pt.task.quantity.strip() == ""):
+                print(f"DEBUG - Quantity is None or empty string")
+                task_has_quantity = False
+            else:
+                try:
+                    # Intentar convertir a float
+                    raw_quantity = pt.task.quantity if not isinstance(pt.task.quantity, str) else pt.task.quantity.strip()
+                    quantity_value = float(raw_quantity)
+                    task_has_quantity = quantity_value > 0
+                    print(f"DEBUG - Parsed quantity value: {quantity_value}")
+                    print(f"DEBUG - Task has quantity: {task_has_quantity}")
+                except (ValueError, TypeError) as e:
+                    print(f"DEBUG - Error parsing quantity: {e}")
+                    task_has_quantity = False
+        
+        print(f"DEBUG - Auto-completion analysis:")
+        print(f"DEBUG - Task has quantity: {task_has_quantity}")
+        print(f"DEBUG - Quantity value: {quantity_value}")
+        print(f"DEBUG - Current completion status: {pt.is_completed}")
+        print(f"DEBUG - Current completed_by_user_id: {pt.completed_by_user_id}")
+
+        try:
+            print(f"DEBUG - Evaluating completion conditions:")
+            
+            # Verificar condiciones para autocompletar
+            should_complete = False
+            completion_reason = ""
+            
+            if not task_has_quantity:
+                # Caso 1: Tarea sin cantidad configurada
+                should_complete = True
+                completion_reason = "Task has no quantity configured"
+            elif pt.real_quantity is not None:
+                # Caso 2: Tarea tiene cantidad real reportada
+                should_complete = True
+                completion_reason = "Task has real quantity reported"
+            else:
+                # Caso 3: Tarea necesita cantidad pero no tiene cantidad real
+                should_complete = False
+                completion_reason = "Task needs quantity but no real quantity reported"
+            
+            print(f"DEBUG - Completion decision:")
+            print(f"DEBUG - Should complete: {should_complete}")
+            print(f"DEBUG - Reason: {completion_reason}")
+            
+            # Aplicar la decisión
+            if should_complete:
+                # Marcar como completada
+                pt.is_completed = True
+                pt.completed_by_user_id = completer_id
+                print(f"DEBUG - Task marked as completed:")
+                print(f"DEBUG - is_completed set to: {pt.is_completed}")
+                print(f"DEBUG - completed_by_user_id set to: {completer_id}")
+                
+                # Actualizar tarea principal si existe
+                if pt.task:
+                    pt.task.is_completed = True
+                    lote = pt.task.lote
+                    print(f"DEBUG - Master task updated:")
+                    print(f"DEBUG - Master task is_completed: {pt.task.is_completed}")
+                    print(f"DEBUG - Lote: {lote}")
+            else:
+                # Marcar como incompleta
+                pt.is_completed = False
+                pt.completed_by_user_id = None
+                print(f"DEBUG - Task marked as incomplete")
+                print(f"DEBUG - is_completed set to: {pt.is_completed}")
+                print(f"DEBUG - completed_by_user_id cleared")
+                print(f"DEBUG - New status: {pt.is_completed}")
+                print(f"DEBUG - Cleared completed_by_user_id")
+                
+                # Verificar tareas pendientes de manera más robusta
+                try:
+                    incomplete_tasks = db.query(ProgrammingTask).filter(
+                        ProgrammingTask.programming_id == pt.programming_id,
+                        ProgrammingTask.is_completed == False
+                    ).count()
+                    has_pending_tasks = incomplete_tasks > 0
+                    print(f"DEBUG - Incomplete tasks count: {incomplete_tasks}")
+                    print(f"DEBUG - Has pending tasks: {has_pending_tasks}")
+                except Exception as e:
+                    print(f"DEBUG - Error checking pending tasks: {e}")
+                    has_pending_tasks = True  # Por seguridad, asumimos que hay tareas pendientes
+
+            # Hacer commit de los cambios inmediatamente
+            try:
+                db.commit()
+                print(f"DEBUG - Changes committed successfully")
+            except Exception as e:
+                print(f"DEBUG - Error in commit: {e}")
+                db.rollback()
+                raise
+
+        except Exception as e:
+            print(f"DEBUG - Error in auto-completion logic: {e}")
+            db.rollback()
+            raise HTTPException(status_code=500, detail="Error processing task completion")
 
     # Primer commit para guardar los cambios de la tarea actual
     db.commit()
@@ -412,7 +544,14 @@ def stop_task_timer(programming_id: str, task_id: str, data: ProgrammingTaskRepo
     
     # Commit final para asegurar que todos los cambios se guarden
     db.commit()
-    return {"ok": True, "real_end_time": pt.real_end_time, "real_quantity": pt.real_quantity, "lote": lote, "has_pending_tasks": has_pending_tasks}
+    # Refrescar el objeto para asegurar que devolvemos el estado actualizado
+    try:
+        db.refresh(pt)
+    except Exception:
+        # Si refresh falla, no bloqueamos la respuesta, pero lo registramos
+        print(f"DEBUG - Warning: could not refresh ProgrammingTask {pt.programming_id}/{pt.task_id}")
+
+    return {"ok": True, "real_end_time": pt.real_end_time, "real_quantity": pt.real_quantity, "lote": lote, "has_pending_tasks": has_pending_tasks, "is_completed": bool(pt.is_completed)}
 
 @router.post("/{programming_id}/tasks/{task_id}/comment")
 def add_task_comment(programming_id: str, task_id: str, data: ProgrammingTaskReportIn = Body(...), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
@@ -432,34 +571,282 @@ def add_task_comment(programming_id: str, task_id: str, data: ProgrammingTaskRep
 
 @router.post("/{programming_id}/tasks/{task_id}/toggle_status")
 def toggle_task_status(programming_id: str, task_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    pt = db.query(ProgrammingTask).options(joinedload(ProgrammingTask.task)).filter_by(programming_id=programming_id, task_id=task_id).first()
-    if not pt:
-        raise HTTPException(status_code=404, detail="ProgrammingTask not found")
+    try:
+        # Cargar ProgrammingTask con todas las relaciones necesarias
+        pt = (
+            db.query(ProgrammingTask)
+            .options(
+                joinedload(ProgrammingTask.task),
+                joinedload(ProgrammingTask.programming)
+            )
+            .filter_by(programming_id=programming_id, task_id=task_id)
+            .first()
+        )
+        
+        if not pt:
+            raise HTTPException(status_code=404, detail="ProgrammingTask not found")
+        
+        print(f"DEBUG - Initial Task State:")
+        print(f"DEBUG - Task ID: {pt.task_id}")
+        print(f"DEBUG - Current is_completed: {pt.is_completed}")
+        print(f"DEBUG - Current type: {type(pt.is_completed)}")
+        print(f"DEBUG - Task quantity: {pt.task.quantity if pt.task else None}")
+        print(f"DEBUG - Real quantity: {pt.real_quantity}")
+        print(f"DEBUG - Real start time: {pt.real_start_time}")
+        print(f"DEBUG - Real end time: {pt.real_end_time}")
+        
+        # Roles que pueden modificar cualquier tarea
+        privileged_roles = ("admin", "planner", "supervisor")
+        
+        # Verificar que el usuario tenga permisos para modificar esta tarea
+        if current_user.role.value not in privileged_roles:
+            if pt.completed_by_user_id and pt.completed_by_user_id != current_user.id:
+                print(f"DEBUG - Authorization check failed:")
+                print(f"DEBUG - User role: {current_user.role.value}")
+                print(f"DEBUG - Task completed_by_user_id: {pt.completed_by_user_id}")
+                print(f"DEBUG - Current user ID: {current_user.id}")
+                raise HTTPException(status_code=403, detail="No autorizado")
+
+        # Realizar el toggle del estado
+        try:
+            print(f"DEBUG - Analyzing task completion conditions:")
+            
+            # 1. Verificar si la tarea tiene cantidad configurada
+            has_quantity = False
+            if pt.task and pt.task.quantity is not None:
+                try:
+                    quantity = float(pt.task.quantity) if isinstance(pt.task.quantity, str) else pt.task.quantity
+                    has_quantity = quantity > 0
+                except (ValueError, TypeError):
+                    has_quantity = False
+            
+            print(f"DEBUG - Task has quantity configured: {has_quantity}")
+            
+            # 2. Verificar si la tarea está completada actualmente
+            current_is_completed = bool(pt.is_completed)
+            print(f"DEBUG - Current completion status: {current_is_completed}")
+            
+            # 3. Determinar si se puede cambiar el estado
+            can_toggle = True
+            toggle_message = ""
+            
+            # Si la tarea está completada, siempre se puede descompletar
+            if current_is_completed:
+                can_toggle = True
+                toggle_message = "Task can be uncompleted"
+            else:
+                # Si la tarea no está completada, verificar condiciones
+                if not has_quantity:
+                    # Tarea sin cantidad - puede completarse si tiene tiempo real
+                    can_toggle = pt.real_start_time is not None and pt.real_end_time is not None
+                    toggle_message = "Task without quantity - needs real times"
+                else:
+                    # Tarea con cantidad - necesita cantidad real
+                    can_toggle = pt.real_quantity is not None
+                    toggle_message = "Task with quantity - needs real quantity"
+            
+            print(f"DEBUG - Toggle decision:")
+            print(f"DEBUG - Can toggle: {can_toggle}")
+            print(f"DEBUG - Reason: {toggle_message}")
+                
+            # 4. Realizar el toggle si es posible
+            if can_toggle:
+                new_is_completed = not current_is_completed
+                
+                print(f"DEBUG - Performing state toggle:")
+                print(f"DEBUG - Current state: {current_is_completed}")
+                print(f"DEBUG - New state: {new_is_completed}")
+                
+                # Establecer el nuevo estado
+                pt.is_completed = new_is_completed
+                
+                # Actualizar completed_by_user_id
+                if new_is_completed:
+                    pt.completed_by_user_id = current_user.id
+                    print(f"DEBUG - Set completed_by_user_id: {current_user.id}")
+                else:
+                    pt.completed_by_user_id = None
+                    print(f"DEBUG - Cleared completed_by_user_id")
+                
+                # Actualizar tarea principal si existe
+                if pt.task:
+                    pt.task.is_completed = new_is_completed
+                    print(f"DEBUG - Updated master task status: {new_is_completed}")
+            else:
+                print(f"DEBUG - Cannot toggle state: {toggle_message}")
+                raise HTTPException(status_code=400, detail=toggle_message)            # Actualizar la tarea principal si existe
+            if pt.task:
+                pt.task.is_completed = new_is_completed
+                print(f"DEBUG - Updated master task. New state: {pt.task.is_completed}")
+            
+            # Gestionar el completed_by_user_id
+            if new_is_completed:
+                pt.completed_by_user_id = current_user.id
+                print(f"DEBUG - Set completed_by_user_id to: {current_user.id}")
+            else:
+                pt.completed_by_user_id = None
+                print(f"DEBUG - Cleared completed_by_user_id")
+            
+            # Primer commit para guardar los cambios básicos
+            db.commit()
+            print(f"DEBUG - Basic changes committed")
+            
+            # Refrescar para verificar
+            db.refresh(pt)
+            print(f"DEBUG - State after refresh: {pt.is_completed}")
+            
+            # Actualizar estado de la orden solo si hay un lote válido
+            try:
+                # Obtener el lote de la tarea principal
+                lote = pt.task.lote if pt.task else None
+                print(f"DEBUG - Task lote value: {lote}")
+                
+                # Solo actualizar el estado si el lote es válido
+                if lote and lote != "-" and lote.strip():
+                    try:
+                        OrderStatusService.update_order_status_for_task_completion(db, pt)
+                        db.commit()
+                        print(f"DEBUG - Order status updated for lote: {lote}")
+                    except Exception as e:
+                        print(f"DEBUG - Error updating order status: {str(e)}")
+                        # No hacemos rollback aquí
+                else:
+                    print(f"DEBUG - Skipping order status update - invalid lote: {lote}")
+            except Exception as e:
+                print(f"DEBUG - Error checking lote: {str(e)}")
+                # No hacemos rollback aquí
+            
+            # Refrescar una última vez
+            db.refresh(pt)
+            final_status = bool(pt.is_completed)
+            print(f"DEBUG - Final state: {final_status}")
+            
+            return {"is_completed": final_status}
+            
+        except Exception as e:
+            print(f"DEBUG - Error in toggle operation: {str(e)}")
+            db.rollback()
+            raise HTTPException(status_code=500, detail=f"Error toggling status: {str(e)}")
+            
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        print(f"DEBUG - Unexpected error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
     
-    # Roles que pueden modificar cualquier tarea
-    privileged_roles = ("admin", "planner", "supervisor")
-    
-    # Verificar que el usuario tenga permisos para modificar esta tarea
-    # Si el usuario no es privilegiado, solo puede modificar la tarea si es el que la completó
-    if current_user.role.value not in privileged_roles and pt.completed_by_user_id and pt.completed_by_user_id != current_user.id:
-        raise HTTPException(status_code=403, detail="No autorizado")
-    
-    # Alternar el estado en la tarea de programación y en la tarea principal
-    new_status = not bool(pt.is_completed)
-    pt.is_completed = new_status
-    if pt.task:
-        pt.task.is_completed = new_status
-    if not pt.is_completed:
+    try:
+        # Forzar el cambio al estado opuesto
+        print(f"DEBUG - Task Toggle Initial State:")
+        print(f"DEBUG - Task ID: {pt.task_id}")
+        print(f"DEBUG - Programming ID: {pt.programming_id}")
+        print(f"DEBUG - Initial is_completed: {pt.is_completed}")
+        print(f"DEBUG - Initial type: {type(pt.is_completed)}")
+        
+        # Primero asegurarnos de que el estado actual sea un booleano
+        pt.is_completed = bool(pt.is_completed)
+        # Luego cambiamos al estado opuesto
+        pt.is_completed = not pt.is_completed
+        
+        print(f"DEBUG - After toggle:")
+        print(f"DEBUG - New is_completed: {pt.is_completed}")
+        print(f"DEBUG - New type: {type(pt.is_completed)}")
+        
+        # Verificación adicional
+        if isinstance(pt.is_completed, bool):
+            print(f"DEBUG - Status is properly boolean")
+        else:
+            print(f"DEBUG - WARNING: Status is not boolean!")
+            pt.is_completed = bool(pt.is_completed)  # Forzar conversión
+        
+        print(f"DEBUG - Status after direct set: {pt.is_completed}")
+        
+        # Actualizar la tarea principal si existe
+        if pt.task:
+            pt.task.is_completed = True if new_status else False
+            print(f"DEBUG - Master task updated - ID: {pt.task.id}")
+            print(f"DEBUG - Master task new status: {pt.task.is_completed}")
+        
+        # Gestionar el completed_by_user_id de manera consistente
+        if new_status:
+            pt.completed_by_user_id = current_user.id
+            print(f"DEBUG - Set completed_by_user_id: {current_user.id}")
+        else:
+            pt.completed_by_user_id = None
+            print(f"DEBUG - Cleared completed_by_user_id")
+            
+        print(f"DEBUG - Final state before commit:")
+        print(f"DEBUG - is_completed: {pt.is_completed}")
+        print(f"DEBUG - completed_by_user_id: {pt.completed_by_user_id}")
+        print(f"DEBUG - master task is_completed: {pt.task.is_completed if pt.task else 'No master task'}")
+        
+        try:
+            print(f"DEBUG - Attempting database commit...")
+            db.commit()
+            print(f"DEBUG - Initial commit successful")
+            
+            # Refrescar el objeto para verificar el estado
+            db.refresh(pt)
+            print(f"DEBUG - State after refresh:")
+            print(f"DEBUG - is_completed: {pt.is_completed}")
+            print(f"DEBUG - completed_by_user_id: {pt.completed_by_user_id}")
+            
+            # Actualizar estado de la orden
+            try:
+                OrderStatusService.update_order_status_for_task_completion(db, pt)
+                print(f"DEBUG - Order status updated")
+                db.commit()
+                print(f"DEBUG - Final commit successful")
+                
+                # Refrescar una última vez
+                db.refresh(pt)
+                final_status = bool(pt.is_completed)
+                print(f"DEBUG - Final verification:")
+                print(f"DEBUG - Final is_completed: {final_status}")
+                print(f"DEBUG - Final DB value: {pt.is_completed}")
+                
+                return {"is_completed": final_status}
+                
+            except Exception as e:
+                print(f"DEBUG - Error in order status update: {str(e)}")
+                # No hacemos rollback aquí para mantener los cambios en la tarea
+                return {"is_completed": bool(pt.is_completed)}
+                
+        except Exception as e:
+            print(f"DEBUG - Error in commit: {str(e)}")
+            db.rollback()
+            raise HTTPException(status_code=500, detail=f"Error committing changes: {str(e)}")
+        
+    except Exception as e:
+        print(f"DEBUG - Error in toggle_status: {str(e)}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error al actualizar el estado: {str(e)}")
+    # Gestionar el completed_by_user_id
+    if not new_status:
         pt.completed_by_user_id = None
-    
-    # Si se marca como completada, asignar el usuario actual
-    if pt.is_completed:
+        print(f"DEBUG - Cleared completed_by_user_id")
+    else:
         pt.completed_by_user_id = current_user.id
+        print(f"DEBUG - Set completed_by_user_id to: {current_user.id}")
     
-    db.commit()
+    # Hacer commit de los cambios
+    try:
+        db.commit()
+        print(f"DEBUG - Changes committed successfully")
+    except Exception as e:
+        print(f"DEBUG - Error committing changes: {e}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Error updating task status")
     
     # Actualizar estado de la orden usando el servicio centralizado
-    OrderStatusService.update_order_status_for_task_completion(db, pt)
+    try:
+        OrderStatusService.update_order_status_for_task_completion(db, pt)
+        print(f"DEBUG - Order status updated successfully")
+    except Exception as e:
+        print(f"DEBUG - Error updating order status: {e}")
+    
+    # Refrescar el objeto para asegurarnos de tener el estado más reciente
+    db.refresh(pt)
+    print(f"DEBUG - Final task status after refresh: {pt.is_completed}")
     
     db.refresh(pt)
     return {"is_completed": pt.is_completed} 
