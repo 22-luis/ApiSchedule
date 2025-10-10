@@ -81,6 +81,7 @@ def get_programming_by_team_date(team_id: str, date: str, db: Session = Depends(
         for pt in sorted(programming.programming_tasks, key=lambda pt: pt.order):
             task_obj = task_map.get(pt.task_id, pt.task)
             t = TaskOut.model_validate(task_obj, from_attributes=True).model_dump()
+            t['type'] = task_obj.type
             t['start_time'] = pt.start_time
             t['end_time'] = pt.end_time
             t['order'] = pt.order
