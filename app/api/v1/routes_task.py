@@ -66,7 +66,8 @@ def _create_task_logic(db: Session, task_data: Dict[str, Any], teams: List[Team]
     db.commit()
 
     # Post-commit side effects
-    replicate_task_to_pesado_if_needed(db, db_task, programming.date)
+    if current_user.role in [UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR]:
+        replicate_task_to_pesado_if_needed(db, db_task, programming.date)
     update_programming_availability_by_task(db, str(db_task.id))
 
     # Fetch the full task with relations for the response
