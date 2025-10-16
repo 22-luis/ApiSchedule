@@ -687,8 +687,13 @@ def toggle_task_status(programming_id: str, task_id: str, db: Session = Depends(
                             can_toggle = pt.real_start_time is not None and pt.real_end_time is not None
                             toggle_message = "Task has no meaningful assigned quantity - needs real times"
                         else:
-                            can_toggle = (real is not None and real >= assigned)
-                            toggle_message = f"Task with quantity - needs real quantity >= assigned ({assigned})"
+                            # For privileged users, allow toggling even if quantity is not met
+                            if current_user.role.value in privileged_roles:
+                                can_toggle = True
+                                toggle_message = "Privileged user override"
+                            else:
+                                can_toggle = (real is not None and real >= assigned)
+                                toggle_message = f"Task with quantity - needs real quantity >= assigned ({assigned})"
                     except (ValueError, TypeError) as e:
                         can_toggle = False
                         toggle_message = f"Error parsing quantities: {e}"
