@@ -330,9 +330,6 @@ def start_task_timer(programming_id: str, task_id: str, data: dict = Body(None),
     pt = db.query(ProgrammingTask).filter_by(programming_id=programming_id, task_id=task_id).first()
     if not pt:
         raise HTTPException(status_code=404, detail="ProgrammingTask not found")
-    # Solo el usuario asignado puede iniciar
-    if pt.completed_by_user_id and pt.completed_by_user_id != current_user.id:
-        raise HTTPException(status_code=403, detail="No autorizado")
     sv_tz = timezone("America/El_Salvador")
     if data and data.get("real_start_time"):
         val = data["real_start_time"]
