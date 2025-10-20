@@ -360,15 +360,6 @@ def stop_task_timer(programming_id: str, task_id: str, data: ProgrammingTaskRepo
     if not pt:
         raise HTTPException(status_code=404, detail="ProgrammingTask not found")
     
-    print(f"DEBUG - Found ProgrammingTask:")
-    print(f"DEBUG - Programming ID: {pt.programming_id}")
-    print(f"DEBUG - Task ID: {pt.task_id}")
-    print(f"DEBUG - Task loaded: {pt.task is not None}")
-    print(f"DEBUG - Current completion status: {pt.is_completed}")
-    print(f"DEBUG - Task quantity: {pt.task.quantity if pt.task else None}")
-    
-    if pt.completed_by_user_id != current_user.id:
-        raise HTTPException(status_code=403, detail="No autorizado")
     sv_tz = timezone("America/El_Salvador")
     if hasattr(data, 'real_end_time') and data.real_end_time:
         val = data.real_end_time
@@ -381,38 +372,22 @@ def stop_task_timer(programming_id: str, task_id: str, data: ProgrammingTaskRepo
     # Si real_quantity es una cadena vacía o None, establecer como None
     pt.real_quantity = None if data.real_quantity is None or (isinstance(data.real_quantity, str) and data.real_quantity.strip() == "") else data.real_quantity
 
-    print(f"DEBUG - Input real_quantity: {data.real_quantity}")
-    print(f"DEBUG - Processed real_quantity: {pt.real_quantity}")
-
     lote = None
     has_pending_tasks = None
     # Si se establece real_end_time, evaluar autocompletado para tareas sin cantidad
     if pt.real_end_time:
         # Use the current user as the completer when we auto-complete
         completer_id = current_user.id
-        
-        print(f"DEBUG - Detailed Task Info:")
-        print(f"DEBUG - Task ID: {pt.task_id}")
-        print(f"DEBUG - Task quantity: {pt.task.quantity if pt.task else 'No task'}")
-        print(f"DEBUG - Task quantity type: {type(pt.task.quantity) if pt.task and pt.task.quantity is not None else 'None'}")
-        print(f"DEBUG - Current user ID: {completer_id}")
-        print(f"DEBUG - Real quantity reported: {pt.real_quantity}")
 
         # Nueva lógica más clara para determinar si una tarea tiene cantidad asignada
         task_has_quantity = False
         quantity_value = None
-        
-        print(f"DEBUG - Starting quantity analysis...")
         
         # Verificación detallada de la cantidad
         task_has_quantity = False
         quantity_value = None
         
         if pt.task:
-            print(f"DEBUG - Analyzing task quantity:")
-            print(f"DEBUG - Raw quantity value: {pt.task.quantity}")
-            print(f"DEBUG - Quantity type: {type(pt.task.quantity)}")
-            
             # Verificar si la cantidad es None o cadena vacía
             if pt.task.quantity is None or (isinstance(pt.task.quantity, str) and pt.task.quantity.strip() == ""):
                 print(f"DEBUG - Quantity is None or empty string")
@@ -428,12 +403,6 @@ def stop_task_timer(programming_id: str, task_id: str, data: ProgrammingTaskRepo
                 except (ValueError, TypeError) as e:
                     print(f"DEBUG - Error parsing quantity: {e}")
                     task_has_quantity = False
-        
-        print(f"DEBUG - Auto-completion analysis:")
-        print(f"DEBUG - Task has quantity: {task_has_quantity}")
-        print(f"DEBUG - Quantity value: {quantity_value}")
-        print(f"DEBUG - Current completion status: {pt.is_completed}")
-        print(f"DEBUG - Current completed_by_user_id: {pt.completed_by_user_id}")
 
         try:
             print(f"DEBUG - Evaluating completion conditions:")
@@ -475,11 +444,7 @@ def stop_task_timer(programming_id: str, task_id: str, data: ProgrammingTaskRepo
                 # Caso 3: Tarea necesita cantidad pero no tiene cantidad real
                 should_complete = False
                 completion_reason = "Task needs quantity but no real quantity reported"
-            
-            print(f"DEBUG - Completion decision:")
-            print(f"DEBUG - Should complete: {should_complete}")
-            print(f"DEBUG - Reason: {completion_reason}")
-            
+                
             # Aplicar la decisión
             if should_complete:
                 # Marcar como completada
@@ -500,11 +465,6 @@ def stop_task_timer(programming_id: str, task_id: str, data: ProgrammingTaskRepo
                 # Marcar como incompleta
                 pt.is_completed = False
                 pt.completed_by_user_id = None
-                print(f"DEBUG - Task marked as incomplete")
-                print(f"DEBUG - is_completed set to: {pt.is_completed}")
-                print(f"DEBUG - completed_by_user_id cleared")
-                print(f"DEBUG - New status: {pt.is_completed}")
-                print(f"DEBUG - Cleared completed_by_user_id")
                 
                 # Verificar tareas pendientes de manera más robusta
                 try:
@@ -513,10 +473,7 @@ def stop_task_timer(programming_id: str, task_id: str, data: ProgrammingTaskRepo
                         ProgrammingTask.is_completed == False
                     ).count()
                     has_pending_tasks = incomplete_tasks > 0
-                    print(f"DEBUG - Incomplete tasks count: {incomplete_tasks}")
-                    print(f"DEBUG - Has pending tasks: {has_pending_tasks}")
                 except Exception as e:
-                    print(f"DEBUG - Error checking pending tasks: {e}")
                     has_pending_tasks = True  # Por seguridad, asumimos que hay tareas pendientes
 
             # Hacer commit de los cambios inmediatamente
