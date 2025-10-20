@@ -386,13 +386,18 @@ class ProgrammingUtils:
                 programming_tasks, programming_date
             )
             
-            # Si current_end_minutes es 0, usar 7:00 AM como hora de inicio
-            if current_end_minutes == 0:
-                start_hour = 7
-                start_minute = 0
+            # Si current_end_minutes es 0, la tarea empieza a las 7:00 AM (o 7:30 si es sábado).
+            # Si no, se suma al tiempo de inicio del día.
+            weekday = programming_date.weekday()
+            if weekday == 5:  # Sábado
+                start_of_day_minutes = 7 * 60 + 30  # 7:30 AM en minutos
             else:
-                start_hour = current_end_minutes // 60
-                start_minute = current_end_minutes % 60
+                start_of_day_minutes = 7 * 60  # 7:00 AM en minutos
+            
+            total_minutes_from_midnight = start_of_day_minutes + current_end_minutes
+            
+            start_hour = total_minutes_from_midnight // 60
+            start_minute = total_minutes_from_midnight % 60
             
             # Crear datetime para start_time usando la fecha de la programación
             task_start_time = datetime.combine(
