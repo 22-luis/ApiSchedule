@@ -13,6 +13,7 @@ from app.utils.security import oauth2_scheme
 ROLE_HIERARCHY = {
     UserRole.ADMIN: 4,
     UserRole.PLANNER: 3,
+    UserRole.ACCOUNTING: 3,
     UserRole.SUPERVISOR: 2,
     UserRole.WAREHOUSE: 1,
     UserRole.USER: 0,
