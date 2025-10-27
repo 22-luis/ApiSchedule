@@ -4,4 +4,5 @@ from .task import Task
 from .order import Order
 from .preparation import Preparation
 from .code import Code
-from .programming import Programming 
+from .programming import Programming
+from .task_status_log import TaskStatusLog
