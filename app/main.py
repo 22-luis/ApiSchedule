@@ -162,6 +162,10 @@ app = FastAPI(
         {
             "name": "calculations",
             "description": "Cálculos de negocio y utilidades"
+        },
+        {
+            "name": "record_stopwatch",
+            "description": "Gestión de cronómetros"
         }
     ],
     contact={
@@ -463,4 +467,7 @@ if settings.is_development:
     print("🚀 ApiSchedule iniciado correctamente!")
     print(f"📊 Health check: http://localhost:8000/health")
     print(f"📚 Documentación: http://localhost:8000/docs")
+
+from app.api.v1.routes_record_stopwatch import router as record_stopwatch_router
+api_router.include_router(record_stopwatch_router, tags=["record_stopwatch"])
 
