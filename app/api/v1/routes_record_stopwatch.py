@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.db.dependency import get_db
 from app.models.task import Task
-from app.models.record_stopwatch import RecordStopwatch
-from app.schemas.record_stopwatch import RecordStopwatchCreate, RecordStopwatchUpdate
+from app.models.record_stopwatch import RecordStopwatch as RecordStopwatchModel
+from app.schemas.record_stopwatch import RecordStopwatch, RecordStopwatchUpdate
 from datetime import datetime
 import uuid
 
@@ -16,11 +16,11 @@ def start_stopwatch(task_id: uuid.UUID, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Task not found")
 
     # Check if a stopwatch is already running for this task
-    existing_record = db.query(RecordStopwatch).filter(RecordStopwatch.code == task.code.code, RecordStopwatch.end_time == None).first()
+    existing_record = db.query(RecordStopwatchModel).filter(RecordStopwatchModel.code == task.code.code, RecordStopwatchModel.end_time == None).first()
     if existing_record:
         raise HTTPException(status_code=400, detail="Stopwatch already started for this task")
 
-    record = RecordStopwatch(
+    record = RecordStopwatchModel(
         lote=task.lote,
         code=task.code.code,
         description=task.description,
@@ -36,7 +36,7 @@ def start_stopwatch(task_id: uuid.UUID, db: Session = Depends(get_db)):
 
 @router.put("/stop_stopwatch/{record_id}", response_model=RecordStopwatch)
 def stop_stopwatch(record_id: uuid.UUID, record_update: RecordStopwatchUpdate, db: Session = Depends(get_db)):
-    record = db.query(RecordStopwatch).filter(RecordStopwatch.id == record_id).first()
+    record = db.query(RecordStopwatchModel).filter(RecordStopwatchModel.id == record_id).first()
     if not record:
         raise HTTPException(status_code=404, detail="Record not found")
 
