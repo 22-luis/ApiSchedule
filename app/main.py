@@ -63,6 +63,7 @@ from app.api.v1.routes_preparation import router as preparation_router
 from app.api.v1.routes_code import router as code_router
 from app.api.v1.routes_programming import router as programming_router
 from app.api.v1.routes_calculations import router as calculations_router
+from app.api.v1.routes_record_stopwatch import router as record_stopwatch_router
 from app.models import user, team, task, order, preparation, programming
 
 # Configurar logging si está disponible
@@ -307,11 +308,11 @@ api_router.include_router(team_router, tags=["teams"])
 api_router.include_router(order_router, tags=["orders"])
 api_router.include_router(task_router, tags=["tasks"])
 api_router.include_router(task_status_log_router, tags=["tasks"])
-
 api_router.include_router(preparation_router, tags=["preparations"])
 api_router.include_router(code_router, tags=["codes"])
 api_router.include_router(programming_router, tags=["programmings"])
 api_router.include_router(calculations_router, tags=["calculations"])
+api_router.include_router(record_stopwatch_router, tags=["record_stopwatch"])
 
 # Incluir el router principal en la app
 app.include_router(api_router)
@@ -344,7 +345,7 @@ async def detailed_health_check():
         Dict con el estado de salud completo del sistema
     """
     from app.utils.health_checks import get_health_status
-    return await get_health_status()
+    return await get_health_.status()
 
 # Endpoint de información de la aplicación
 @app.get("/info")
@@ -467,7 +468,3 @@ if settings.is_development:
     print("🚀 ApiSchedule iniciado correctamente!")
     print(f"📊 Health check: http://localhost:8000/health")
     print(f"📚 Documentación: http://localhost:8000/docs")
-
-from app.api.v1.routes_record_stopwatch import router as record_stopwatch_router
-api_router.include_router(record_stopwatch_router, tags=["record_stopwatch"])
-
