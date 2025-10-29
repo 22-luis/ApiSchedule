@@ -183,3 +183,12 @@ class UserUpdate(BaseModel):
 
 class UserStateUpdate(BaseModel):
     state: UserState
+
+class User(BaseModel):
+    id: uuid.UUID = Field(..., description="ID único del usuario")
+    username: str = Field(..., description="Nombre de usuario")
+    role: UserRole = Field(..., description="Rol del usuario")
+    state: UserState = Field(default=UserState.ACTIVE, description="Estado del usuario")
+
+    class Config:
+        from_attributes = True

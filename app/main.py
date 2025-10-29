@@ -62,6 +62,7 @@ from app.api.v1.routes_preparation import router as preparation_router
 from app.api.v1.routes_code import router as code_router
 from app.api.v1.routes_programming import router as programming_router
 from app.api.v1.routes_calculations import router as calculations_router
+from app.api.v1.routes_report import router as report_router
 from app.models import user, team, task, order, preparation, programming
 
 # Configurar logging si está disponible
@@ -161,6 +162,10 @@ app = FastAPI(
         {
             "name": "calculations",
             "description": "Cálculos de negocio y utilidades"
+        },
+        {
+            "name": "reports",
+            "description": "Reportes de productividad y rendimiento"
         }
     ],
     contact={
@@ -306,6 +311,7 @@ api_router.include_router(preparation_router, tags=["preparations"])
 api_router.include_router(code_router, tags=["codes"])
 api_router.include_router(programming_router, tags=["programmings"])
 api_router.include_router(calculations_router, tags=["calculations"])
+api_router.include_router(report_router, tags=["reports"])
 
 # Incluir el router principal en la app
 app.include_router(api_router)
