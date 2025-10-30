@@ -19,7 +19,7 @@ def start_stopwatch(task_id: uuid.UUID, payload: RecordStopwatchStart, db: Sessi
     if existing_record:
         raise HTTPException(status_code=400, detail="Stopwatch already started for this task")
 
-    start_time = payload.start_time if payload and payload.start_time else datetime.utcnow()
+    start_time = payload.start_time if payload and payload.start_time else datetime.now()
 
     record = RecordStopwatchModel(
         lote=task.lote,
@@ -47,7 +47,7 @@ def pause_stopwatch(record_id: uuid.UUID, db: Session = Depends(get_db)):
     if record.end_time:
         raise HTTPException(status_code=400, detail="Stopwatch is already stopped")
 
-    elapsed_seconds = (datetime.utcnow() - record.start_time).total_seconds()
+    elapsed_seconds = (datetime.now() - record.start_time).total_seconds()
     record.accumulated_duration += int(elapsed_seconds)
     record.is_paused = True
     db.commit()
@@ -63,7 +63,6 @@ def resume_stopwatch(record_id: uuid.UUID, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Stopwatch is not paused")
 
     record.is_paused = False
-    record.start_time = datetime.utcnow()
     db.commit()
     db.refresh(record)
     return record
@@ -78,7 +77,7 @@ def stop_stopwatch(record_id: uuid.UUID, record_update: RecordStopwatchUpdate, d
         raise HTTPException(status_code=400, detail="Stopwatch already stopped")
 
     if not record.is_paused:
-        elapsed_seconds = (datetime.utcnow() - record.start_time).total_seconds()
+        elapsed_seconds = (datetime.now() - record.start_time).total_seconds()
         record.accumulated_duration += int(elapsed_seconds)
 
     record.end_time = record_update.end_time

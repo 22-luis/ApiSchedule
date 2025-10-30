@@ -439,8 +439,8 @@ async def startup_event():
     
     # Crear tablas de base de datos
     try:
-        Base.metadata.create_all(bind=engine)
-        logger.info("Base de datos inicializada correctamente")
+        # Base.metadata.create_all(bind=engine) # Deshabilitado para usar Alembic
+        logger.info("La inicialización de la base de datos ahora se maneja con Alembic.")
     except Exception as e:
         logger.error(f"Error inicializando base de datos: {e}")
         if settings.is_development:
