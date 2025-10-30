@@ -199,6 +199,68 @@ async def get_task_performance_report(
         "proporcion": round(float(row.proporcion), 2) if row.proporcion else None
     } for row in results]
 
+@router.get("/task-performance-group")
+async def get_task_performance_group_report(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Reporte de rendimiento agrupado por código, descripción, tipo y personas.
+    Solo accesible para roles admin y accounting.
+
+    Cálculos realizados:
+    - Suma de total Horas (Decimal): SUM(EXTRACT(EPOCH FROM (pgt.real_end_time - pgt.real_start_time))) / 3600.0
+    - Suma de cantidad por Producto: SUM(pgt.real_quantity)
+    - Promedio tiempo por producto: (Suma Horas / Suma Cantidad) si Suma Cantidad != 0
+    - Final: Promedio * tk.people
+    """
+    # Verificar roles permitidos
+    if current_user.role not in [UserRole.ADMIN, UserRole.ACCOUNTING]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No tienes permisos para acceder a este reporte. Se requiere rol admin o accounting."
+        )
+
+    query = (
+        select(
+            Code.code,
+            Code.description,
+            Code.type,
+            (func.sum(func.extract('epoch', ProgrammingTask.real_end_time - ProgrammingTask.real_start_time)) / 3600.0).label('sum_hours'),
+            func.sum(ProgrammingTask.real_quantity).label('sum_quantity'),
+            case(
+                (func.sum(ProgrammingTask.real_quantity) != 0,
+                 (func.sum(func.extract('epoch', ProgrammingTask.real_end_time - ProgrammingTask.real_start_time)) / 3600.0) / func.sum(ProgrammingTask.real_quantity)
+                ),
+                else_=None
+            ).label('avg_time_per_product'),
+            Task.people,
+            case(
+                (func.sum(ProgrammingTask.real_quantity) != 0,
+                 ((func.sum(func.extract('epoch', ProgrammingTask.real_end_time - ProgrammingTask.real_start_time)) / 3600.0) / func.sum(ProgrammingTask.real_quantity)) * Task.people
+                ),
+                else_=None
+            ).label('final_metric')
+        )
+        .select_from(Code)
+        .join(Task, Code.id == Task.code_id)
+        .join(ProgrammingTask, Task.id == ProgrammingTask.task_id)
+        .group_by(Code.code, Code.description, Code.type, Task.people)
+    )
+
+    results = db.execute(query).all()
+
+    return [{
+        "code": row.code,
+        "description": row.description,
+        "type": row.type,
+        "sum_hours": round(float(row.sum_hours), 2) if row.sum_hours else None,
+        "sum_quantity": float(row.sum_quantity) if row.sum_quantity else None,
+        "avg_time_per_product": round(float(row.avg_time_per_product), 2) if row.avg_time_per_product else None,
+        "people": row.people,
+        "final_metric": round(float(row.final_metric), 2) if row.final_metric else None
+    } for row in results]
+
 @router.get("/team-performance")
 async def get_team_performance_report(
     start_date: date = Query(..., description="Fecha inicial del reporte"),
@@ -244,7 +306,7 @@ async def get_team_performance_report(
     )
 
     results = team_query.all()
-    
+
     return [{
         "team_name": row.name,
         "total_days": row.total_days,
