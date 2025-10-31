@@ -22,4 +22,8 @@ class TaskStatus(str, enum.Enum):
     ACTIVE = "active"
     PAUSED = "paused"
     COMPLETED = "completed"
-    
+
+class TimerStatus(str, enum.Enum):
+    RUNNING = "running"
+    PAUSED = "paused"
+    STOPPED = "stopped"
