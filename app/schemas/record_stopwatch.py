@@ -1,30 +1,20 @@
-from pydantic import BaseModel, Field
-from datetime import datetime
-from typing import Optional
+from pydantic import BaseModel
 import uuid
 
 class RecordStopwatchBase(BaseModel):
-    lote: str | None = None
-    code: str
-    description: str | None = None
-    people: int | None = None
+    task_id: uuid.UUID
     quantity: float
-    
+    accumulated_duration: int
+
 class RecordStopwatchCreate(RecordStopwatchBase):
     pass
 
-class RecordStopwatchStart(BaseModel):
-    start_time: Optional[datetime] = Field(None, description="Optional start time for the stopwatch")
-
 class RecordStopwatchUpdate(BaseModel):
-    end_time: datetime
-    real_quantity: float
+    quantity: float | None = None
+    accumulated_duration: int | None = None
 
 class RecordStopwatchInDBBase(RecordStopwatchBase):
     id: uuid.UUID
-    start_time: datetime
-    end_time: datetime | None = None
-    real_quantity: float | None = None
 
     class Config:
         orm_mode = True

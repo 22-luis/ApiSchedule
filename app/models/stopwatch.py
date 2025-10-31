@@ -19,4 +19,4 @@ class Stopwatch(Base):
     accumulated_duration = Column(BigInteger, default=0, nullable=False) # in mili-seconds
     created_at = Column(DateTime(timezone=True), nullable=True, default=lambda: datetime.now(timezone.utc))
     update_at = Column(DateTime(timezone=True), nullable=True)
-    task = relationship('Task', back_populates='record_stopwatch')
+    task = relationship('Task', back_populates='stopwatch')
