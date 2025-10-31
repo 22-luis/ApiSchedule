@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 from app.models.task import Task
 from app.models.stopwatch import Stopwatch
+from app.models.record_stopwatch import RecordStopwatch
 from app.models.state import TimerStatus
 from datetime import datetime, timezone
 import uuid
@@ -56,6 +57,7 @@ class TimerService:
         return stopwatch
 
     def resume_stopwatch(self, task_id: uuid.UUID):
+        
         stopwatch = self.db.query(Stopwatch).filter(
             Stopwatch.task_id == task_id,
             Stopwatch.status == TimerStatus.PAUSED
@@ -73,6 +75,7 @@ class TimerService:
         return stopwatch
 
     def stop_stopwatch(self, task_id: uuid.UUID, real_quantity: float):
+        
         stopwatch = self.db.query(Stopwatch).filter(Stopwatch.task_id == task_id).first()
 
         if not stopwatch:
