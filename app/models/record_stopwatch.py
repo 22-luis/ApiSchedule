@@ -1,6 +1,5 @@
 import uuid
-from sqlalchemy import Column, String, Integer, Float, DateTime, Boolean, ForeignKey
-from sqlalchemy.dialects.mysql import BIGINT
+from sqlalchemy import Column, Float, ForeignKey, BigInteger
 from sqlalchemy.orm import relationship
 
 from app.db.database import Base
@@ -11,5 +10,5 @@ class RecordStopwatch(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     task_id = Column(UUID(as_uuid=True), ForeignKey('task.id'), nullable=False)
     quantity = Column(Float, nullable=False)
-    accumulated_duration = Column(BIGINT, default=0, nullable=False) # in seconds
+    accumulated_duration = Column(BigInteger, default=0, nullable=False) # in mili-seconds
     task = relationship('Task', back_populates='record_stopwatch')
