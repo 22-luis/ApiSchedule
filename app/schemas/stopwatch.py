@@ -8,14 +8,13 @@ class StopwatchBase(BaseModel):
     task_id: uuid.UUID
     status: TimerStatus
     quantity: float
-    accumulated_duration: int
-
+    accumulated_duration: float
 class StopwatchCreate(StopwatchBase):
     pass
 
 class StopwatchUpdate(BaseModel):
     status: TimerStatus | None = None
-    accumulated_duration: int | None = None
+    accumulated_duration: float | None = None
 
 class StopwatchInDBBase(StopwatchBase):
     id: uuid.UUID

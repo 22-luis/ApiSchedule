@@ -16,7 +16,7 @@ class Stopwatch(Base):
     task_id = Column(UUID(as_uuid=True), ForeignKey('task.id'), nullable=False)
     status = Column(Enum(TimerStatus), nullable=False)
     quantity = Column(Float, nullable=False)
-    accumulated_duration = Column(BigInteger, default=0, nullable=False) # in mili-seconds
+    accumulated_duration = Column(Float, default=0, nullable=False) # in hours
     created_at = Column(DateTime(timezone=True), nullable=True, default=lambda: datetime.now(timezone.utc))
     update_at = Column(DateTime(timezone=True), nullable=True)
     task = relationship('Task', back_populates='stopwatch')

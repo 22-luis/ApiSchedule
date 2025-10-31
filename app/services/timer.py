@@ -3,8 +3,17 @@ from app.models.task import Task
 from app.models.stopwatch import Stopwatch
 from app.models.record_stopwatch import RecordStopwatch
 from app.models.state import TimerStatus
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import uuid
+import logging
+import sys
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+handler = logging.StreamHandler(sys.stdout)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
 
 class TimerService:
     def __init__(self, db: Session):
@@ -20,7 +29,7 @@ class TimerService:
             raise ValueError("Stopwatch already exists for this task")
 
         if start_time is None:
-            start_time = datetime.now(timezone.utc)
+            start_time = datetime.now(timezone.utc) - timedelta(hours=6)
 
         stopwatch = Stopwatch(
             task_id=task_id,
@@ -35,6 +44,7 @@ class TimerService:
         return stopwatch
 
     def pause_stopwatch(self, task_id: uuid.UUID):
+        now = datetime.now(timezone.utc) - timedelta(hours=6)
         
         stopwatch = self.db.query(Stopwatch).filter(
             Stopwatch.task_id == task_id,
@@ -44,11 +54,10 @@ class TimerService:
         if not stopwatch:
             raise ValueError("No running stopwatch found for this task")
 
-        now = datetime.now(timezone.utc)
-        last_start_time = stopwatch.update_at or stopwatch.created_at
-        elapsed_time = (now - last_start_time).total_seconds() * 1000 # milliseconds
+        last_start_time = (stopwatch.update_at or stopwatch.created_at).astimezone(timezone.utc)
+        elapsed_time = (now - last_start_time).total_seconds() / 3600  # Convert to hours
 
-        stopwatch.accumulated_duration += int(elapsed_time)
+        stopwatch.accumulated_duration += elapsed_time
         stopwatch.status = TimerStatus.PAUSED
         stopwatch.update_at = now
 
@@ -66,7 +75,7 @@ class TimerService:
         if not stopwatch:
             raise ValueError("No paused stopwatch found for this task")
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(timezone.utc) - timedelta(hours=6)
         stopwatch.status = TimerStatus.RUNNING
         stopwatch.update_at = now
 
@@ -75,6 +84,7 @@ class TimerService:
         return stopwatch
 
     def stop_stopwatch(self, task_id: uuid.UUID, real_quantity: float):
+        now = datetime.now(timezone.utc) - timedelta(hours=6)
         
         stopwatch = self.db.query(Stopwatch).filter(Stopwatch.task_id == task_id).first()
 
@@ -84,13 +94,13 @@ class TimerService:
         if stopwatch.status == TimerStatus.STOPPED:
             raise ValueError("Stopwatch is already stopped")
 
-        now = datetime.now(timezone.utc)
         accumulated_duration = stopwatch.accumulated_duration
 
         if stopwatch.status == TimerStatus.RUNNING:
-            last_start_time = stopwatch.update_at or stopwatch.created_at
-            elapsed_time = (now - last_start_time).total_seconds() * 1000 # milliseconds
-            accumulated_duration += int(elapsed_time)
+            last_start_time = (stopwatch.update_at or stopwatch.created_at).astimezone(timezone.utc)
+            time_difference = now - last_start_time
+            elapsed_time = time_difference.total_seconds() / 3600  # Convert to hours
+            accumulated_duration += elapsed_time
 
         # Create a record in record_stopwatch
         record = RecordStopwatch(

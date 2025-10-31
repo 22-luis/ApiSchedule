@@ -63,7 +63,6 @@ from app.api.v1.routes_preparation import router as preparation_router
 from app.api.v1.routes_code import router as code_router
 from app.api.v1.routes_programming import router as programming_router
 from app.api.v1.routes_calculations import router as calculations_router
-from app.api.v1.routes_record_stopwatch import router as record_stopwatch_router
 from app.api.v1.routes_timer import router as timer_router
 from app.models import user, team, task, order, preparation, programming
 
@@ -164,10 +163,6 @@ app = FastAPI(
         {
             "name": "calculations",
             "description": "Cálculos de negocio y utilidades"
-        },
-        {
-            "name": "record_stopwatch",
-            "description": "Gestión de cronómetros"
         }
     ],
     contact={
@@ -313,7 +308,6 @@ api_router.include_router(preparation_router, tags=["preparations"])
 api_router.include_router(code_router, tags=["codes"])
 api_router.include_router(programming_router, tags=["programmings"])
 api_router.include_router(calculations_router, tags=["calculations"])
-api_router.include_router(record_stopwatch_router, tags=["record_stopwatch"])
 api_router.include_router(timer_router, tags=["Timer"])
 
 # Incluir el router principal en la app

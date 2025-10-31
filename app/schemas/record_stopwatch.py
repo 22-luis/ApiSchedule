@@ -4,8 +4,7 @@ import uuid
 class RecordStopwatchBase(BaseModel):
     task_id: uuid.UUID
     quantity: float
-    accumulated_duration: int
-
+    accumulated_duration: float
 class RecordStopwatchCreate(RecordStopwatchBase):
     pass
 
