@@ -6,3 +6,5 @@ from .preparation import Preparation
 from .code import Code
 from .programming import Programming
 from .task_status_log import TaskStatusLog
+from .stopwatch import Stopwatch
+from .record_stopwatch import RecordStopwatch
