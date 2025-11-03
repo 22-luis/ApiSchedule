@@ -115,3 +115,22 @@ class TimerService:
 
         self.db.commit()
         return record
+
+    def get_tasks_status(self, task_ids: list[uuid.UUID]):
+        # Get tasks from Stopwatch (running, paused)
+        stopwatch_tasks = self.db.query(Stopwatch.task_id, Stopwatch.status).filter(Stopwatch.task_id.in_(task_ids)).all()
+
+        # Get tasks from RecordStopwatch (completed/done)
+        record_stopwatch_tasks = self.db.query(RecordStopwatch.task_id).filter(RecordStopwatch.task_id.in_(task_ids)).all()
+
+        # Create a dictionary to hold the status, prioritizing 'done'
+        task_statuses = {}
+
+        for task_id, status in stopwatch_tasks:
+            task_statuses[str(task_id)] = status.value
+
+        for task_id_record, in record_stopwatch_tasks:
+            task_statuses[str(task_id_record)] = TimerStatus.STOPPED.value 
+
+        # Format the output
+        return [{"task_id": task_id, "status": status} for task_id, status in task_statuses.items()]

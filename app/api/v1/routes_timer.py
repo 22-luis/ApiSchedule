@@ -6,11 +6,18 @@ from app.services.timer import TimerService
 from app.schemas.stopwatch import Stopwatch as StopwatchSchema
 from pydantic import BaseModel
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
 from app.schemas.record_stopwatch import RecordStopwatch as RecordStopwatchSchema
 
 router = APIRouter()
+
+class TaskStatusRequest(BaseModel):
+    task_ids: List[uuid.UUID]
+
+class TaskStatusResponse(BaseModel):
+    task_id: str
+    status: str
 
 class TimerStartPayload(BaseModel):
     start_time: Optional[datetime] = None
@@ -56,3 +63,12 @@ def resume_timer(task_id: uuid.UUID, db: Session = Depends(get_db)):
         return stopwatch
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/stopwatch/status", response_model=List[TaskStatusResponse], tags=["Timer"])
+def get_tasks_status(payload: TaskStatusRequest, db: Session = Depends(get_db)):
+    timer_service = TimerService(db)
+    try:
+        statuses = timer_service.get_tasks_status(payload.task_ids)
+        return statuses
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
