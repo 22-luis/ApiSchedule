@@ -1,0 +1,5 @@
+- [ ] Add new GET endpoint `/task-performance-group` in `routes_report.py`
+- [ ] Include role check for admin and accounting
+- [ ] Implement SQLAlchemy query based on provided SQL
+- [ ] Execute query and return formatted results
+- [ ] Test the endpoint
