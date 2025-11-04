@@ -134,3 +134,13 @@ class TimerService:
 
         # Format the output
         return [{"task_id": task_id, "status": status} for task_id, status in task_statuses.items()]
+
+    def get_record_stopwatch_info(self, task_id: uuid.UUID):
+        record = self.db.query(RecordStopwatch).filter(RecordStopwatch.task_id == task_id).first()
+        if not record:
+            return None
+        return {
+            "task_id": str(record.task_id),
+            "quantity": record.quantity,
+            "accumulated_duration": record.accumulated_duration
+        }
