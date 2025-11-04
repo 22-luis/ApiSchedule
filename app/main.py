@@ -88,19 +88,7 @@ app = FastAPI(
     description="""
     # ApiSchedule - API de Gestión de Programaciones, cronometro y reportes
 
-    ## Características Principales
-
-    * 🔐 **Autenticación JWT** - Sistema seguro de autenticación
-    * 👥 **Gestión de Usuarios** - Roles y permisos granulares
-    * 🏢 **Gestión de Equipos** - Organización de equipos de trabajo
-    * 📋 **Gestión de Tareas** - Creación y seguimiento de tareas
-    * 📦 **Gestión de Órdenes** - Control de órdenes de producción
-    * 📊 **Códigos Predefinidos** - Catálogo de códigos y actividades
-    * ⏱️ **Rate Limiting** - Protección contra abuso
-    * 📈 **Métricas** - Monitoreo de rendimiento
-    * 🔄 **Circuit Breakers** - Resiliencia ante fallos
-
-    ## Endpoints de Monitoreo
+  ## Endpoints de Monitoreo
 
     * `GET /health` - Estado de salud de la aplicación
     * `GET /health/detailed` - Información detallada de salud
@@ -153,15 +141,6 @@ app = FastAPI(
         {
             "url": "http://localhost:8000",
             "description": "Servidor de desarrollo"
-        },
-        {
-            "url": "https://api.apischedule.com",
-            "description": "Servidor de producción"
-        }
-    ] if settings.DEBUG else [
-        {
-            "url": "https://api.apischedule.com",
-            "description": "Servidor de producción"
         }
     ]
 )
