@@ -16,6 +16,7 @@ ROLE_HIERARCHY = {
     UserRole.ACCOUNTING: 3,
     UserRole.SUPERVISOR: 2,
     UserRole.WAREHOUSE: 1,
+    UserRole.TIMEKEEPER: 1,
     UserRole.USER: 0,
 }
 

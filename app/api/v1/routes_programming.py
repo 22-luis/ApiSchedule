@@ -33,7 +33,7 @@ def user_belongs_to_team(user, team_id):
 # Listar programaciones (admin/planner: todas, user: solo su equipo)
 @router.get("/", response_model=List[ProgrammingRead])
 def list_programmings(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
-    if current_user.role.value in ("admin", "planner", "supervisor"):
+    if current_user.role.value in ("admin", "planner", "supervisor", "timekeeper"):
         programmings = db.query(Programming).all()
     else:
         team_ids = [team.id for team in getattr(current_user, "teams", [])]
@@ -58,7 +58,7 @@ def get_programming_by_team_date(team_id: str, date: str, db: Session = Depends(
         programming = db.query(Programming).filter_by(team_id=team_id, date=date_obj).first()
         if not programming:
             # Si no existe la programación, verificar si el usuario puede crearla
-            if current_user.role.value not in ("admin", "planner", "supervisor") and not user_belongs_to_team(current_user, team_id):
+            if current_user.role.value not in ("admin", "planner", "supervisor", "timekeeper") and not user_belongs_to_team(current_user, team_id):
                 raise HTTPException(status_code=403, detail="Not authorized")
             # Crear la programación automáticamente para usuarios autorizados
             programming = Programming(date=date_obj, team_id=team_id)
@@ -67,7 +67,7 @@ def get_programming_by_team_date(team_id: str, date: str, db: Session = Depends(
             db.refresh(programming)
         else:
             # Si existe la programación, verificar permisos de acceso
-            if current_user.role.value not in ("admin", "planner", "supervisor") and not user_belongs_to_team(current_user, team_id):
+            if current_user.role.value not in ("admin", "planner", "supervisor", "timekeeper") and not user_belongs_to_team(current_user, team_id):
                 raise HTTPException(status_code=403, detail="Not authorized")
         # Obtener tareas completas con datos de la tabla intermedia
         tasks = []
@@ -121,7 +121,7 @@ def get_programming(programming_id: UUID, db: Session = Depends(get_db), current
     programming = db.query(Programming).get(programming_id)
     if not programming:
         raise HTTPException(status_code=404, detail="Programming not found")
-    if current_user.role.value not in ("admin", "planner", "supervisor") and not user_belongs_to_team(current_user, programming.team_id):
+    if current_user.role.value not in ("admin", "planner", "supervisor", "timekeeper") and not user_belongs_to_team(current_user, programming.team_id):
         raise HTTPException(status_code=403, detail="Not authorized")
     return {
         "id": programming.id,
@@ -554,7 +554,7 @@ def add_task_comment(programming_id: str, task_id: str, data: ProgrammingTaskRep
     if not programming:
         raise HTTPException(status_code=404, detail="Programming not found")
 
-    if current_user.role.value not in ("admin", "planner", "supervisor") and not user_belongs_to_team(current_user, programming.team_id):
+    if current_user.role.value not in ("admin", "planner", "supervisor", "timekeeper") and not user_belongs_to_team(current_user, programming.team_id):
         raise HTTPException(status_code=403, detail="Not authorized to comment on this task")
     
     pt.comment = data.comment
@@ -940,7 +940,7 @@ def get_available_programmings_for_team(
         raise HTTPException(status_code=404, detail="Team not found")
     
     # Verificar permisos del usuario
-    if current_user.role.value not in ("admin", "planner", "supervisor") and not user_belongs_to_team(current_user, team_uuid):
+    if current_user.role.value not in ("admin", "planner", "supervisor", "timekeeper") and not user_belongs_to_team(current_user, team_uuid):
         raise HTTPException(status_code=403, detail="Not authorized to access this team")
     
     # Obtener la fecha actual
@@ -1014,7 +1014,7 @@ def get_only_available_programmings_for_team(
         raise HTTPException(status_code=404, detail="Team not found")
     
     # Verificar permisos del usuario
-    if current_user.role.value not in ("admin", "planner", "supervisor") and not user_belongs_to_team(current_user, team_uuid):
+    if current_user.role.value not in ("admin", "planner", "supervisor", "timekeeper") and not user_belongs_to_team(current_user, team_uuid):
         raise HTTPException(status_code=403, detail="Not authorized to access this team")
     
     # Obtener la fecha actual
@@ -1115,7 +1115,7 @@ def get_next_available_time_for_programming(
         raise HTTPException(status_code=404, detail="Programming not found")
     
     # Verificar permisos del usuario
-    if current_user.role.value not in ("admin", "planner", "supervisor") and not user_belongs_to_team(current_user, str(programming.team_id)):
+    if current_user.role.value not in ("admin", "planner", "supervisor", "timekeeper") and not user_belongs_to_team(current_user, str(programming.team_id)):
         raise HTTPException(status_code=403, detail="Not authorized to access this programming")
     
     # Obtener las tareas de la programación ordenadas por end_time
@@ -1175,7 +1175,7 @@ def get_first_available_programming_for_task(
         raise HTTPException(status_code=404, detail="Team not found")
     
     # Verificar permisos del usuario
-    if current_user.role.value not in ("admin", "planner", "supervisor") and not user_belongs_to_team(current_user, str(team_id)):
+    if current_user.role.value not in ("admin", "planner", "supervisor", "timekeeper") and not user_belongs_to_team(current_user, str(team_id)):
         raise HTTPException(status_code=403, detail="Not authorized to access this team")
     
     # Obtener todas las programaciones disponibles del equipo

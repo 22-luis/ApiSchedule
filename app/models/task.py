@@ -40,4 +40,9 @@ class Task(Base):
     type = Column(String, nullable=True)
     activity = Column(String, nullable=True)
     description = Column(String, nullable=True)
+    status = Column(String, nullable=False, default='pendiente')
     is_completed = Column(Boolean, default=False, nullable=False)
+
+    status_logs = relationship('TaskStatusLog', back_populates='task', cascade='all, delete-orphan')
+    record_stopwatch = relationship('RecordStopwatch', back_populates='task', cascade='all, delete-orphan')
+    stopwatch = relationship('Stopwatch', back_populates='task', cascade='all, delete-orphan')

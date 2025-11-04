@@ -1,9 +1,10 @@
 import enum
 
-class UserRole(enum.Enum):
+class UserRole(str, enum.Enum):
     ADMIN = "admin"
     PLANNER = "planner"
     SUPERVISOR = "supervisor"
+    TIMEKEEPER = "timekeeper"
     USER = "user"
     WAREHOUSE = "warehouse"
     ACCOUNTING = "accounting"

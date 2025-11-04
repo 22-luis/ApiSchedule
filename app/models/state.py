@@ -1,10 +1,10 @@
 import enum
 
-class UserState(enum.Enum):
+class UserState(str, enum.Enum):
     ACTIVE = "active"
     INACTIVE = "inactive"
 
-class OrderStatus(enum.Enum):
+class OrderStatus(str, enum.Enum):
     pending = "pending"
     programmed = "programmed"
     unprogrammed = "unprogrammed"
@@ -13,7 +13,17 @@ class OrderStatus(enum.Enum):
     completed = "completed"
     not_programmable = "not_programmable"
     
-class ProgrammingStatus(enum.Enum):
+class ProgrammingStatus(str, enum.Enum):
     available = "available"
     unavailable = "unavailable"
-    
+
+class TaskStatus(str, enum.Enum):
+    PENDING = "pending"
+    ACTIVE = "active"
+    PAUSED = "paused"
+    COMPLETED = "completed"
+
+class TimerStatus(str, enum.Enum):
+    RUNNING = "running"
+    PAUSED = "paused"
+    STOPPED = "stopped"

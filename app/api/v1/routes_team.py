@@ -88,7 +88,7 @@ def update_team(team_id: str, team: TeamCreate, db: Session = Depends(get_db), c
 @router.get("/", response_model=List[TeamOut])
 def get_teams(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     from app.models.role import UserRole
-    if current_user.role in (UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR):
+    if current_user.role in (UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.TIMEKEEPER):
         teams = db.query(Team).all()
     else:
         teams = getattr(current_user, 'teams', [])
@@ -126,7 +126,7 @@ def get_team(team_id: str, db: Session = Depends(get_db), current_user: User = D
 @router.get("/weighing/most-suitable")
 def get_most_suitable_weighing_team_endpoint(
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.TIMEKEEPER, UserRole.USER))
 ):
     try:
         print(f"[DEBUG] get_most_suitable_weighing_team_endpoint: Iniciando búsqueda de equipo más idóneo para pesado")

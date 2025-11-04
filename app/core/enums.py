@@ -1,36 +1,54 @@
 from enum import Enum
 
+class TaskStatus(str, Enum):
+    PENDING = "pendiente"
+    IN_PROGRESS = "en_progreso"
+    PAUSED = "pausada"
+    COMPLETED = "completada"
+
+class TaskType(str, Enum):
+    M1 = "M1"
+    M12 = "M12"
+    M13 = "M13"
+    M15 = "M15"
+    # Add other task types if they exist
+
 class WeighingTeams(str, Enum):
-    Pesado = "Pesado"
-    
+    PESADO1 = "Equipo de Pesado 1"
+    PESADO2 = "Equipo de Pesado 2"
+
 class WeighingActivities(str, Enum):
-    Pesado = "PESADO"
-    
+    PESADO = "PESADO"
+    PESAR = "PESAR"
+    PESO = "PESO"
+    BALANZA = "BALANZA"
+    WEIGHING = "WEIGHING"
+
 class ManufacturingTeams(str, Enum):
-    Fabricado1 = "Fabricado 1"
-    Fabricado2 = "Fabricado 2"
-    Fabricado3 = "Fabricado 3"
-    Molino = "Molino"
-    
+    FABRICADO1 = "Fabricado 1"
+    FABRICADO2 = "Fabricado 2"
+    FABRICADO3 = "Fabricado 3"
+    MOLINO = "Molino"
+
 class ManufacturingActivities(str, Enum):
-    Mol_pasta = "MOLIENDA EN PASTA"
-    Mol_polvo = "MOLIENDA EN POLVO"
-    Mez_polvo = "MEZCLA MANUAL POLVO"
-    Mez_maquina = "MEZCLA EN MAQUINA"
-    mez_liquida = "MEZCLA LIQUIDA"
-    Fabricacion = "FABRICACION DE ADEREZOS, JALEAS"
-    
+    MOL_PASTA = "Mol_pasta"
+    MOL_POLVO = "Mol_polvo"
+    MEZ_MAQUINA = "Mez_maquina"
+    MEZ_POLVO = "Mez_polvo"
+    MEZ_LIQUIDA = "mez_liquida"
+    FABRICACION = "Fabricacion"
+
 class PackagingTeams(str, Enum):
-    Empaque1 = "Empaque 1"
-    Empaque2 = "Empaque 2"
-    Empaque3 = "Empaque 3"
-    Empaque4 = "Empaque 4"
-    Maquina1 = "MAQUINA 1"
-    Maquina2 = "MAQUINA 2"
+    EMPAQUE1 = "Empaque 1"
+    EMPAQUE2 = "Empaque 2"
+    EMPAQUE3 = "Empaque 3"
+    EMPAQUE4 = "Empaque 4"
+    MAQUINA1 = "Maquina 1"
+    MAQUINA2 = "Maquina 2"
 
 class PackagingActivities(str, Enum):
-    Emp_mezcla = " EMPAQUE MANUAL MAS MEZCLA"
-    Emp_grupo = "EMPAQUE MANUAL GRUPO"
-    Emp_manual = "EMPAQUE MANUAL"
-    Emp_semi = "EMPAQUE MAQUINA SEMI AUTOMATICA"
-    Emp_auto = "EMPAQUE MAQUINA AUTOMATICA"
+    EMP_GRUPO = "Emp_grupo"
+    EMP_MANUAL = "Emp_manual"
+    EMP_SEMI = "Emp_semi"
+    EMP_AUTO = "Emp_auto"
+    EMP_MEZCLA = "Emp_mezcla"
