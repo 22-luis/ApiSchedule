@@ -86,9 +86,7 @@ app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
     description="""
-    # ApiSchedule - API de Gestión de Programaciones
-
-    Sistema completo para la gestión de programaciones, equipos, tareas y órdenes de producción.
+    # ApiSchedule - API de Gestión de Programaciones, cronometro y reportes
 
     ## Características Principales
 
@@ -101,26 +99,6 @@ app = FastAPI(
     * ⏱️ **Rate Limiting** - Protección contra abuso
     * 📈 **Métricas** - Monitoreo de rendimiento
     * 🔄 **Circuit Breakers** - Resiliencia ante fallos
-
-    ## Autenticación
-
-    La mayoría de endpoints requieren autenticación JWT. Incluye el token en el header:
-
-    ```
-    Authorization: Bearer <tu_token_jwt>
-    ```
-
-    ## Roles Disponibles
-
-    * **admin** - Acceso completo al sistema
-    * **planner** - Gestión de programaciones y órdenes
-    * **supervisor** - Supervisión de equipos y tareas
-    * **user** - Acceso básico a tareas asignadas
-
-    ## Estados
-
-    * **Usuarios**: `active`, `inactive`
-    * **Órdenes**: `pending`, `programada`, `in_progress`, `completed`
 
     ## Endpoints de Monitoreo
 
@@ -171,14 +149,6 @@ app = FastAPI(
             "description": "Reportes de productividad y rendimiento"
         }
     ],
-    contact={
-        "name": "Equipo de Desarrollo ApiSchedule",
-        "email": "desarrollo@apischedule.com",
-    },
-    license_info={
-        "name": "MIT",
-        "url": "https://opensource.org/licenses/MIT",
-    },
     servers=[
         {
             "url": "http://localhost:8000",
