@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from app.utils.dependencies import get_current_user, require_roles, check_user_modification_permission
+from app.utils.dependencies import get_current_user, require_roles, check_user_modification_permission, ROLE_HIERARCHY
 from sqlalchemy.orm import Session
 from app.models.user import User
 from app.schemas.user import UserCreate, UserOut, UserStateUpdate, UserUpdate
@@ -24,12 +24,8 @@ def create_user(
     current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
 ):
     # Verificar permisos para crear usuarios con diferentes roles
-    hierarchy = {"admin": 4, "planner": 3, "supervisor": 2, "warehouse": 1, "user": 0}
-    current_user_role_str = current_user.role.value
-    target_user_role_str = user.role.value
-
-    current_level = hierarchy.get(current_user_role_str, 0)
-    target_level = hierarchy.get(target_user_role_str, 0)
+    current_level = ROLE_HIERARCHY.get(current_user.role, 0)
+    target_level = ROLE_HIERARCHY.get(user.role, 0)
 
     # Solo un admin puede crear otros admins. Nadie puede crear un rol superior al suyo.
     if current_level < target_level or (current_level == target_level and current_user.role != UserRole.ADMIN):

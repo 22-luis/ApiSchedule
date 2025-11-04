@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Dict, Any
 from pydantic import BaseModel
+import datetime
 
 from app.db.dependency import get_db
 from app.models.task import Task
@@ -9,13 +10,27 @@ from app.models.team import Team
 from app.models.user import User
 from app.models.role import UserRole
 from app.models.programming import Programming, ProgrammingTask
+from app.models.task_status_log import TaskStatusLog
 from app.schemas.task import TaskCreate, TaskUpdate, TaskOut
 from app.utils.dependencies import get_current_user, require_roles
 from app.api.v1.replicate_pesado import replicate_task_to_pesado_if_needed
 from app.utils.order_status_service import OrderStatusService
 from app.utils.programming_availability import update_programming_availability_by_task
+from app.core.enums import TaskStatus, TaskType
+
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
+
+# --- Request Models ---
+
+class TaskStatusUpdate(BaseModel):
+    status: TaskStatus
+
+class DuplicateTaskRequest(BaseModel):
+    lote: str
+
+class DeleteTasksRequest(BaseModel):
+    task_ids: List[str]
 
 # --- Helpers / Service Functions ---
 
@@ -96,9 +111,6 @@ def create_task(
     task_data = task.dict(exclude={"teamIds", "programming_id", "total_time"})
     return _create_task_logic(db, task_data, teams, programming, current_user)
 
-class DuplicateTaskRequest(BaseModel):
-    lote: str
-
 @router.post("/{task_id}/duplicate", response_model=TaskOut)
 def duplicate_task(
     task_id: str,
@@ -129,7 +141,7 @@ def duplicate_task(
 @router.get("/", response_model=List[TaskOut])
 def get_tasks(
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.TIMEKEEPER, UserRole.USER))
 ):
     tasks = db.query(Task).options(
         joinedload(Task.code),
@@ -143,7 +155,7 @@ def get_tasks(
 def get_task(
     task_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.TIMEKEEPER, UserRole.USER))
 ):
     task = _get_task_with_relations(db, task_id)
     if not task:
@@ -189,6 +201,86 @@ def update_task(
     full_task = _get_task_with_relations(db, task_id)
     return full_task
 
+@router.put("/{task_id}/status", response_model=TaskOut)
+def update_task_status(
+    task_id: str,
+    status_update: TaskStatusUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    db_task = _get_task_with_relations(db, task_id)
+    if not db_task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    if db_task.is_completed:
+        raise HTTPException(status_code=400, detail="Cannot change status of a completed task")
+
+    new_status = status_update.status
+    current_status = db_task.status
+
+    if new_status == current_status:
+        return _clean_task_response(db_task)
+
+    # Role-based authorization for pausing
+    if new_status == TaskStatus.PAUSED and current_user.role == UserRole.USER:
+        allowed_task_types = [TaskType.M1, TaskType.M12, TaskType.M13, TaskType.M15]
+        if db_task.type not in allowed_task_types:
+            raise HTTPException(status_code=403, detail="You are not authorized to pause this type of task")
+
+    now = datetime.datetime.utcnow()
+
+    # Find the current status log entry and end it
+    current_log_entry = db.query(TaskStatusLog).filter(
+        TaskStatusLog.task_id == db_task.id,
+        TaskStatusLog.end_time == None
+    ).first()
+
+    if current_log_entry:
+        current_log_entry.end_time = now
+
+    # Create a new status log entry
+    new_log_entry = TaskStatusLog(
+        task_id=db_task.id,
+        status=new_status.value,
+        start_time=now
+    )
+    db.add(new_log_entry)
+
+    # Update the task's status
+    db_task.status = new_status.value
+
+    db.commit()
+    db.refresh(db_task)
+
+    return _clean_task_response(db_task)
+
+
+@router.get("/{task_id}/real-time")
+def get_task_real_time(
+    task_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    db_task = db.query(Task).filter(Task.id == task_id).first()
+    if not db_task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    log_entries = db.query(TaskStatusLog).filter(
+        TaskStatusLog.task_id == task_id,
+        TaskStatusLog.status == TaskStatus.IN_PROGRESS.value
+    ).all()
+
+    total_time = datetime.timedelta(0)
+    for entry in log_entries:
+        if entry.end_time:
+            total_time += entry.end_time - entry.start_time
+        else:
+            # If the task is currently in progress, calculate the time until now
+            total_time += datetime.datetime.utcnow() - entry.start_time
+
+    return {"task_id": task_id, "real_time_seconds": total_time.total_seconds()}
+
+
 @router.delete("/{task_id}")
 def delete_task(
     task_id: str,
@@ -205,9 +297,6 @@ def delete_task(
     db.delete(db_task)
     db.commit()
     return {"message": "Task deleted successfully"}
-
-class DeleteTasksRequest(BaseModel):
-    task_ids: List[str]
 
 @router.post("/bulk-delete", status_code=200)
 def delete_many_tasks(

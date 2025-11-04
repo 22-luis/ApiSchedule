@@ -114,6 +114,50 @@ def delete_code(code_id: uuid.UUID, db: Session = Depends(get_db), current_user:
     db.commit()
     return {"message": "Code deleted successfully"}
 
+
+@router.delete("/cleanup", status_code=200)
+@invalidate_cache(pattern="codes")
+def cleanup_inactive_codes(db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN))):
+    """
+    Elimina los códigos que no tienen una actividad válida o cuya actividad es nula.
+    """
+    allowed_activities = [
+        "EMPAQUE MANUAL MAS MEZCLA",
+        "EMPAQUE MANUAL GRUPO",
+        "EMPAQUE BOLSA DE 50, 55 LB",
+        "EMPAQUE MAQUINA SEMI AUTOMATICA",
+        "EMPAQUE MAQUINA AUTOMATICA",
+        "PESADO Y/O FABRICADO",
+        "MOLIENDA POLVOS/HORNEO",
+        "MOLIENDA EN PASTA",
+        "MEZCLA MANUAL POLVO",
+        "MEZCLA EN MAQUINA/EMPAQUE 25 KG",
+        "MEZCLAS LIQUIDAS Y/O EMPAQUE",
+        "FABRICACION DE ADEREZOS, JALEAS",
+    ]
+
+    try:
+        # Construir la consulta de eliminación
+        query = db.query(Code).filter(
+            (Code.activity == None) |
+            (~Code.activity.in_(allowed_activities))
+        )
+        
+        num_deleted = query.delete(synchronize_session=False)
+        
+        # Confirmar la transacción
+        db.commit()
+
+        logger.info(f"Se eliminaron {num_deleted} códigos con actividades no permitidas o nulas.")
+        
+        return {"message": f"Se eliminaron {num_deleted} códigos con actividades no permitidas o nulas."}
+
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Ocurrió un error durante la limpieza de códigos: {e}")
+        raise HTTPException(status_code=500, detail="Ocurrió un error durante la limpieza de códigos.")
+
+
 # --- Endpoints de Búsqueda y Específicos ---
 
 @router.get("/by_code_and_activity", response_model=CodeOut)
