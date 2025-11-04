@@ -19,8 +19,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.add_column('record_stopwatch', sa.Column('accumulated_duration', sa.Integer(), nullable=False, server_default='0'))
-    op.add_column('record_stopwatch', sa.Column('is_paused', sa.Boolean(), nullable=False, server_default=sa.false()))
+    pass
 
 
 def downgrade() -> None:
