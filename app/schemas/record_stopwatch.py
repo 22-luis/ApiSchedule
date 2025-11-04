@@ -1,0 +1,24 @@
+from pydantic import BaseModel
+import uuid
+from datetime import datetime
+
+class RecordStopwatchBase(BaseModel):
+    task_id: uuid.UUID
+    quantity: float
+    accumulated_duration: float
+class RecordStopwatchCreate(RecordStopwatchBase):
+    pass
+
+class RecordStopwatchUpdate(BaseModel):
+    quantity: float | None = None
+    accumulated_duration: int | None = None
+
+class RecordStopwatchInDBBase(RecordStopwatchBase):
+    id: uuid.UUID
+    creation_date: datetime
+
+    class Config:
+        orm_mode = True
+
+class RecordStopwatch(RecordStopwatchInDBBase):
+    pass
