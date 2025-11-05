@@ -16,10 +16,10 @@ class RecordStopwatchDetailSchema(BaseModel):
     quantity: float
     accumulated_duration: float
     creation_date: datetime
-    task_code: str
+    code_code: str
     task_description: str
     task_type: str
-    task_activity: str
+    task_activity: Optional[str] = None
     task_people: int
 
 router = APIRouter()
