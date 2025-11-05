@@ -18,7 +18,7 @@ class RecordStopwatchDetailSchema(BaseModel):
     creation_date: datetime
     code_code: str
     task_description: str
-    task_type: str
+    task_type: Optional[str] = None
     task_activity: Optional[str] = None
     task_people: int
 

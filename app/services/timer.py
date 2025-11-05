@@ -181,13 +181,15 @@ class TimerService:
             Task.description,
             Task.type,
             Task.activity,
-            Task.people
+            Task.people,
+            Code.activity.label("code_activity"),
+            Code.type.label("code_type")
         ).join(Task, RecordStopwatch.task_id == Task.id).join(Code, Task.code_id == Code.id).filter(
             func.date(RecordStopwatch.creation_date) == today
         ).all()
 
         result = []
-        for record_stopwatch, task_code, task_description, task_type, task_activity, task_people in daily_records_query:
+        for record_stopwatch, task_code, task_description, task_type, task_activity, task_people, code_activity, code_type in daily_records_query:
             result.append({
                 "id": record_stopwatch.id,
                 "task_id": record_stopwatch.task_id,
@@ -196,8 +198,8 @@ class TimerService:
                 "creation_date": record_stopwatch.creation_date,
                 "code_code": task_code,
                 "task_description": task_description,
-                "task_type": task_type,
-                "task_activity": task_activity,
+                "task_type": task_type or code_type,
+                "task_activity": task_activity or code_activity,
                 "task_people": task_people,
             })
         return result
@@ -209,11 +211,13 @@ class TimerService:
             Task.description,
             Task.type,
             Task.activity,
-            Task.people
+            Task.people,
+            Code.activity.label("code_activity"),
+            Code.type.label("code_type")
         ).join(Task, RecordStopwatch.task_id == Task.id).join(Code, Task.code_id == Code.id).all()
 
         result = []
-        for record_stopwatch, task_code, task_description, task_type, task_activity, task_people in all_records_query:
+        for record_stopwatch, task_code, task_description, task_type, task_activity, task_people, code_activity, code_type in all_records_query:
             result.append({
                 "id": record_stopwatch.id,
                 "task_id": record_stopwatch.task_id,
@@ -222,8 +226,8 @@ class TimerService:
                 "creation_date": record_stopwatch.creation_date,
                 "code_code": task_code,
                 "task_description": task_description,
-                "task_type": task_type,
-                "task_activity": task_activity,
+                "task_type": task_type or code_type,
+                "task_activity": task_activity or code_activity,
                 "task_people": task_people,
             })
         return result
