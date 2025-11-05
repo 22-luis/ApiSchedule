@@ -1,7 +1,10 @@
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from app.models.task import Task
 from app.models.stopwatch import Stopwatch
 from app.models.record_stopwatch import RecordStopwatch
+from app.models.programming import ProgrammingTask
+from app.models.code import Code
 from app.models.state import TimerStatus
 from datetime import datetime, timezone, timedelta
 import uuid
@@ -19,7 +22,7 @@ class TimerService:
     def __init__(self, db: Session):
         self.db = db
 
-    def start_stopwatch(self, task_id: uuid.UUID, start_time: datetime | None = None):
+    def start_stopwatch(self, task_id: uuid.UUID, start_time: datetime | None = None, is_from_programming: bool = False):
         task = self.db.query(Task).filter(Task.id == task_id).first()
         if not task:
             raise ValueError("Task not found")
@@ -36,6 +39,7 @@ class TimerService:
             status=TimerStatus.RUNNING,
             quantity=0, # Quantity will be set at stop
             accumulated_duration=0,
+            is_from_programming=is_from_programming,
             created_at=start_time
         )
         self.db.add(stopwatch)
@@ -102,18 +106,33 @@ class TimerService:
             elapsed_time = time_difference.total_seconds() / 3600  # Convert to hours
             accumulated_duration += elapsed_time
 
-        # Create a record in record_stopwatch
-        record = RecordStopwatch(
-            task_id=task_id,
-            quantity=real_quantity,
-            accumulated_duration=accumulated_duration
-        )
-        self.db.add(record)
+        record = None
+        # Create a record in record_stopwatch or update ProgrammingTask
+        if stopwatch.is_from_programming is False:
+            record = RecordStopwatch(
+                task_id=task_id,
+                quantity=real_quantity,
+                accumulated_duration=accumulated_duration
+            )
+            self.db.add(record)
+        else:
+            record = self.db.query(ProgrammingTask).filter(ProgrammingTask.task_id == task_id).first()
+            if not record:
+                raise ValueError(f"ProgrammingTask with task_id {task_id} not found.")
+            
+            record.real_start_time = stopwatch.created_at
+            record.real_end_time = now
+            record.real_quantity = real_quantity
+            record.duration_in_hours = accumulated_duration
 
         # Delete from stopwatch
         self.db.delete(stopwatch)
 
         self.db.commit()
+        
+        if record:
+            self.db.refresh(record)
+
         return record
 
     def get_tasks_status(self, task_ids: list[uuid.UUID]):
@@ -144,3 +163,61 @@ class TimerService:
             "quantity": record.quantity,
             "accumulated_duration": record.accumulated_duration
         }
+
+    def get_daily_record_stopwatches(self):
+        # Get current UTC datetime, adjust by 6 hours, then extract the date part
+        current_datetime_adjusted = datetime.now(timezone.utc) - timedelta(hours=6)
+        today = current_datetime_adjusted.date()
+        
+        daily_records_query = self.db.query(
+            RecordStopwatch,
+            Code.code,
+            Task.description,
+            Task.type,
+            Task.activity,
+            Task.people
+        ).join(Task, RecordStopwatch.task_id == Task.id).join(Code, Task.code_id == Code.id).filter(
+            func.date(RecordStopwatch.creation_date) == today
+        ).all()
+
+        result = []
+        for record_stopwatch, task_code, task_description, task_type, task_activity, task_people in daily_records_query:
+            result.append({
+                "id": record_stopwatch.id,
+                "task_id": record_stopwatch.task_id,
+                "quantity": record_stopwatch.quantity,
+                "accumulated_duration": record_stopwatch.accumulated_duration,
+                "creation_date": record_stopwatch.creation_date,
+                "task_code": task_code,
+                "task_description": task_description,
+                "task_type": task_type,
+                "task_activity": task_activity,
+                "task_people": task_people,
+            })
+        return result
+
+    def get_all_record_stopwatches(self):
+        all_records_query = self.db.query(
+            RecordStopwatch,
+            Code.code,
+            Task.description,
+            Task.type,
+            Task.activity,
+            Task.people
+        ).join(Task, RecordStopwatch.task_id == Task.id).join(Code, Task.code_id == Code.id).all()
+
+        result = []
+        for record_stopwatch, task_code, task_description, task_type, task_activity, task_people in all_records_query:
+            result.append({
+                "id": record_stopwatch.id,
+                "task_id": record_stopwatch.task_id,
+                "quantity": record_stopwatch.quantity,
+                "accumulated_duration": record_stopwatch.accumulated_duration,
+                "creation_date": record_stopwatch.creation_date,
+                "task_code": task_code,
+                "task_description": task_description,
+                "task_type": task_type,
+                "task_activity": task_activity,
+                "task_people": task_people,
+            })
+        return result
