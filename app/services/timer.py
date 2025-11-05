@@ -136,32 +136,38 @@ class TimerService:
         return record
 
     def get_tasks_status(self, task_ids: list[uuid.UUID]):
+        logger.info(f"get_tasks_status called for task_ids: {task_ids}")
         # Get tasks from Stopwatch (running, paused)
-        stopwatch_tasks = self.db.query(Stopwatch.task_id, Stopwatch.status).filter(Stopwatch.task_id.in_(task_ids)).all()
+        stopwatch_tasks = self.db.query(Stopwatch.task_id, Stopwatch.status, Stopwatch.id).filter(Stopwatch.task_id.in_(task_ids)).all()
+        logger.info(f"Stopwatch tasks found: {stopwatch_tasks}")
 
         # Get tasks from RecordStopwatch (completed/done)
         record_stopwatch_tasks = self.db.query(RecordStopwatch.task_id).filter(RecordStopwatch.task_id.in_(task_ids)).all()
+        logger.info(f"RecordStopwatch tasks found: {record_stopwatch_tasks}")
 
         # Create a dictionary to hold the status, prioritizing 'done'
         task_statuses = {}
 
-        for task_id, status in stopwatch_tasks:
-            task_statuses[str(task_id)] = status.value
+        for task_id, status, stopwatch_id in stopwatch_tasks:
+            task_statuses[str(task_id)] = {"status": status.value, "record_id": str(stopwatch_id)}
 
         for task_id_record, in record_stopwatch_tasks:
-            task_statuses[str(task_id_record)] = TimerStatus.STOPPED.value 
+            task_statuses[str(task_id_record)] = {"status": TimerStatus.STOPPED.value, "record_id": None}
 
-        # Format the output
-        return [{"task_id": task_id, "status": status} for task_id, status in task_statuses.items()]
+        final_statuses = [{"task_id": task_id, "status": data["status"], "record_id": data["record_id"]} for task_id, data in task_statuses.items()]
+        logger.info(f"Final statuses returned: {final_statuses}")
+        return final_statuses
 
     def get_record_stopwatch_info(self, task_id: uuid.UUID):
         record = self.db.query(RecordStopwatch).filter(RecordStopwatch.task_id == task_id).first()
         if not record:
             return None
         return {
+            "id": str(record.id),
             "task_id": str(record.task_id),
             "quantity": record.quantity,
-            "accumulated_duration": record.accumulated_duration
+            "accumulated_duration": record.accumulated_duration,
+            "creation_date": record.creation_date
         }
 
     def get_daily_record_stopwatches(self):

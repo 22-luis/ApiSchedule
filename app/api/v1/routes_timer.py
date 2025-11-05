@@ -30,6 +30,7 @@ class TaskStatusRequest(BaseModel):
 class TaskStatusResponse(BaseModel):
     task_id: str
     status: str
+    record_id: Optional[str] = None
 
 class TimerStartPayload(BaseModel):
     start_time: Optional[datetime] = None
