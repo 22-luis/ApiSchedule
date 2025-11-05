@@ -88,6 +88,7 @@ def get_programming_by_team_date(team_id: str, date: str, db: Session = Depends(
             t['real_start_time'] = getattr(pt, 'real_start_time', None)
             t['real_end_time'] = getattr(pt, 'real_end_time', None)
             t['real_quantity'] = getattr(pt, 'real_quantity', None)
+            t['duration_in_hours'] = getattr(pt, 'duration_in_hours', None)
             t['comment'] = getattr(pt, 'comment', None)
             t['created_at'] = getattr(pt, 'created_at', None)
             # Properly serialize the created_by_user object
@@ -269,6 +270,7 @@ async def reorder_programming_tasks(
         if not pt:
             raise HTTPException(status_code=404, detail=f"Task {item.task_id} not found in programming")
         pt.order = item.order
+        pt.duration_in_hours = item.duration_in_hours
         if item.start_time and item.end_time:
             pt.start_time = item.start_time if isinstance(item.start_time, datetime) else datetime.fromisoformat(item.start_time)
             pt.end_time = item.end_time if isinstance(item.end_time, datetime) else datetime.fromisoformat(item.end_time)
@@ -294,7 +296,8 @@ async def reorder_programming_tasks(
             task_id=pt.task_id,
             order=pt.order,
             start_time=pt.start_time,
-            end_time=pt.end_time
+            end_time=pt.end_time,
+            duration_in_hours=pt.duration_in_hours
         ))
     db.commit()
     

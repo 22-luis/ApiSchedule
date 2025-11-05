@@ -4,9 +4,12 @@ from app.db.dependency import get_db
 from app.services.timer import TimerService
 import uuid
 
+from typing import Optional
+from app.schemas.record_stopwatch import RecordStopwatch as RecordStopwatchSchema
+
 router = APIRouter()
 
-@router.get("/record-stopwatch/{task_id}", summary="Get Record Stopwatch Info by Task ID")
+@router.get("/record-stopwatch/{task_id}", response_model=Optional[RecordStopwatchSchema], summary="Get Record Stopwatch Info by Task ID")
 def get_record_stopwatch_info_api(
     task_id: uuid.UUID,
     db: Session = Depends(get_db)
@@ -14,9 +17,4 @@ def get_record_stopwatch_info_api(
     timer_service = TimerService(db)
     record_info = timer_service.get_record_stopwatch_info(task_id)
 
-    if not record_info:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Record Stopwatch not found for the given task ID"
-        )
     return record_info
