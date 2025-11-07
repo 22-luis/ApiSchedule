@@ -22,6 +22,7 @@ from app.utils.programming_availability import update_programming_availability, 
 from app.models.order import Order as OrderModel
 from app.models.state import OrderStatus
 from app.models.programming import ProgrammingStatus
+from app.services.timer import TimerService
 
 router = APIRouter(prefix="/programmings", tags=["programmings"])
 
