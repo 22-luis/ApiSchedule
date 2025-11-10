@@ -6,9 +6,13 @@ from app.services.timer import TimerService
 from app.schemas.stopwatch import Stopwatch as StopwatchSchema
 from pydantic import BaseModel
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, Union, Union
 
 from app.schemas.record_stopwatch import RecordStopwatch as RecordStopwatchSchema
+from app.schemas.programming import ProgrammingTaskOrderOut as ProgrammingTaskSchema
+
+from app.utils.dependencies import get_current_user
+from app.models.user import User
 
 class RecordStopwatchDetailSchema(BaseModel):
     id: uuid.UUID
@@ -53,11 +57,11 @@ def start_timer(task_id: uuid.UUID, payload: TimerStartPayload, db: Session = De
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.post("/stopwatch/stop/{task_id}", response_model=RecordStopwatchSchema, tags=["Timer"])
-def stop_timer(task_id: uuid.UUID, payload: TimerStopPayload, db: Session = Depends(get_db)):
+@router.post("/stopwatch/stop/{task_id}", response_model=Union[RecordStopwatchSchema, ProgrammingTaskSchema], tags=["Timer"])
+def stop_timer(task_id: uuid.UUID, payload: TimerStopPayload, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     timer_service = TimerService(db)
     try:
-        record = timer_service.stop_stopwatch(task_id=task_id, real_quantity=payload.quantity)
+        record = timer_service.stop_stopwatch(task_id=task_id, real_quantity=payload.quantity, user_id=current_user.id)
         return record
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

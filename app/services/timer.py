@@ -87,7 +87,7 @@ class TimerService:
         self.db.refresh(stopwatch)
         return stopwatch
 
-    def stop_stopwatch(self, task_id: uuid.UUID, real_quantity: float):
+    def stop_stopwatch(self, task_id: uuid.UUID, real_quantity: float, user_id: uuid.UUID):
         now = datetime.now(timezone.utc) - timedelta(hours=6)
         
         stopwatch = self.db.query(Stopwatch).filter(Stopwatch.task_id == task_id).first()
@@ -120,10 +120,20 @@ class TimerService:
             if not record:
                 raise ValueError(f"ProgrammingTask with task_id {task_id} not found.")
             
+            task = self.db.query(Task).filter(Task.id == task_id).first()
+            if not task:
+                raise ValueError(f"Task with id {task_id} not found.")
+
             record.real_start_time = stopwatch.created_at
             record.real_end_time = now
             record.real_quantity = real_quantity
             record.duration_in_hours = accumulated_duration
+            record.completed_by_user_id = user_id
+            
+            if record.real_quantity is not None and task.quantity is not None:
+                record.is_completed = record.real_quantity >= task.quantity
+            else:
+                record.is_completed = False
 
         # Delete from stopwatch
         self.db.delete(stopwatch)
