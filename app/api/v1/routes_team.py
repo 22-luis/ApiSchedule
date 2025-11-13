@@ -7,7 +7,7 @@ from app.models.user import User
 from app.models.team import Team
 from app.models.state import UserState
 from app.schemas.team import TeamCreate, TeamOut
-from app.utils.dependencies import get_current_user, require_roles
+from app.utils.core.dependencies import get_current_user, require_roles
 from app.models.role import UserRole
 from app.core.task_config import get_most_suitable_weighing_team
 

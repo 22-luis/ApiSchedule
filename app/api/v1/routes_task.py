@@ -12,10 +12,10 @@ from app.models.role import UserRole
 from app.models.programming import Programming, ProgrammingTask
 from app.models.task_status_log import TaskStatusLog
 from app.schemas.task import TaskCreate, TaskUpdate, TaskOut
-from app.utils.dependencies import get_current_user, require_roles
+from app.utils.core.dependencies import get_current_user, require_roles
 from app.api.v1.replicate_pesado import replicate_task_to_pesado_if_needed
-from app.utils.order_status_service import OrderStatusService
-from app.utils.programming_availability import update_programming_availability_by_task
+from app.utils.bussiness.order_status_service import OrderStatusService
+from app.utils.bussiness.programming_availability import update_programming_availability_by_task
 from app.core.enums import TaskStatus, TaskType
 
 

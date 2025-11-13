@@ -5,10 +5,10 @@ from app.models import order as order_model
 from app.db.dependency import get_db
 from typing import List, Union, Optional
 from app.models.user import User
-from app.utils.dependencies import get_current_user, require_roles
+from app.utils.core.dependencies import get_current_user, require_roles
 from app.models.role import UserRole
 from app.models.state import OrderStatus
-from app.utils.data_cleaning import clean_order_data
+from app.utils.bussiness.data_cleaning import clean_order_data
 from datetime import datetime
 from sqlalchemy import or_, and_
 from app.core.task_config import (
@@ -16,7 +16,7 @@ from app.core.task_config import (
     get_orders_summary
 )
 from app.services.factory import TaskServiceFactory
-from app.utils.order_status_service import OrderStatusService
+from app.utils.bussiness.order_status_service import OrderStatusService
 from app.models.programming import ProgrammingTask
 from datetime import date
 

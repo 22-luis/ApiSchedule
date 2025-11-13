@@ -8,7 +8,7 @@ from typing import Dict, Any, List, Optional
 from collections import defaultdict, deque
 from datetime import datetime, timedelta
 from dataclasses import dataclass, field
-from app.utils.logging import get_logger
+from app.utils.core.logging import get_logger
 
 logger = get_logger("metrics")
 

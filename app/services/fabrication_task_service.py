@@ -9,9 +9,8 @@ from datetime import time
 import math
 
 from app.services.base_task_service import BaseTaskService
-from app.services.utils.team_selection_service import TeamSelectionService
-from app.core.enums import ManufacturingActivities
 from app.services.config import ServiceType, ServiceConfig
+from app.utils.Auto.rules.Manufactured import ManufacturedRule
 
 
 class FabricationTaskService(BaseTaskService):
@@ -23,136 +22,20 @@ class FabricationTaskService(BaseTaskService):
         time_limit = ServiceConfig.get_time_limit(ServiceType.FABRICATION)
         tolerance_minutes = ServiceConfig.get_tolerance_minutes(ServiceType.FABRICATION)
         super().__init__(time_limit=time_limit, tolerance_minutes=tolerance_minutes)
+        self.manufactured_rule = ManufacturedRule()
     
     def filter_activities(self, activities_data: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Filtra las actividades para obtener solo las relacionadas con fabricación.
-        
-        Args:
-            activities_data: Diccionario con todas las actividades organizadas por código
-            
-        Returns:
-            Diccionario con solo las actividades de fabricación organizadas por código
-        """
-        fabrication_activities_by_code = {}
-        
-        activities_by_code = activities_data.get("activities_by_code", {})
-        for code, code_data in activities_by_code.items():
-            activities = code_data.get("activities", [])
-            fabrication_activities = []
-            
-            for activity in activities:
-                activity_name = activity.get("activity", "").upper()
-                
-                # Buscar actividades relacionadas con fabricación usando configuración centralizada
-                fabrication_keywords = ServiceConfig.get_activity_keywords(ServiceType.FABRICATION)
-                
-                if any(keyword in activity_name for keyword in fabrication_keywords):
-                    fabrication_activities.append(activity)
-            
-            if fabrication_activities:
-                fabrication_activities_by_code[code] = {
-                    "code": code,
-                    "fabrication_activities": fabrication_activities,
-                    "total_fabrication_activities": len(fabrication_activities),
-                    "found": True
-                }
-        
-        return {
-            "fabrication_activities_by_code": fabrication_activities_by_code,
-            "total_codes_with_fabrication": len(fabrication_activities_by_code),
-            "codes_with_fabrication": list(fabrication_activities_by_code.keys())
-        }
+        return self.manufactured_rule.filter_activities(activities_data)
     
     def get_most_suitable_team(self, db: Session) -> Dict[str, Any]:
-        """
-        Obtiene el equipo más idóneo para actividades de fabricación.
-        Como las actividades de fabricación requieren selección específica por actividad,
-        este método devuelve todos los equipos disponibles para que se seleccione el apropiado.
-        
-        Args:
-            db: Sesión de base de datos
-            
-        Returns:
-            Diccionario con información de todos los equipos de fabricación
-        """
-        return TeamSelectionService.get_fabrication_teams(db)
+        return self.manufactured_rule.get_most_suitable_team(db)
     
     def get_activity_for_order(self, order_data: Dict, activities_data: Dict) -> Optional[Dict]:
-        """
-        Obtiene la actividad de fabricación específica para una orden.
-        
-        Args:
-            order_data: Datos de la orden (lote, quantity, code)
-            activities_data: Datos de actividades de fabricación con minutos calculados
-            
-        Returns:
-            Actividad de fabricación específica para la orden o None si no se encuentra
-        """
-        order_code = order_data.get('code')
-        if not order_code:
-            return None
-        
-        # Buscar las actividades para el código de esta orden
-        code_data = activities_data.get("fabrication_activities_by_code", {}).get(order_code)
-        
-        if not code_data or not code_data.get("fabrication_activities"):
-            return None
-        
-        # Buscar la actividad más específica según prioridad
-        fabrication_activities = code_data["fabrication_activities"]
-        
-        # Prioridad 1: Actividades de molienda
-        molienda_activities = [
-            ManufacturingActivities.Mol_pasta.value,
-            ManufacturingActivities.Mol_polvo.value
-        ]
-        
-        for activity in fabrication_activities:
-            activity_name = activity.get("activity", "").upper()
-            if any(molienda_activity.upper() in activity_name for molienda_activity in molienda_activities):
-                return activity
-        
-        # Prioridad 2: Actividades de mezcla
-        mezcla_activities = [
-            ManufacturingActivities.Mez_maquina.value,
-            ManufacturingActivities.Mez_polvo.value,
-            ManufacturingActivities.mez_liquida.value
-        ]
-        
-        for activity in fabrication_activities:
-            activity_name = activity.get("activity", "").upper()
-            if any(mezcla_activity.upper() in activity_name for mezcla_activity in mezcla_activities):
-                return activity
-        
-        # Prioridad 3: Actividades de fabricación general
-        fabricacion_activities = [ManufacturingActivities.Fabricacion.value]
-        
-        for activity in fabrication_activities:
-            activity_name = activity.get("activity", "").upper()
-            if any(fabricacion_activity.upper() in activity_name for fabricacion_activity in fabricacion_activities):
-                return activity
-        
-        # Si no se encuentra ninguna actividad específica, usar la primera disponible
-        if fabrication_activities:
-            return fabrication_activities[0]
-        
-        return None
+        return self.manufactured_rule.get_activity_for_order(order_data, activities_data)
     
-    def get_specific_team_for_activity(self, activity_name: str, activity_description: str, teams_data: Dict) -> Dict[str, Any]:
-        """
-        Obtiene el equipo específico para una actividad de fabricación según las reglas de negocio.
-        
-        Args:
-            activity_name: Nombre de la actividad
-            activity_description: Descripción de la actividad
-            teams_data: Datos de equipos obtenidos de get_most_suitable_team
-            
-        Returns:
-            Diccionario con el equipo seleccionado y la razón
-        """
-        return TeamSelectionService.get_specific_fabrication_team_for_activity(
-            activity_name, activity_description, teams_data
+    def get_specific_team_for_activity(self, order_data: Dict, teams_data: Dict) -> Dict[str, Any]:
+        return self.manufactured_rule.get_specific_team_for_activity(
+            order_data, teams_data
         )
     
     def get_fabrication_activities_with_minutes(self, extracted_orders: List[Dict], db: Session) -> Dict[str, Any]:
@@ -289,12 +172,10 @@ class FabricationTaskService(BaseTaskService):
                 
                 # Usar la primera actividad de fabricación
                 activity_with_minutes = code_activities[0]
-                activity_name = activity_with_minutes.get("activity_data", {}).get("activity", "")
-                activity_description = activity_with_minutes.get("activity_data", {}).get("description", "")
                 
                 # Obtener el equipo específico para esta actividad
                 team_selection = self.get_specific_team_for_activity(
-                    activity_name, activity_description, teams_result
+                    order_data, teams_result
                 )
                 
                 if not team_selection.get("success"):

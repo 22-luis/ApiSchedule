@@ -9,7 +9,7 @@ from collections import defaultdict
 from fastapi import HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 from app.core.config import settings
-from app.utils.logging import get_logger, log_security_event
+from app.utils.core.logging import get_logger, log_security_event
 
 
 logger = get_logger("rate_limiting")

@@ -23,7 +23,7 @@ from app.models.code import Code
 from app.models.programming import Programming, ProgrammingTask
 from app.models.role import UserRole
 from app.models.state import UserState
-from app.utils.jwt import create_access_token
+from app.utils.security.jwt import create_access_token
 
 # Test database configuration
 SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"

@@ -2,10 +2,10 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from app.db.dependency import get_db
-from app.utils.dependencies import get_current_user, require_roles
+from app.utils.core.dependencies import get_current_user, require_roles
 from app.models.user import User
 from app.models.role import UserRole
-from app.utils.business_calculations import (
+from app.utils.bussiness.business_calculations import (
     BusinessCalculations,
     TimeZoneUtils,
     TaskDurationRequest,

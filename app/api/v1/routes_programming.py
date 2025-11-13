@@ -7,7 +7,7 @@ from app.models.task import Task
 from app.models.team import Team
 from app.schemas.programming import ProgrammingCreate, ProgrammingRead, ProgrammingUpdate, ProgrammingTaskOrderIn, ProgrammingReorderResponse, ProgrammingTaskOrderOut, AvailableProgrammingResponse, AvailableProgrammingItem, TasksOrderRequest
 from app.db.dependency import get_db
-from app.utils.dependencies import get_current_user, require_roles
+from app.utils.core.dependencies import get_current_user, require_roles
 from datetime import date, datetime, timedelta, time
 from uuid import UUID
 from app.models.programming import ProgrammingTask
@@ -17,8 +17,8 @@ from app.models.user import User
 import sys
 import traceback
 from pytz import timezone
-from app.utils.order_status_service import OrderStatusService
-from app.utils.programming_availability import update_programming_availability, update_all_programmings_availability_for_date
+from app.utils.bussiness.order_status_service import OrderStatusService
+from app.utils.bussiness.programming_availability import update_programming_availability, update_all_programmings_availability_for_date
 from app.models.order import Order as OrderModel
 from app.models.state import OrderStatus
 from app.models.programming import ProgrammingStatus

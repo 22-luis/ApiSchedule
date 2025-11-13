@@ -13,8 +13,8 @@ from app.models.order import Order
 from app.models.role import UserRole
 from app.models.user import User
 from app.schemas.code import CodeCreate, CodeOut, CodePageOut, CodeUpdate
-from app.utils.data_cleaning import clean_float, clean_str, clean_str_preserve_case
-from app.utils.dependencies import require_roles
+from app.utils.bussiness.data_cleaning import clean_float, clean_str, clean_str_preserve_case
+from app.utils.core.dependencies import require_roles
 
 # Configurar logger
 logger = logging.getLogger(__name__)

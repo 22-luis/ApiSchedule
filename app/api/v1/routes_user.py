@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from app.utils.dependencies import get_current_user, require_roles, check_user_modification_permission, ROLE_HIERARCHY
+from app.utils.core.dependencies import get_current_user, require_roles, check_user_modification_permission, ROLE_HIERARCHY
 from sqlalchemy.orm import Session
 from app.models.user import User
 from app.schemas.user import UserCreate, UserOut, UserStateUpdate, UserUpdate
@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from app.models.team import Team
 from app.models.state import UserState
 from app.models.role import UserRole
-from app.utils.security import hash_password
+from app.utils.security.security import hash_password
 
 router = APIRouter(prefix="/users", tags=["users"])
 
