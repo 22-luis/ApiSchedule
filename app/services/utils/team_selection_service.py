@@ -349,12 +349,12 @@ class TeamSelectionService:
         """
         # Usar los equipos definidos en PackagingTeams
         packaging_team_names = [
-            PackagingTeams.Empaque1.value,
-            PackagingTeams.Empaque2.value,
-            PackagingTeams.Empaque3.value,
-            PackagingTeams.Empaque4.value,
-            PackagingTeams.Maquina1.value,
-            PackagingTeams.Maquina2.value
+            PackagingTeams.EMPAQUE1.value,
+            PackagingTeams.EMPAQUE2.value,
+            PackagingTeams.EMPAQUE3.value,
+            PackagingTeams.EMPAQUE4.value,
+            PackagingTeams.MAQUINA1.value,
+            PackagingTeams.MAQUINA2.value
         ]
         
         packaging_teams = []
@@ -391,17 +391,17 @@ class TeamSelectionService:
         
         for team in packaging_teams:
             team_name_lower = team.name.lower()
-            if PackagingTeams.Empaque1.value.lower() in team_name_lower:
+            if PackagingTeams.EMPAQUE1.value.lower() in team_name_lower:
                 empaque_teams.append(team)
-            elif PackagingTeams.Empaque2.value.lower() in team_name_lower:
+            elif PackagingTeams.EMPAQUE2.value.lower() in team_name_lower:
                 empaque2_teams.append(team)
-            elif PackagingTeams.Empaque3.value.lower() in team_name_lower:
+            elif PackagingTeams.EMPAQUE3.value.lower() in team_name_lower:
                 empaque3_teams.append(team)
-            elif PackagingTeams.Empaque4.value.lower() in team_name_lower:
+            elif PackagingTeams.EMPAQUE4.value.lower() in team_name_lower:
                 empaque4_teams.append(team)
-            elif PackagingTeams.Maquina1.value.lower() in team_name_lower:
+            elif PackagingTeams.MAQUINA1.value.lower() in team_name_lower:
                 maquina1_teams.append(team)
-            elif PackagingTeams.Maquina2.value.lower() in team_name_lower:
+            elif PackagingTeams.MAQUINA2.value.lower() in team_name_lower:
                 maquina2_teams.append(team)
         
         # Tomar el primer equipo de cada tipo como representante
@@ -419,12 +419,12 @@ class TeamSelectionService:
                 {
                     "id": str(team.id),
                     "name": team.name,
-                    "type": "empaque" if PackagingTeams.Empaque1.value.lower() in team.name.lower() else
-                           "empaque2" if PackagingTeams.Empaque2.value.lower() in team.name.lower() else
-                           "empaque3" if PackagingTeams.Empaque3.value.lower() in team.name.lower() else
-                           "empaque4" if PackagingTeams.Empaque4.value.lower() in team.name.lower() else
-                           "maquina1" if PackagingTeams.Maquina1.value.lower() in team.name.lower() else
-                           "maquina2" if PackagingTeams.Maquina2.value.lower() in team.name.lower() else "otro"
+                    "type": "empaque" if PackagingTeams.EMPAQUE1.value.lower() in team.name.lower() else
+                           "empaque2" if PackagingTeams.EMPAQUE2.value.lower() in team.name.lower() else
+                           "empaque3" if PackagingTeams.EMPAQUE3.value.lower() in team.name.lower() else
+                           "empaque4" if PackagingTeams.EMPAQUE4.value.lower() in team.name.lower() else
+                           "maquina1" if PackagingTeams.MAQUINA1.value.lower() in team.name.lower() else
+                           "maquina2" if PackagingTeams.MAQUINA2.value.lower() in team.name.lower() else "otro"
                 } for team in packaging_teams
             ],
             "teams_by_type": {

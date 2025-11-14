@@ -27,8 +27,8 @@ class FabricationTaskService(BaseTaskService):
     def filter_activities(self, activities_data: Dict[str, Any]) -> Dict[str, Any]:
         return self.manufactured_rule.filter_activities(activities_data)
     
-    def get_most_suitable_team(self, db: Session) -> Dict[str, Any]:
-        return self.manufactured_rule.get_most_suitable_team(db)
+    def get_most_suitable_team(self, db: Session, order_data: Dict) -> Dict[str, Any]:
+        return self.manufactured_rule.get_most_suitable_team(db, order_data)
     
     def get_activity_for_order(self, order_data: Dict, activities_data: Dict) -> Optional[Dict]:
         return self.manufactured_rule.get_activity_for_order(order_data, activities_data)
@@ -140,17 +140,6 @@ class FabricationTaskService(BaseTaskService):
             # Obtener actividades con minutos calculados
             activities_with_minutes = self.get_fabrication_activities_with_minutes(extracted_orders, db)
             
-            # Obtener todos los equipos de fabricación disponibles
-            teams_result = self.get_most_suitable_team(db)
-            
-            if not teams_result.get("success"):
-                return {
-                    "success": False,
-                    "message": "No se pudo obtener equipos de fabricación",
-                    "tasks_created": 0,
-                    "total_orders": len(extracted_orders)
-                }
-            
             # Procesar cada orden con selección específica de equipo
             created_tasks = []
             failed_orders = []
@@ -172,11 +161,10 @@ class FabricationTaskService(BaseTaskService):
                 
                 # Usar la primera actividad de fabricación
                 activity_with_minutes = code_activities[0]
-                
+                activity_name = activity_with_minutes.get("activity_data", {}).get("activity")
+
                 # Obtener el equipo específico para esta actividad
-                team_selection = self.get_specific_team_for_activity(
-                    order_data, teams_result
-                )
+                team_selection = self.get_most_suitable_team(db, order_data)
                 
                 if not team_selection.get("success"):
                     failed_orders.append({
@@ -234,14 +222,16 @@ class FabricationTaskService(BaseTaskService):
                 "total_orders": len(extracted_orders),
                 "created_tasks": created_tasks,
                 "failed_orders": failed_orders,
-                "teams_data": teams_result,
                 "activities_data": activities_with_minutes.get("fabrication_activities")
             }
             
         except Exception as e:
-            return {
-                "success": False,
-                "message": f"Error durante la creación de tareas de fabricación: {str(e)}",
-                "tasks_created": 0,
-                "total_orders": len(extracted_orders)
-            }
+            # Log a more detailed error message, including traceback
+            import traceback
+            print(f"Error during fabrication task creation: {str(e)}\n{traceback.format_exc()}")
+            
+            # Rollback the transaction to avoid inconsistent state
+            db.rollback()
+            
+            # Re-raise the exception so it's not silent
+            raise

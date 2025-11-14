@@ -180,7 +180,7 @@ class PackagingTaskService(BaseTaskService):
                     activity_name, activity_description, teams_result
                 )
                 
-                if not team_selection.get("success"):
+                if not team_selection or not team_selection.get("success"):
                     failed_orders.append({
                         "order_data": order_data,
                         "reason": f"No se pudo asignar equipo para actividad: {activity_name}"
@@ -241,9 +241,12 @@ class PackagingTaskService(BaseTaskService):
             }
             
         except Exception as e:
-            return {
-                "success": False,
-                "message": f"Error durante la creación de tareas de empaque: {str(e)}",
-                "tasks_created": 0,
-                "total_orders": len(extracted_orders)
-            }
+            # Log a more detailed error message, including traceback
+            import traceback
+            print(f"Error during packaging task creation: {str(e)}\n{traceback.format_exc()}")
+            
+            # Rollback the transaction to avoid inconsistent state
+            db.rollback()
+            
+            # Re-raise the exception so it's not silent
+            raise

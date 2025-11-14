@@ -48,14 +48,13 @@ class WeighingRule:
             "codes_with_weighing": list(weighing_activities_by_code.keys())
         }
 
-    def get_most_suitable_team(self, db: Session, order_data: Dict[str, Any]) -> Dict[str, Any]:
+    def get_most_suitable_team(self, db: Session) -> Dict[str, Any]:
         """
         Obtiene el equipo de pesado. Se asume que esta función solo se llama para órdenes 
         que ya han sido filtradas y se sabe que requieren pesado (códigos M7).
         
         Args:
             db: Sesión de base de datos
-            order_data: Datos de la orden (lote, quantity, code)
             
         Returns:
             Diccionario con el equipo seleccionado y la razón

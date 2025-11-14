@@ -7,22 +7,24 @@ class TaskStatus(str, Enum):
     COMPLETED = "completada"
 
 class TaskType(str, Enum):
-    M1 = "M1"
-    M12 = "M12"
-    M13 = "M13"
-    M15 = "M15"
-    # Add other task types if they exist
+    M1 = "EMPAQUE MANUAL MAS MEZCLA"
+    M2 = "EMPAQUE MANUAL GRUPO"
+    M3 = "EMPAQUE BOLSA DE 50, 55 LB"
+    M4 = "EMPAQUE MAQUINA SEMI AUTOMATICA"
+    M5 = "EMPAQUE MAQUINA AUTOMATICA"
+    M7 = "PESADO Y/O FABRICADO"
+    M9 = "MOLIENDA POLVOS/HORNEO"
+    M10 = "MOLIENDA EN PASTA"
+    M11 = "MEZCLA MANUAL POLVO"
+    M12 = "MEZCLA EN MAQUINA/EMPAQUE 25 KG"
+    M13 = "MEZCLAS LIQUIDAS Y/O EMPAQUE"
+    M15 = "FABRICACION DE ADEREZOS, JALEAS"
 
 class WeighingTeams(str, Enum):
-    PESADO1 = "Equipo de Pesado 1"
-    PESADO2 = "Equipo de Pesado 2"
+    PESADO = "Pesado "
 
 class WeighingActivities(str, Enum):
-    PESADO = "PESADO"
-    PESAR = "PESAR"
-    PESO = "PESO"
-    BALANZA = "BALANZA"
-    WEIGHING = "WEIGHING"
+    PESADO = "PESADO Y/O FABRICADO"
 
 class ManufacturingTeams(str, Enum):
     FABRICADO1 = "Fabricado 1"
@@ -31,12 +33,12 @@ class ManufacturingTeams(str, Enum):
     MOLINO = "Molino"
 
 class ManufacturingActivities(str, Enum):
-    MOL_PASTA = "Mol_pasta"
-    MOL_POLVO = "Mol_polvo"
-    MEZ_MAQUINA = "Mez_maquina"
-    MEZ_POLVO = "Mez_polvo"
-    MEZ_LIQUIDA = "mez_liquida"
-    FABRICACION = "Fabricacion"
+    MOL_PASTA = "MOLIENDA EN PASTA"
+    MOL_POLVO = "MOLIENDA POLVOS/HORNEO"
+    MEZ_MAQUINA = "MEZCLA EN MAQUINA/EMPAQUE 25 KG"
+    MEZ_POLVO = "MEZCLA MANUAL POLVO"
+    MEZ_LIQUIDA = "MEZCLAS LIQUIDAS Y/O EMPAQUE"
+    FABRICACION = "FABRICACION DE ADEREZOS, JALEAS"
 
 class PackagingTeams(str, Enum):
     EMPAQUE1 = "Empaque 1"
@@ -47,8 +49,8 @@ class PackagingTeams(str, Enum):
     MAQUINA2 = "Maquina 2"
 
 class PackagingActivities(str, Enum):
-    EMP_GRUPO = "Emp_grupo"
-    EMP_MANUAL = "Emp_manual"
-    EMP_SEMI = "Emp_semi"
-    EMP_AUTO = "Emp_auto"
-    EMP_MEZCLA = "Emp_mezcla"
+    EMP_GRUPO = "EMPAQUE MANUAL GRUPO"
+    EMP_MANUAL = "EMPAQUE BOLSA DE 50, 55 LB"
+    EMP_SEMI = "EMPAQUE MAQUINA SEMI AUTOMATICA"
+    EMP_AUTO = "EMPAQUE MAQUINA AUTOMATICA"
+    EMP_MEZCLA = "EMPAQUE MANUAL MAS MEZCLA"

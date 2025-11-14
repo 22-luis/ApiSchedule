@@ -225,9 +225,12 @@ class WeighingTaskService(BaseTaskService):
             }
             
         except Exception as e:
-            return {
-                "success": False,
-                "message": f"Error durante la creación de tareas de pesado: {str(e)}",
-                "tasks_created": 0,
-                "total_orders": len(extracted_orders)
-            }
+            # Log a more detailed error message, including traceback
+            import traceback
+            print(f"Error during weighing task creation: {str(e)}\n{traceback.format_exc()}")
+            
+            # Rollback the transaction to avoid inconsistent state
+            db.rollback()
+            
+            # Re-raise the exception so it's not silent
+            raise

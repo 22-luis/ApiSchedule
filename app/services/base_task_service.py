@@ -28,7 +28,7 @@ class BaseTaskService(ABC):
         self.time_limit = time_limit
         self.tolerance_minutes = tolerance_minutes
         self.max_allowed_minutes = time_limit.hour * 60 + time_limit.minute + tolerance_minutes
-        self.schedule_rule = ScheduleRule(time_limit, tolerance_minutes)
+        self.schedule_rule = ScheduleRule(tolerance_minutes=tolerance_minutes, time_limit=time_limit)
     
     @abstractmethod
     def filter_activities(self, activities_data: Dict[str, Any]) -> Dict[str, Any]:

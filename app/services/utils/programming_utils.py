@@ -376,105 +376,94 @@ class ProgrammingUtils:
         Returns:
             Resultado de la creación de la tarea
         """
-        try:
-            # Obtener la fecha de la programación
-            programming_obj = db.query(Programming).filter(Programming.id == programming_id).first()
-            programming_date = programming_obj.date if programming_obj else date.today()
-            
-            # Calcular start_time y end_time para la nueva tarea
-            current_end_minutes = ProgrammingUtils.calculate_current_programming_time(
-                programming_tasks, programming_date
-            )
-            
-            # Si current_end_minutes es 0, la tarea empieza a las 7:00 AM (o 7:30 si es sábado).
-            # Si no, se suma al tiempo de inicio del día.
-            weekday = programming_date.weekday()
-            if weekday == 5:  # Sábado
-                start_of_day_minutes = 7 * 60 + 30  # 7:30 AM en minutos
-            else:
-                start_of_day_minutes = 7 * 60  # 7:00 AM en minutos
-            
-            total_minutes_from_midnight = start_of_day_minutes + current_end_minutes
-            
-            start_hour = total_minutes_from_midnight // 60
-            start_minute = total_minutes_from_midnight % 60
-            
-            # Crear datetime para start_time usando la fecha de la programación
-            task_start_time = datetime.combine(
-                programming_date,
-                time(hour=start_hour, minute=start_minute)
-            )
-            
-            # Calcular end_time sumando los minutos
-            task_end_time = task_start_time + timedelta(minutes=task_minutes)
-            
-            # Obtener el UUID del código específico para la actividad
-            code_obj = db.query(Code).filter(
-                Code.code == order_data.get('code'),
-                Code.activity == activity_details.get('activity')
-            ).first()
-            code_id = code_obj.id if code_obj else None
-            
-            # Crear la tarea de la orden
-            order_task_obj = Task(
-                code_id=code_id,
-                lote=str(order_data.get('lote')),
-                quantity=order_data.get('quantity'),
-                specification=activity_details.get('specification'),
-                people=activity_details.get('people'),
-                performance=activity_details.get('performance'),
-                material=activity_details.get('material'),
-                presentation=activity_details.get('presentation'),
-                fabricationCode=activity_details.get('fabricationCode'),
-                usefulLife=activity_details.get('usefulLife'),
-                unit=activity_details.get('unit'),
-                type=activity_details.get('type'),
-                activity=activity_details.get('activity'),
-                description=activity_details.get('description'),
-                minutes=task_minutes,
-                start_time=task_start_time,
-                end_time=task_end_time
-            )
-            
-            # Obtener el número de orden para la nueva tarea
-            new_task_order = len(programming_tasks) + 1
-            
-            # Crear la asociación con la programación
-            order_programming_task = ProgrammingTask(
-                programming_id=programming_id,
-                task_id=order_task_obj.id,
-                order=new_task_order,
-                start_time=task_start_time,
-                end_time=task_end_time
-            )
-            
-            # Agregar la tarea a la base de datos
-            db.add(order_task_obj)
-            db.flush()
-            order_programming_task.task_id = order_task_obj.id
-            db.add(order_programming_task)
-            db.commit()
-            db.refresh(order_task_obj)
-            db.refresh(order_programming_task)
-            
-            return {
-                "success": True,
-                "task_data": {
-                    "task_id": str(order_task_obj.id),
-                    "programming_id": str(order_programming_task.programming_id),
-                    "order": new_task_order,
-                    "start_time": task_start_time.isoformat(),
-                    "end_time": task_end_time.isoformat(),
-                    "minutes": task_minutes,
-                    "description": order_task_obj.description,
-                    "lote": order_task_obj.lote,
-                    "quantity": order_task_obj.quantity
-                }
+        # Obtener la fecha de la programación
+        programming_obj = db.query(Programming).filter(Programming.id == programming_id).first()
+        programming_date = programming_obj.date if programming_obj else date.today()
+        
+        # Calcular start_time y end_time para la nueva tarea
+        current_end_minutes = ProgrammingUtils.calculate_current_programming_time(
+            programming_tasks, programming_date
+        )
+        
+        # Si current_end_minutes es 0, la tarea empieza a las 7:00 AM (o 7:30 si es sábado).
+        # Si no, se suma al tiempo de inicio del día.
+        weekday = programming_date.weekday()
+        if weekday == 5:  # Sábado
+            start_of_day_minutes = 7 * 60 + 30  # 7:30 AM en minutos
+        else:
+            start_of_day_minutes = 7 * 60  # 7:00 AM en minutos
+        
+        total_minutes_from_midnight = start_of_day_minutes + current_end_minutes
+        
+        start_hour = total_minutes_from_midnight // 60
+        start_minute = total_minutes_from_midnight % 60
+        
+        # Crear datetime para start_time usando la fecha de la programación
+        task_start_time = datetime.combine(
+            programming_date,
+            time(hour=start_hour, minute=start_minute)
+        )
+        
+        # Calcular end_time sumando los minutos
+        task_end_time = task_start_time + timedelta(minutes=task_minutes)
+        
+        # Obtener el UUID del código específico para la actividad
+        code_obj = db.query(Code).filter(
+            Code.code == order_data.get('code'),
+            Code.activity == activity_details.get('activity')
+        ).first()
+        code_id = code_obj.id if code_obj else None
+        
+        # Crear la tarea de la orden
+        order_task_obj = Task(
+            code_id=code_id,
+            lote=str(order_data.get('lote')),
+            quantity=order_data.get('quantity'),
+            specification=activity_details.get('specification'),
+            people=activity_details.get('people'),
+            performance=activity_details.get('performance'),
+            material=activity_details.get('material'),
+            presentation=activity_details.get('presentation'),
+            fabricationCode=activity_details.get('fabricationCode'),
+            usefulLife=activity_details.get('usefulLife'),
+            unit=activity_details.get('unit'),
+            type=activity_details.get('type'),
+            activity=activity_details.get('activity'),
+            description=activity_details.get('description'),
+            minutes=task_minutes,
+            start_time=task_start_time,
+            end_time=task_end_time
+        )
+        
+        # Obtener el número de orden para la nueva tarea
+        new_task_order = len(programming_tasks) + 1
+        
+        # Crear la asociación con la programación
+        order_programming_task = ProgrammingTask(
+            programming_id=programming_id,
+            task_id=order_task_obj.id,
+            order=new_task_order,
+            start_time=task_start_time,
+            end_time=task_end_time
+        )
+        
+        # Agregar la tarea a la base de datos
+        db.add(order_task_obj)
+        db.flush()
+        order_programming_task.task_id = order_task_obj.id
+        db.add(order_programming_task)
+        
+        return {
+            "success": True,
+            "task_data": {
+                "task_id": str(order_task_obj.id),
+                "programming_id": str(order_programming_task.programming_id),
+                "order": new_task_order,
+                "start_time": task_start_time.isoformat(),
+                "end_time": task_end_time.isoformat(),
+                "minutes": task_minutes,
+                "description": order_task_obj.description,
+                "lote": order_task_obj.lote,
+                "quantity": order_task_obj.quantity
             }
-            
-        except Exception as e:
-            db.rollback()
-            return {
-                "success": False,
-                "error": str(e)
-            }
+        }

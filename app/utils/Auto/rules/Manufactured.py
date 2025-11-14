@@ -7,6 +7,50 @@ from app.services.config import ServiceType, ServiceConfig
 
 class ManufacturedRule:
     
+    def filter_activities(self, activities_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Filtra las actividades para obtener solo las relacionadas con fabricación.
+        
+        Args:
+            activities_data: Diccionario con todas las actividades organizadas por código
+            
+        Returns:
+            Diccionario con solo las actividades de fabricación organizadas por código
+        """
+        fabrication_activities_by_code = {}
+        
+        activities_by_code = activities_data.get("activities_by_code", {})
+        for code, code_data in activities_by_code.items():
+            # Excluir códigos M7 que son de pesado
+            if "M7" in code:
+                continue
+
+            activities = code_data.get("activities", [])
+            fabrication_activities = []
+            
+            # Usar el enum para obtener todas las palabras clave de fabricación
+            manufacturing_keywords = [act.value.upper() for act in ManufacturingActivities]
+            
+            for activity in activities:
+                activity_name = activity.get("activity", "").upper()
+                
+                if any(keyword in activity_name for keyword in manufacturing_keywords):
+                    fabrication_activities.append(activity)
+            
+            if fabrication_activities:
+                fabrication_activities_by_code[code] = {
+                    "code": code,
+                    "fabrication_activities": fabrication_activities,
+                    "total_fabrication_activities": len(fabrication_activities),
+                    "found": True
+                }
+        
+        return {
+            "fabrication_activities_by_code": fabrication_activities_by_code,
+            "total_codes_with_fabrication": len(fabrication_activities_by_code),
+            "codes_with_fabrication": list(fabrication_activities_by_code.keys())
+        }
+
     def get_activity_for_order(self, order_data: Dict, activities_data: Dict) -> Dict[str, Any]:
         """
         Obtiene la actividad de fabricación específica para una orden.

@@ -6,6 +6,7 @@ from app.models.programming import Programming, ProgrammingStatus, ProgrammingTa
 from app.models.team import Team
 from app.utils.business.order_status_service import OrderStatusService
 from app.services.utils.programming_utils import ProgrammingUtils
+from app.models.task import Task
 
 # Duración estándar de la programación en minutos
 STANDARD_DURATION_MINUTES = 460
@@ -193,7 +194,6 @@ class ScheduleRule:
                             # Obtener la tarea creada para actualizar el estado de la orden
                             task_id = task_result.get("task_data", {}).get("task_id")
                             if task_id:
-                                from app.models.task import Task
                                 task_obj = db.query(Task).filter(Task.id == task_id).first()
                                 if task_obj:
                                     OrderStatusService.update_order_status_for_task_creation(db, task_obj)
@@ -232,10 +232,6 @@ class ScheduleRule:
         Returns:
             Resultado de la creación de la tarea de preparación
         """
-        from app.models.programming import ProgrammingTask, Programming
-        from app.models.task import Task
-        from app.models.team import Team
-        
         
         # Solo crear tarea de preparación si no hay tareas existentes
         if len(programming_tasks) > 0:
@@ -244,84 +240,73 @@ class ScheduleRule:
                 "message": "La programación ya tiene tareas, no se necesita tarea de preparación"
             }
         
-        try:
-            # Obtener la fecha de la programación
-            programming_obj = db.query(Programming).filter(Programming.id == programming_id).first()
-            programming_date = programming_obj.date if programming_obj else date.today()
-            
-            # Obtener el equipo para determinar la duración de preparación
-            team_obj = None
-            if programming_obj and programming_obj.team_id:
-                team_obj = db.query(Team).filter(Team.id == programming_obj.team_id).first()
-            
-            preparation_duration = 10
-            
-            # Crear datetime para start_time usando la fecha de la programación
-            task_start_time = datetime.combine(programming_date, time(7, 0))  # 07:00
-            task_end_time = datetime.combine(programming_date, time(7, 0)) + timedelta(minutes=preparation_duration)
-            
-            # Crear la tarea de preparación (objeto Task)
-            preparation_task_obj = Task(
-                 code_id=None,  # No hay código específico para preparación
-                 lote=None,
-                 quantity=None,
-                 specification=None,
-                 people=None,
-                 performance=None,
-                 material=None,
-                 presentation=None,
-                 fabricationCode=None,
-                 usefulLife=None,
-                 unit=None,
-                 type="PREP",
-                 activity="REUNION Y PREPARACION DE AREA",
-                 description="REUNION Y PREPARACION DE AREA",
-                 minutes=preparation_duration,
-                 start_time=task_start_time,
-                 end_time=task_end_time
-             )
-            
-            # Obtener el número de orden para la nueva tarea
-            new_task_order = len(programming_tasks) + 1
-            
-            # Crear la asociación con la programación
-            preparation_programming_task = ProgrammingTask(
-                programming_id=programming_id,
-                task_id=preparation_task_obj.id,
-                order=new_task_order,
-                start_time=task_start_time,
-                end_time=task_end_time
-            )
-            
-            # Agregar la tarea a la base de datos
-            db.add(preparation_task_obj)
-            db.flush()
-            preparation_programming_task.task_id = preparation_task_obj.id
-            db.add(preparation_programming_task)
-            db.commit()
-            db.refresh(preparation_task_obj)
-            db.refresh(preparation_programming_task)
-            
-            team_name = team_obj.name if team_obj else "Equipo desconocido"
-            
-            return {
-                "success": True,
-                 "message": f"Tarea de preparación creada exitosamente (duración: {preparation_duration} minutos)",
-                 "task_data": {
-                     "task_id": str(preparation_task_obj.id),
-                     "programming_id": str(preparation_programming_task.programming_id),
-                     "order": new_task_order,
-                     "start_time": task_start_time.isoformat(),
-                     "end_time": task_end_time.isoformat(),
-                     "minutes": preparation_duration,
-                     "description": preparation_task_obj.description,
-                     "team_name": team_name
-                 }
+        # Obtener la fecha de la programación
+        programming_obj = db.query(Programming).filter(Programming.id == programming_id).first()
+        programming_date = programming_obj.date if programming_obj else date.today()
+        
+        # Obtener el equipo para determinar la duración de preparación
+        team_obj = None
+        if programming_obj and programming_obj.team_id:
+            team_obj = db.query(Team).filter(Team.id == programming_obj.team_id).first()
+        
+        preparation_duration = 10
+        
+        # Crear datetime para start_time usando la fecha de la programación
+        task_start_time = datetime.combine(programming_date, time(7, 0))  # 07:00
+        task_end_time = datetime.combine(programming_date, time(7, 0)) + timedelta(minutes=preparation_duration)
+        
+        # Crear la tarea de preparación (objeto Task)
+        preparation_task_obj = Task(
+             code_id=None,  # No hay código específico para preparación
+             lote=None,
+             quantity=None,
+             specification=None,
+             people=None,
+             performance=None,
+             material=None,
+             presentation=None,
+             fabricationCode=None,
+             usefulLife=None,
+             unit=None,
+             type="PREP",
+             activity="REUNION Y PREPARACION DE AREA",
+             description="REUNION Y PREPARACION DE AREA",
+             minutes=preparation_duration,
+             start_time=task_start_time,
+             end_time=task_end_time
+         )
+        
+        # Obtener el número de orden para la nueva tarea
+        new_task_order = len(programming_tasks) + 1
+        
+        # Crear la asociación con la programación
+        preparation_programming_task = ProgrammingTask(
+            programming_id=programming_id,
+            task_id=preparation_task_obj.id,
+            order=new_task_order,
+            start_time=task_start_time,
+            end_time=task_end_time
+        )
+        
+        # Agregar la tarea a la base de datos
+        db.add(preparation_task_obj)
+        db.flush()
+        preparation_programming_task.task_id = preparation_task_obj.id
+        db.add(preparation_programming_task)
+        
+        team_name = team_obj.name if team_obj else "Equipo desconocido"
+        
+        return {
+            "success": True,
+             "message": f"Tarea de preparación creada exitosamente (duración: {preparation_duration} minutos)",
+             "task_data": {
+                 "task_id": str(preparation_task_obj.id),
+                 "programming_id": str(preparation_programming_task.programming_id),
+                 "order": new_task_order,
+                 "start_time": task_start_time.isoformat(),
+                 "end_time": task_end_time.isoformat(),
+                 "minutes": preparation_duration,
+                 "description": preparation_task_obj.description,
+                 "team_name": team_name
              }
-            
-        except Exception as e:
-            db.rollback()
-            return {
-                "success": False,
-                "message": f"Error al crear tarea de preparación: {str(e)}"
-            }
+         }
