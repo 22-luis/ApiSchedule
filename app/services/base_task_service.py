@@ -10,7 +10,7 @@ from datetime import time, timedelta
 import math
 
 from app.services.utils.programming_utils import ProgrammingUtils
-from app.utils.bussiness.order_status_service import OrderStatusService
+from app.utils.business.order_status_service import OrderStatusService
 from app.utils.Auto.rules.schedule import ScheduleRule
 
 

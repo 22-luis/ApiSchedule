@@ -17,8 +17,8 @@ from app.models.user import User
 import sys
 import traceback
 from pytz import timezone
-from app.utils.bussiness.order_status_service import OrderStatusService
-from app.utils.bussiness.programming_availability import update_programming_availability, update_all_programmings_availability_for_date
+from app.utils.business.order_status_service import OrderStatusService
+from app.utils.business.programming_availability import update_programming_availability, update_all_programmings_availability_for_date
 from app.models.order import Order as OrderModel
 from app.models.state import OrderStatus
 from app.models.programming import ProgrammingStatus

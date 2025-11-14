@@ -4,7 +4,7 @@ from datetime import date, time, timedelta, datetime
 
 from app.models.programming import Programming, ProgrammingStatus, ProgrammingTask
 from app.models.team import Team
-from app.utils.bussiness.order_status_service import OrderStatusService
+from app.utils.business.order_status_service import OrderStatusService
 from app.services.utils.programming_utils import ProgrammingUtils
 
 # Duración estándar de la programación en minutos
@@ -49,8 +49,9 @@ TEAM_RULES = {
 }
 
 class ScheduleRule:
-    def __init__(self, tolerance_minutes: int = 10):
+    def __init__(self, tolerance_minutes: int = 10, time_limit: Optional[time] = None):
         self.tolerance_minutes = tolerance_minutes
+        self.time_limit = time_limit
 
     def get_team_duration(self, team_name: str) -> Optional[int]:
         """Obtiene la duración para un equipo específico."""
