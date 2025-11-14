@@ -94,9 +94,9 @@ class TeamSelectionService:
         """
         # Usar los equipos definidos en ManufacturingTeams
         manufacturing_team_names = [
-            ManufacturingTeams.Fabricado1.value,
-            ManufacturingTeams.Fabricado2.value,
-            ManufacturingTeams.Fabricado3.value,
+            ManufacturingTeams.FABRICADO1.value,
+            ManufacturingTeams.FABRICADO2.value,
+            ManufacturingTeams.FABRICADO3.value,
             ManufacturingTeams.Molino.value
         ]
         
@@ -138,11 +138,11 @@ class TeamSelectionService:
             team_name_lower = team.name.lower()
             if ManufacturingTeams.Molino.value.lower() in team_name_lower:
                 molino_teams.append(team)
-            elif ManufacturingTeams.Fabricado1.value.lower() in team_name_lower:
+            elif ManufacturingTeams.FABRICADO1.value.lower() in team_name_lower:
                 fabricado1_teams.append(team)
-            elif ManufacturingTeams.Fabricado2.value.lower() in team_name_lower:
+            elif ManufacturingTeams.FABRICADO2.value.lower() in team_name_lower:
                 fabricado2_teams.append(team)
-            elif ManufacturingTeams.Fabricado3.value.lower() in team_name_lower:
+            elif ManufacturingTeams.FABRICADO3.value.lower() in team_name_lower:
                 fabricado3_teams.append(team)
         
         # Tomar el primer equipo de cada tipo como representante
@@ -159,9 +159,9 @@ class TeamSelectionService:
                     "id": str(team.id),
                     "name": team.name,
                     "type": "molino" if ManufacturingTeams.Molino.value.lower() in team.name.lower() else
-                           "fabricado1" if ManufacturingTeams.Fabricado1.value.lower() in team.name.lower() else
-                           "fabricado2" if ManufacturingTeams.Fabricado2.value.lower() in team.name.lower() else
-                           "fabricado3" if ManufacturingTeams.Fabricado3.value.lower() in team.name.lower() else "otro"
+                           "fabricado1" if ManufacturingTeams.FABRICADO1.value.lower() in team.name.lower() else
+                           "fabricado2" if ManufacturingTeams.FABRICADO2.value.lower() in team.name.lower() else
+                           "fabricado3" if ManufacturingTeams.FABRICADO3.value.lower() in team.name.lower() else "otro"
                 } for team in fabrication_teams
             ],
             "teams_by_type": {

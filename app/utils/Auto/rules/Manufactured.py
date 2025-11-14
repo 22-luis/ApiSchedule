@@ -28,13 +28,13 @@ class ManufacturedRule:
             activities = code_data.get("activities", [])
             fabrication_activities = []
             
-            # Usar el enum para obtener todas las palabras clave de fabricación
-            manufacturing_keywords = [act.value.upper() for act in ManufacturingActivities]
+            # Buscar actividades relacionadas con fabricación usando configuración centralizada
+            fabrication_keywords = ServiceConfig.get_activity_keywords(ServiceType.FABRICATION)
             
             for activity in activities:
                 activity_name = activity.get("activity", "").upper()
                 
-                if any(keyword in activity_name for keyword in manufacturing_keywords):
+                if any(keyword in activity_name for keyword in fabrication_keywords):
                     fabrication_activities.append(activity)
             
             if fabrication_activities:

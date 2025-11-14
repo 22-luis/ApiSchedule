@@ -19,10 +19,6 @@ class WeighingRule:
         
         activities_by_code = activities_data.get("activities_by_code", {})
         for code, code_data in activities_by_code.items():
-            # Regla de negocio: solo los códigos M7 son de pesado
-            if "M7" not in code:
-                continue
-
             activities = code_data.get("activities", [])
             weighing_activities = []
             
