@@ -3,7 +3,7 @@ Servicio para cálculos de negocio centralizados.
 Contiene fórmulas y reglas de cálculo que se utilizan en toda la aplicación.
 """
 import math
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 from typing import Dict, Any, List, Optional
 from pydantic import BaseModel
 import pytz
@@ -253,12 +253,7 @@ class BusinessCalculations:
             
             # Calcular tiempos
             start_time = current_time
-            
-            # Calcular end_time correctamente manejando horas y minutos
-            total_minutes = current_time.hour * 60 + current_time.minute + minutes
-            end_hour = total_minutes // 60
-            end_minute = total_minutes % 60
-            end_time = current_time.replace(hour=end_hour, minute=end_minute)
+            end_time = current_time + timedelta(minutes=minutes)
             
             print(f"[DEBUG] Task {i} times: {start_time} -> {end_time}")
             

@@ -5,7 +5,7 @@ Hereda de BaseTaskService para reutilizar funcionalidad común.
 
 from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
-from datetime import time
+from datetime import time, datetime
 import math
 
 from app.services.base_task_service import BaseTaskService
@@ -123,7 +123,7 @@ class FabricationTaskService(BaseTaskService):
             "total_orders_processed": len(extracted_orders)
         }
     
-    def create_fabrication_tasks_for_orders(self, extracted_orders: List[Dict], db: Session) -> Dict[str, Any]:
+    def create_fabrication_tasks_for_orders(self, extracted_orders: List[Dict], db: Session, weighing_results: Optional[Dict] = None) -> Dict[str, Any]:
         """
         Función principal que maneja todo el proceso de creación de tareas de fabricación.
         Utiliza la implementación base de create_tasks_for_orders pero con lógica específica
@@ -132,11 +132,21 @@ class FabricationTaskService(BaseTaskService):
         Args:
             extracted_orders: Lista de órdenes extraídas con lote, quantity y code
             db: Sesión de base de datos
+            weighing_results: Resultados de la creación de tareas de pesado (opcional)
         
         Returns:
             Resultado del proceso con información de las tareas creadas
         """
         try:
+            # Crear un mapa de lote a fecha de finalización de pesado
+            weighing_end_dates = {}
+            if weighing_results and weighing_results.get("created_tasks"):
+                for task in weighing_results["created_tasks"]:
+                    lote = task.get("order_data", {}).get("lote")
+                    end_time_str = task.get("order_task", {}).get("end_time")
+                    if lote and end_time_str:
+                        weighing_end_dates[lote] = datetime.fromisoformat(end_time_str).date()
+
             # Obtener actividades con minutos calculados
             activities_with_minutes = self.get_fabrication_activities_with_minutes(extracted_orders, db)
             
@@ -148,6 +158,7 @@ class FabricationTaskService(BaseTaskService):
             
             for order_data in extracted_orders:
                 order_code = order_data.get('code')
+                lote = order_data.get('lote')
                 
                 # Obtener la actividad con minutos calculados para esta orden
                 code_activities = fabrication_activities_with_minutes.get(order_code, {}).get("fabrication_activities_with_minutes", [])
@@ -176,8 +187,11 @@ class FabricationTaskService(BaseTaskService):
                 selected_team = team_selection.get("selected_team")
                 team_id = selected_team.get("id")
                 
+                # Determinar la fecha de inicio para la búsqueda de programación
+                start_date = weighing_end_dates.get(lote)
+
                 # Obtener programaciones disponibles para el equipo seleccionado
-                available_programmings = self.get_available_programmings_for_team(team_id, db)
+                available_programmings = self.get_available_programmings_for_team(team_id, db, start_date=start_date)
                 
                 if not available_programmings:
                     failed_orders.append({

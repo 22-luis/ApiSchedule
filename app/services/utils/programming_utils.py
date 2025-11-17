@@ -169,26 +169,27 @@ class ProgrammingUtils:
         }
     
     @staticmethod
-    def get_available_programmings_for_team(team_id: str, db: Session) -> List[Dict[str, Any]]:
+    def get_available_programmings_for_team(team_id: str, db: Session, start_date: Optional[date] = None) -> List[Dict[str, Any]]:
         """
         Obtiene las programaciones disponibles para un equipo específico.
-        Devuelve todas las programaciones futuras ordenadas por fecha (más cercana primero).
+        Devuelve todas las programaciones futuras a partir de start_date, ordenadas por fecha.
         
         Args:
             team_id: ID del equipo
             db: Sesión de base de datos
+            start_date: Fecha de inicio para la búsqueda (opcional)
             
         Returns:
             Lista de programaciones disponibles ordenadas por fecha
         """
-        current_date = date.today()
+        search_date = start_date if start_date else date.today()
         
         # Buscar programaciones disponibles ordenadas por fecha (más cercana primero)
         available_programmings = (
             db.query(Programming)
             .filter(
                 Programming.team_id == team_id,
-                Programming.date >= current_date,
+                Programming.date >= search_date,
                 Programming.status == ProgrammingStatus.available
             )
             .order_by(Programming.date)
@@ -197,7 +198,7 @@ class ProgrammingUtils:
         
         # Si no hay programaciones disponibles, crear una nueva
         if not available_programmings:
-            new_programmings = ProgrammingUtils._create_new_programming(team_id, db)
+            new_programmings = ProgrammingUtils._create_new_programming(team_id, db, start_date=search_date)
             if new_programmings:
                 available_programmings = new_programmings
         
@@ -205,8 +206,8 @@ class ProgrammingUtils:
         programming_data = []
         for programming in available_programmings:
             # Calcular días hasta la programación
-            days_until = (programming.date - current_date).days
-            is_current_month = programming.date.month == current_date.month and programming.date.year == current_date.year
+            days_until = (programming.date - search_date).days
+            is_current_month = programming.date.month == search_date.month and programming.date.year == search_date.year
             
             programming_info = {
                 "id": str(programming.id),
@@ -224,7 +225,7 @@ class ProgrammingUtils:
         return programming_data
     
     @staticmethod
-    def _create_new_programming(team_id: str, db: Session) -> List[Programming]:
+    def _create_new_programming(team_id: str, db: Session, start_date: Optional[date] = None) -> List[Programming]:
         """
         Crea una nueva programación para el equipo usando fechas más cercanas.
         Busca huecos en las programaciones existentes.
@@ -232,11 +233,12 @@ class ProgrammingUtils:
         Args:
             team_id: ID del equipo
             db: Sesión de base de datos
+            start_date: Fecha de inicio para la búsqueda (opcional)
             
         Returns:
             Lista con la nueva programación creada
         """
-        current_date = date.today()
+        current_date = start_date if start_date else date.today()
         
         # Buscar programaciones existentes del equipo ordenadas por fecha
         existing_programmings = (
@@ -247,12 +249,12 @@ class ProgrammingUtils:
         )
         
         # Buscar el primer hueco disponible en las próximas 30 días
-        start_date = current_date + timedelta(days=1)  # Empezar desde mañana
+        search_start_date = current_date + timedelta(days=1)  # Empezar desde mañana
         end_date = current_date + timedelta(days=30)   # Buscar hasta 30 días
         
         # Crear lista de fechas disponibles
         available_dates = []
-        current_check_date = start_date
+        current_check_date = search_start_date
         
         while current_check_date <= end_date:
             # Evitar domingos
@@ -389,20 +391,13 @@ class ProgrammingUtils:
         # Si no, se suma al tiempo de inicio del día.
         weekday = programming_date.weekday()
         if weekday == 5:  # Sábado
-            start_of_day_minutes = 7 * 60 + 30  # 7:30 AM en minutos
+            start_of_day_time = time(hour=7, minute=30)
         else:
-            start_of_day_minutes = 7 * 60  # 7:00 AM en minutos
+            start_of_day_time = time(hour=7, minute=0)
+
+        start_of_day_datetime = datetime.combine(programming_date, start_of_day_time)
         
-        total_minutes_from_midnight = start_of_day_minutes + current_end_minutes
-        
-        start_hour = total_minutes_from_midnight // 60
-        start_minute = total_minutes_from_midnight % 60
-        
-        # Crear datetime para start_time usando la fecha de la programación
-        task_start_time = datetime.combine(
-            programming_date,
-            time(hour=start_hour, minute=start_minute)
-        )
+        task_start_time = start_of_day_datetime + timedelta(minutes=current_end_minutes)
         
         # Calcular end_time sumando los minutos
         task_end_time = task_start_time + timedelta(minutes=task_minutes)

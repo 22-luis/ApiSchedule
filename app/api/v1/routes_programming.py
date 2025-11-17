@@ -57,6 +57,14 @@ def get_programming_by_team_date(team_id: str, date: str, db: Session = Depends(
         # Convertir date a objeto date
         date_obj = datetime.strptime(date, "%Y-%m-%d").date()
         programming = db.query(Programming).filter_by(team_id=team_id, date=date_obj).first()
+
+        if programming:
+            print(f"DEBUG: Found programming {programming.id} for team {team_id} on date {date_obj}")
+            print(f"DEBUG: Number of programming_tasks: {len(programming.programming_tasks)}")
+            for pt in programming.programming_tasks:
+                print(f"DEBUG: ProgrammingTask found: task_id={pt.task_id}, programming_id={pt.programming_id}, order={pt.order}, is_completed={pt.is_completed}")
+        else:
+            print(f"DEBUG: No programming found for team {team_id} on date {date_obj}")
         if not programming:
             # Si no existe la programación, verificar si el usuario puede crearla
             if current_user.role.value not in ("admin", "planner", "supervisor", "timekeeper") and not user_belongs_to_team(current_user, team_id):
@@ -99,12 +107,6 @@ def get_programming_by_team_date(team_id: str, date: str, db: Session = Depends(
             else:
                 t['created_by_user'] = None
             t['is_completed'] = getattr(pt, 'is_completed', None)
-            # DEBUG: Log the is_completed value we are sending to the client for this pt
-            try:
-                print(f"DEBUG - Returning task for programming {programming.id}: task_id={pt.task_id}, pt.is_completed={t['is_completed']}, task.is_completed={getattr(task_obj, 'is_completed', None)}")
-            except Exception as e:
-                print(f"DEBUG - Error logging pt completion: {e}")
-
             tasks.append(t)
         response = {
             "id": programming.id,

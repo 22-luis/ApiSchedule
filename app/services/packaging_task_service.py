@@ -5,7 +5,7 @@ Hereda de BaseTaskService para reutilizar funcionalidad común.
 
 from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
-from datetime import time
+from datetime import time, datetime
 import math
 
 from app.services.base_task_service import BaseTaskService
@@ -37,7 +37,15 @@ class PackagingTaskService(BaseTaskService):
         return self.packaging_rule.get_specific_team_for_activity(
             activity_name, activity_description, teams_data
         )
-    
+
+    def get_packaging_teams(self, db: Session) -> Dict[str, Any]:
+        """
+        Obtiene todos los equipos de empaque.
+        Este método es un placeholder y debería ser implementado en PackagingRule
+        o una clase de utilidad de equipos si la lógica es compleja.
+        """
+        return self.packaging_rule.get_packaging_teams(db)
+
     def get_packaging_activities_with_minutes(self, extracted_orders: List[Dict], db: Session) -> Dict[str, Any]:
         """
         Obtiene las actividades de empaque para todas las órdenes extraídas y calcula los minutos.
@@ -123,130 +131,94 @@ class PackagingTaskService(BaseTaskService):
             "total_orders_processed": len(extracted_orders)
         }
     
-    def create_packaging_tasks_for_orders(self, extracted_orders: List[Dict], db: Session) -> Dict[str, Any]:
+    def create_packaging_tasks_for_orders(self, extracted_orders: List[Dict], db: Session, fabrication_results: Optional[Dict] = None) -> Dict[str, Any]:
         """
         Función principal que maneja todo el proceso de creación de tareas de empaque.
-        Utiliza la implementación base de create_tasks_for_orders pero con lógica específica
-        para selección de equipos por actividad.
-        
-        Args:
-            extracted_orders: Lista de órdenes extraídas con lote, quantity y code
-            db: Sesión de base de datos
-        
-        Returns:
-            Resultado del proceso con información de las tareas creadas
         """
         try:
-            # Obtener actividades con minutos calculados
-            activities_with_minutes = self.get_packaging_activities_with_minutes(extracted_orders, db)
-            
-            # Obtener todos los equipos de empaque disponibles
-            teams_result = self.get_most_suitable_team(db)
-            
-            if not teams_result.get("success"):
-                return {
-                    "success": False,
-                    "message": "No se pudo obtener equipos de empaque",
-                    "tasks_created": 0,
-                    "total_orders": len(extracted_orders)
-                }
-            
-            # Procesar cada orden con selección específica de equipo
+            fabrication_end_dates = {}
+            if fabrication_results and fabrication_results.get("created_tasks"):
+                for task in fabrication_results["created_tasks"]:
+                    lote = task.get("order_data", {}).get("lote")
+                    end_time_str = task.get("order_task", {}).get("end_time")
+                    if lote and end_time_str:
+                        fabrication_end_dates[lote] = datetime.fromisoformat(end_time_str).date()
+
+            activities_data = self.get_packaging_activities_with_minutes(extracted_orders, db)
+            packaging_activities_by_code = activities_data.get("packaging_activities_with_minutes", {}).get("packaging_activities_with_minutes_by_code", {})
+
+            teams_data = self.get_packaging_teams(db)
+            if not teams_data.get("success"):
+                return {"success": False, "message": "No se encontraron equipos de empaque.", "tasks_created": 0}
+
             created_tasks = []
             failed_orders = []
-            
-            packaging_activities_with_minutes = activities_with_minutes.get("packaging_activities_with_minutes", {}).get("packaging_activities_with_minutes_by_code", {})
-            
+
             for order_data in extracted_orders:
-                order_code = order_data.get('code')
-                
-                # Obtener la actividad con minutos calculados para esta orden
-                code_activities = packaging_activities_with_minutes.get(order_code, {}).get("packaging_activities_with_minutes", [])
-                
-                if not code_activities:
-                    failed_orders.append({
-                        "order_data": order_data,
-                        "reason": "No se encontró actividad válida"
-                    })
+                code = order_data.get("code")
+                lote = order_data.get("lote")
+                activities_for_code = packaging_activities_by_code.get(code, {}).get("packaging_activities_with_minutes", [])
+
+                if not activities_for_code:
+                    failed_orders.append({"order_data": order_data, "reason": "No se encontraron actividades de empaque para el código."})
                     continue
-                
-                # Usar la primera actividad de empaque
-                activity_with_minutes = code_activities[0]
-                activity_name = activity_with_minutes.get("activity_data", {}).get("activity", "")
-                activity_description = activity_with_minutes.get("activity_data", {}).get("description", "")
-                
-                # Obtener el equipo específico para esta actividad
-                team_selection = self.get_specific_team_for_activity(
-                    activity_name, activity_description, teams_result
-                )
-                
-                if not team_selection or not team_selection.get("success"):
-                    failed_orders.append({
-                        "order_data": order_data,
-                        "reason": f"No se pudo asignar equipo para actividad: {activity_name}"
-                    })
-                    continue
-                
-                selected_team = team_selection.get("selected_team")
-                team_id = selected_team.get("id")
-                
-                # Obtener programaciones disponibles para el equipo seleccionado
-                available_programmings = self.get_available_programmings_for_team(team_id, db)
-                
-                if not available_programmings:
-                    failed_orders.append({
-                        "order_data": order_data,
-                        "reason": f"No se encontraron programaciones para equipo: {selected_team.get('name')}"
-                    })
-                    continue
-                
-                # Calcular minutos de la tarea
-                task_minutes = activity_with_minutes.get("minutes_calculation", {}).get("calculated_minutes", 0)
-                activity_details = activity_with_minutes.get("activity_data", {})
-                
-                if task_minutes <= 0:
-                    failed_orders.append({
-                        "order_data": order_data,
-                        "reason": "Los minutos calculados no son válidos"
-                    })
-                    continue
-                
-                # Verificar límite de tiempo y crear tarea
-                time_verification = self.verify_programming_time_limit(
-                    available_programmings, task_minutes, db, order_data, activity_details
-                )
-                
-                if time_verification.get("success") and time_verification.get("order_task_created"):
-                    created_tasks.append({
-                        "order_data": order_data,
-                        "selected_programming": time_verification.get("selected_programming"),
-                        "order_task": time_verification.get("order_task_created"),
-                        "team_selection": team_selection
-                    })
-                else:
-                    failed_orders.append({
-                        "order_data": order_data,
-                        "reason": time_verification.get("message", "Error desconocido")
-                    })
-            
+
+                for activity in activities_for_code:
+                    activity_details = activity.get("activity_data", {})
+                    task_minutes = activity.get("minutes_calculation", {}).get("calculated_minutes", 0)
+
+                    if task_minutes <= 0:
+                        failed_orders.append({"order_data": order_data, "reason": "Minutos calculados no válidos."})
+                        continue
+
+                    team_selection = self.get_specific_team_for_activity(
+                        activity_details.get("activity"),
+                        activity_details.get("description"),
+                        teams_data
+                    )
+
+                    if not team_selection.get("success"):
+                        # TeamSelectionService returns 'reason' (and sometimes 'message'), use either
+                        failed_orders.append({"order_data": order_data, "reason": team_selection.get("reason") or team_selection.get("message")})
+                        continue
+
+                    # TeamSelectionService returns the chosen team under the key 'selected_team'
+                    selected_team = team_selection.get("selected_team") or team_selection.get("team") or {}
+                    team_id = selected_team.get("id")
+                    start_date = fabrication_end_dates.get(lote)
+                    
+                    available_programmings = self.get_available_programmings_for_team(team_id, db, start_date=start_date)
+
+                    if not available_programmings:
+                        failed_orders.append({"order_data": order_data, "reason": f"No hay programaciones disponibles para el equipo {team_id}."})
+                        continue
+
+                    time_verification = self.verify_programming_time_limit(
+                        available_programmings, task_minutes, db, order_data, activity_details
+                    )
+
+                    if time_verification.get("success"):
+                        created_tasks.append({
+                            "order_data": order_data,
+                            "selected_programming": time_verification.get("selected_programming"),
+                            "order_task": time_verification.get("order_task_created")
+                        })
+                    else:
+                        failed_orders.append({"order_data": order_data, "reason": time_verification.get("message")})
+
             return {
                 "success": True,
-                "message": f"Procesamiento completado. {len(created_tasks)} tareas creadas de {len(extracted_orders)} órdenes",
+                "message": f"Procesamiento de empaque completado. {len(created_tasks)} tareas creadas.",
                 "tasks_created": len(created_tasks),
                 "total_orders": len(extracted_orders),
                 "created_tasks": created_tasks,
-                "failed_orders": failed_orders,
-                "teams_data": teams_result,
-                "activities_data": activities_with_minutes.get("packaging_activities")
+                "failed_orders": failed_orders
             }
-            
+
         except Exception as e:
-            # Log a more detailed error message, including traceback
-            import traceback
-            print(f"Error during packaging task creation: {str(e)}\n{traceback.format_exc()}")
-            
-            # Rollback the transaction to avoid inconsistent state
-            db.rollback()
-            
-            # Re-raise the exception so it's not silent
-            raise
+            return {
+                "success": False,
+                "message": f"Error durante la creación de tareas de empaque: {str(e)}",
+                "tasks_created": 0,
+                "total_orders": len(extracted_orders)
+            }

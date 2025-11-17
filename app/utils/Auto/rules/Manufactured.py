@@ -21,10 +21,6 @@ class ManufacturedRule:
         
         activities_by_code = activities_data.get("activities_by_code", {})
         for code, code_data in activities_by_code.items():
-            # Excluir códigos M7 que son de pesado
-            if "M7" in code:
-                continue
-
             activities = code_data.get("activities", [])
             fabrication_activities = []
             
@@ -32,6 +28,10 @@ class ManufacturedRule:
             fabrication_keywords = ServiceConfig.get_activity_keywords(ServiceType.FABRICATION)
             
             for activity in activities:
+                # Excluir actividades de tipo M7 que son de pesado
+                if activity.get("type") == "M7":
+                    continue
+                
                 activity_name = activity.get("activity", "").upper()
                 
                 if any(keyword in activity_name for keyword in fabrication_keywords):
@@ -75,8 +75,8 @@ class ManufacturedRule:
 
         # Prioridad 1: Actividades de molienda
         molienda_keywords = [
-            ManufacturingActivities.Mol_pasta.value.upper(),
-            ManufacturingActivities.Mol_polvo.value.upper()
+            ManufacturingActivities.MOL_PASTA.value.upper(),
+            ManufacturingActivities.MOL_POLVO.value.upper()
         ]
         for activity in fabrication_activities:
             activity_name = activity.get("activity", "").upper()
@@ -85,9 +85,9 @@ class ManufacturedRule:
                 
         # Prioridad 2: Actividades de mezcla
         mezcla_keywords = [
-            ManufacturingActivities.Mez_maquina.value.upper(),
-            ManufacturingActivities.Mez_polvo.value.upper(),
-            ManufacturingActivities.mez_liquida.value.upper()
+            ManufacturingActivities.MEZ_MAQUINA.value.upper(),
+            ManufacturingActivities.MEZ_POLVO.value.upper(),
+            ManufacturingActivities.MEZ_LIQUIDA.value.upper()
         ]
         for activity in fabrication_activities:
             activity_name = activity.get("activity", "").upper()
@@ -95,7 +95,7 @@ class ManufacturedRule:
                 return activity
                 
         # Prioridad 3: Actividades de fabricación general
-        fabricacion_keywords = [ManufacturingActivities.Fabricacion.value.upper()]
+        fabricacion_keywords = [ManufacturingActivities.FABRICACION.value.upper()]
         for activity in fabrication_activities:
             activity_name = activity.get("activity", "").upper()
             if any(keyword in activity_name for keyword in fabricacion_keywords):
@@ -198,10 +198,38 @@ class ManufacturedRule:
                     "rule_applied": "molino_m9_m10"
                 }
 
-        # Fallback si no se cumple ninguna regla específica
+        # Fallback: si no se cumple ninguna regla, asignar a Fabricado 1 si está disponible
+        fabricado1_team = teams_by_type.get("fabricado1")
+        if fabricado1_team:
+            return {
+                "success": True,
+                "selected_team": {
+                    "id": str(fabricado1_team.id),
+                    "name": fabricado1_team.name,
+                    "type": "fabricado1"
+                },
+                "reason": "Fallback: Asignado a Fabricado 1 por defecto.",
+                "rule_applied": "fallback_fabricado1"
+            }
+
+        # Si Fabricado 1 no está disponible, intentar con cualquier otro equipo
+        for team_type, team in teams_by_type.items():
+            if team:
+                return {
+                    "success": True,
+                    "selected_team": {
+                        "id": str(team.id),
+                        "name": team.name,
+                        "type": team_type
+                    },
+                    "reason": f"Fallback: Asignado a {team.name} por defecto.",
+                    "rule_applied": f"fallback_{team_type}"
+                }
+
+        # Si no hay equipos disponibles
         return {
             "success": False,
-            "reason": "No se encontró un equipo de fabricación adecuado según las reglas para la orden.",
-            "rule_applied": "no_rule_matched"
+            "reason": "No se encontró ningún equipo de fabricación disponible.",
+            "rule_applied": "no_teams_available"
         }
 

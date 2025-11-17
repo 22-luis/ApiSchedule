@@ -59,6 +59,18 @@ class PackagingRule:
         """
         return TeamSelectionService.get_packaging_teams(db)
 
+    def get_packaging_teams(self, db: Session) -> Dict[str, Any]:
+        """
+        Obtiene todos los equipos de empaque.
+        
+        Args:
+            db: Sesión de base de datos
+            
+        Returns:
+            Diccionario con información de todos los equipos de empaque
+        """
+        return TeamSelectionService.get_packaging_teams(db)
+
     def get_activity_for_order(self, order_data: Dict, activities_data: Dict) -> Dict[str, Any]:
         """
         Obtiene la actividad de empaque específica para una orden.

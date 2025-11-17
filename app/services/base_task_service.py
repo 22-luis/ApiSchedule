@@ -6,7 +6,7 @@ Define la interfaz común que deben implementar todos los servicios de tareas.
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
-from datetime import time, timedelta
+from datetime import time, timedelta, date, datetime
 import math
 
 from app.services.utils.programming_utils import ProgrammingUtils
@@ -122,18 +122,19 @@ class BaseTaskService(ABC):
         """
         return ProgrammingUtils.get_activity_details_by_code_and_activity(code, activity, db)
     
-    def get_available_programmings_for_team(self, team_id: str, db: Session) -> List[Dict[str, Any]]:
+    def get_available_programmings_for_team(self, team_id: str, db: Session, start_date: Optional[date] = None) -> List[Dict[str, Any]]:
         """
         Obtiene programaciones disponibles usando las utilidades comunes.
         
         Args:
             team_id: ID del equipo
             db: Sesión de base de datos
+            start_date: Fecha de inicio para la búsqueda (opcional)
             
         Returns:
             Lista de programaciones disponibles
         """
-        return ProgrammingUtils.get_available_programmings_for_team(team_id, db)
+        return ProgrammingUtils.get_available_programmings_for_team(team_id, db, start_date=start_date)
     
     def get_service_config(self) -> Dict[str, Any]:
         """
@@ -189,8 +190,7 @@ class BaseTaskService(ABC):
         
         if performance is not None:
             # Usar performance si está disponible
-            hours = performance * quantity
-            minutes = hours * 60
+            minutes = performance * quantity
             return math.ceil(minutes)
         elif time is not None:
             # Usar time directamente como minutos
