@@ -24,7 +24,7 @@ except ImportError as e:
 
 from app.db.session import engine
 from app.db.database import Base
-from app.utils.exception_handlers import (
+from app.utils.core.exception_handlers import (
     http_exception_handler, 
     validation_exception_handler, 
     database_exception_handler,
@@ -32,12 +32,12 @@ from app.utils.exception_handlers import (
     generic_exception_handler
 )
 from sqlalchemy.exc import SQLAlchemyError
-from app.utils.circuit_breaker import CircuitBreakerOpenError
+from app.utils.performance.circuit_breaker import CircuitBreakerOpenError
 
 # Importar logging y rate limiting solo si están disponibles
 try:
-    from app.utils.logging import setup_logging, get_logger, RequestLogger
-    from app.utils.rate_limiting import rate_limit_middleware, get_rate_limit_stats
+    from app.utils.core.logging import setup_logging, get_logger, RequestLogger
+    from app.utils.performance.rate_limiting import rate_limit_middleware, get_rate_limit_stats
     LOGGING_AVAILABLE = True
     if settings.is_development:
         print("✅ Sistema de logging y rate limiting disponible")
@@ -279,7 +279,7 @@ async def health_check():
     Returns:
         Dict con el estado de salud básico del sistema
     """
-    from app.utils.health_checks import get_quick_health_status
+    from app.utils.core.health_checks import get_quick_health_status
     return await get_quick_health_status()
 
 
@@ -297,7 +297,7 @@ async def detailed_health_check():
     Returns:
         Dict con el estado de salud completo del sistema
     """
-    from app.utils.health_checks import get_health_status
+    from app.utils.core.health_checks import get_health_status
     return await get_health_.status()
 
 # Endpoint de información de la aplicación
@@ -341,7 +341,7 @@ async def get_metrics():
     if settings.is_production:
         raise HTTPException(status_code=404, detail="Endpoint no disponible en producción")
     
-    from app.utils.metrics import metrics_collector
+    from app.utils.performance.metrics import metrics_collector
     return metrics_collector.get_all_metrics()
 
 
@@ -357,7 +357,7 @@ async def get_circuit_breakers():
     if settings.is_production:
         raise HTTPException(status_code=404, detail="Endpoint no disponible en producción")
     
-    from app.utils.circuit_breaker import circuit_breakers
+    from app.utils.performance.circuit_breaker import circuit_breakers
     return circuit_breakers.get_status()
 
 @app.get("/cache-stats", include_in_schema=False)
@@ -402,7 +402,7 @@ async def startup_event():
     
     # Inicializar sistema de métricas
     try:
-        from app.utils.metrics import start_system_metrics_collector
+        from app.utils.performance.metrics import start_system_metrics_collector
         start_system_metrics_collector()
         logger.info("Sistema de métricas inicializado correctamente")
     except Exception as e:

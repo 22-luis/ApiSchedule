@@ -11,7 +11,7 @@ from typing import Optional, List, Union, Union
 from app.schemas.record_stopwatch import RecordStopwatch as RecordStopwatchSchema
 from app.schemas.programming import ProgrammingTaskOrderOut as ProgrammingTaskSchema
 
-from app.utils.dependencies import get_current_user
+from app.utils.core.dependencies import get_current_user
 from app.models.user import User
 
 class RecordStopwatchDetailSchema(BaseModel):

@@ -5,8 +5,8 @@ from fastapi import Request, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError, OperationalError
-from app.utils.logging import get_logger
-from app.utils.circuit_breaker import CircuitBreakerOpenError
+from app.utils.core.logging import get_logger
+from app.utils.performance.circuit_breaker import CircuitBreakerOpenError
 
 logger = get_logger("exception_handlers")
 

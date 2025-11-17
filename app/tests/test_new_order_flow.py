@@ -17,7 +17,7 @@ from app.db.database import SessionLocal
 from app.models.order import Order
 from app.models.task import Task
 from app.models.state import OrderStatus
-from app.utils.order_status_service import OrderStatusService
+from app.utils.bussiness.order_status_service import OrderStatusService
 from datetime import datetime, date
 
 def test_order_flow():

@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException
 from app.core.config import settings
 from app.db.session import engine
-from app.utils.logging import get_logger
+from app.utils.core.logging import get_logger
 
 logger = get_logger("health_checks")
 

@@ -6,7 +6,7 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import StaticPool
 from app.core.config import settings
-from app.utils.logging import get_logger
+from app.utils.core.logging import get_logger
 
 logger = get_logger("database")
 

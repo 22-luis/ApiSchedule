@@ -7,7 +7,7 @@ import asyncio
 from typing import Any, Callable, Dict
 from enum import Enum
 from functools import wraps
-from app.utils.logging import get_logger
+from app.utils.core.logging import get_logger
 
 logger = get_logger("circuit_breaker")
 

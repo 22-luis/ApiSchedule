@@ -94,10 +94,10 @@ class TeamSelectionService:
         """
         # Usar los equipos definidos en ManufacturingTeams
         manufacturing_team_names = [
-            ManufacturingTeams.Fabricado1.value,
-            ManufacturingTeams.Fabricado2.value,
-            ManufacturingTeams.Fabricado3.value,
-            ManufacturingTeams.Molino.value
+            ManufacturingTeams.FABRICADO1.value,
+            ManufacturingTeams.FABRICADO2.value,
+            ManufacturingTeams.FABRICADO3.value,
+            ManufacturingTeams.MOLINO.value
         ]
         
         fabrication_teams = []
@@ -136,13 +136,13 @@ class TeamSelectionService:
         
         for team in fabrication_teams:
             team_name_lower = team.name.lower()
-            if ManufacturingTeams.Molino.value.lower() in team_name_lower:
+            if ManufacturingTeams.MOLINO.value.lower() in team_name_lower:
                 molino_teams.append(team)
-            elif ManufacturingTeams.Fabricado1.value.lower() in team_name_lower:
+            elif ManufacturingTeams.FABRICADO1.value.lower() in team_name_lower:
                 fabricado1_teams.append(team)
-            elif ManufacturingTeams.Fabricado2.value.lower() in team_name_lower:
+            elif ManufacturingTeams.FABRICADO2.value.lower() in team_name_lower:
                 fabricado2_teams.append(team)
-            elif ManufacturingTeams.Fabricado3.value.lower() in team_name_lower:
+            elif ManufacturingTeams.FABRICADO3.value.lower() in team_name_lower:
                 fabricado3_teams.append(team)
         
         # Tomar el primer equipo de cada tipo como representante
@@ -158,10 +158,10 @@ class TeamSelectionService:
                 {
                     "id": str(team.id),
                     "name": team.name,
-                    "type": "molino" if ManufacturingTeams.Molino.value.lower() in team.name.lower() else
-                           "fabricado1" if ManufacturingTeams.Fabricado1.value.lower() in team.name.lower() else
-                           "fabricado2" if ManufacturingTeams.Fabricado2.value.lower() in team.name.lower() else
-                           "fabricado3" if ManufacturingTeams.Fabricado3.value.lower() in team.name.lower() else "otro"
+                    "type": "molino" if ManufacturingTeams.MOLINO.value.lower() in team.name.lower() else
+                           "fabricado1" if ManufacturingTeams.FABRICADO1.value.lower() in team.name.lower() else
+                           "fabricado2" if ManufacturingTeams.FABRICADO2.value.lower() in team.name.lower() else
+                           "fabricado3" if ManufacturingTeams.FABRICADO3.value.lower() in team.name.lower() else "otro"
                 } for team in fabrication_teams
             ],
             "teams_by_type": {
@@ -199,8 +199,8 @@ class TeamSelectionService:
         
         # Regla 1: Molino para actividades de molienda
         molienda_activities = [
-            ManufacturingActivities.Mol_pasta.value,
-            ManufacturingActivities.Mol_polvo.value
+            ManufacturingActivities.MOL_PASTA.value,
+            ManufacturingActivities.MOL_POLVO.value
         ]
         
         if any(molienda_activity in activity_upper for molienda_activity in molienda_activities):
@@ -219,7 +219,7 @@ class TeamSelectionService:
         
         # Regla 2: Fabricado 2 para descripciones con "esencia" O actividad "MEZCLA LIQUIDA"
         if ("esencia" in description_lower or 
-            ManufacturingActivities.mez_liquida.value.upper() in activity_upper):
+            ManufacturingActivities.MEZ_LIQUIDA.value.upper() in activity_upper):
             fabricado2_team = teams_by_type.get("fabricado2")
             if fabricado2_team:
                 reason = ""
@@ -241,8 +241,8 @@ class TeamSelectionService:
         
         # Regla 3: Fabricado 1 para actividades "MEZCLA EN MAQUINA" o "MEZCLA MANUAL POLVO"
         mezcla_activities = [
-            ManufacturingActivities.Mez_maquina.value,
-            ManufacturingActivities.Mez_polvo.value
+            ManufacturingActivities.MEZ_MAQUINA.value,
+            ManufacturingActivities.MEZ_POLVO.value
         ]
         
         if any(mezcla_activity.upper() in activity_upper for mezcla_activity in mezcla_activities):
@@ -260,7 +260,7 @@ class TeamSelectionService:
                 }
         
         # Regla 4: Fabricado 3 para actividades "FABRICACION" con "ADEREZOS" o "JALEAS"
-        if (ManufacturingActivities.Fabricacion.value.upper() in activity_upper and
+        if (ManufacturingActivities.FABRICACION.value.upper() in activity_upper and
             ("ADEREZOS" in activity_upper or "JALEAS" in activity_upper or 
              "aderezos" in description_lower or "jaleas" in description_lower)):
             fabricado3_team = teams_by_type.get("fabricado3")
@@ -349,12 +349,12 @@ class TeamSelectionService:
         """
         # Usar los equipos definidos en PackagingTeams
         packaging_team_names = [
-            PackagingTeams.Empaque1.value,
-            PackagingTeams.Empaque2.value,
-            PackagingTeams.Empaque3.value,
-            PackagingTeams.Empaque4.value,
-            PackagingTeams.Maquina1.value,
-            PackagingTeams.Maquina2.value
+            PackagingTeams.EMPAQUE1.value,
+            PackagingTeams.EMPAQUE2.value,
+            PackagingTeams.EMPAQUE3.value,
+            PackagingTeams.EMPAQUE4.value,
+            PackagingTeams.MAQUINA1.value,
+            PackagingTeams.MAQUINA2.value
         ]
         
         packaging_teams = []
@@ -391,17 +391,17 @@ class TeamSelectionService:
         
         for team in packaging_teams:
             team_name_lower = team.name.lower()
-            if PackagingTeams.Empaque1.value.lower() in team_name_lower:
+            if PackagingTeams.EMPAQUE1.value.lower() in team_name_lower:
                 empaque_teams.append(team)
-            elif PackagingTeams.Empaque2.value.lower() in team_name_lower:
+            elif PackagingTeams.EMPAQUE2.value.lower() in team_name_lower:
                 empaque2_teams.append(team)
-            elif PackagingTeams.Empaque3.value.lower() in team_name_lower:
+            elif PackagingTeams.EMPAQUE3.value.lower() in team_name_lower:
                 empaque3_teams.append(team)
-            elif PackagingTeams.Empaque4.value.lower() in team_name_lower:
+            elif PackagingTeams.EMPAQUE4.value.lower() in team_name_lower:
                 empaque4_teams.append(team)
-            elif PackagingTeams.Maquina1.value.lower() in team_name_lower:
+            elif PackagingTeams.MAQUINA1.value.lower() in team_name_lower:
                 maquina1_teams.append(team)
-            elif PackagingTeams.Maquina2.value.lower() in team_name_lower:
+            elif PackagingTeams.MAQUINA2.value.lower() in team_name_lower:
                 maquina2_teams.append(team)
         
         # Tomar el primer equipo de cada tipo como representante
@@ -419,12 +419,12 @@ class TeamSelectionService:
                 {
                     "id": str(team.id),
                     "name": team.name,
-                    "type": "empaque" if PackagingTeams.Empaque1.value.lower() in team.name.lower() else
-                           "empaque2" if PackagingTeams.Empaque2.value.lower() in team.name.lower() else
-                           "empaque3" if PackagingTeams.Empaque3.value.lower() in team.name.lower() else
-                           "empaque4" if PackagingTeams.Empaque4.value.lower() in team.name.lower() else
-                           "maquina1" if PackagingTeams.Maquina1.value.lower() in team.name.lower() else
-                           "maquina2" if PackagingTeams.Maquina2.value.lower() in team.name.lower() else "otro"
+                    "type": "empaque" if PackagingTeams.EMPAQUE1.value.lower() in team.name.lower() else
+                           "empaque2" if PackagingTeams.EMPAQUE2.value.lower() in team.name.lower() else
+                           "empaque3" if PackagingTeams.EMPAQUE3.value.lower() in team.name.lower() else
+                           "empaque4" if PackagingTeams.EMPAQUE4.value.lower() in team.name.lower() else
+                           "maquina1" if PackagingTeams.MAQUINA1.value.lower() in team.name.lower() else
+                           "maquina2" if PackagingTeams.MAQUINA2.value.lower() in team.name.lower() else "otro"
                 } for team in packaging_teams
             ],
             "teams_by_type": {
@@ -465,7 +465,7 @@ class TeamSelectionService:
         teams_by_type = teams_data.get("teams_by_type", {})
         
         # Regla 1: Empaque para actividades "EMPAQUE MANUAL GRUPO"
-        if PackagingActivities.Emp_grupo.value.upper() in activity_upper:
+        if PackagingActivities.EMP_GRUPO.value.upper() in activity_upper:
             empaque_team = teams_by_type.get("empaque")
             if empaque_team:
                 return {
@@ -480,7 +480,7 @@ class TeamSelectionService:
                 }
         
         # Regla 2: Empaque 3 para actividades "EMPAQUE MANUAL"
-        if PackagingActivities.Emp_manual.value.upper() in activity_upper:
+        if PackagingActivities.EMP_MANUAL.value.upper() in activity_upper:
             empaque3_team = teams_by_type.get("empaque3")
             if empaque3_team:
                 return {
@@ -510,7 +510,7 @@ class TeamSelectionService:
                 }
         
         # Regla 4: Empaque 4 para actividades "EMPAQUE MANUAL MAS MEZCLA"
-        if PackagingActivities.Emp_mezcla.value.upper() in activity_upper:
+        if PackagingActivities.EMP_MEZCLA.value.upper() in activity_upper:
             empaque4_team = teams_by_type.get("empaque4")
             if empaque4_team:
                 return {
@@ -525,7 +525,7 @@ class TeamSelectionService:
                 }
         
         # Regla 5: MAQUINA 1 para actividades "EMPAQUE MAQUINA SEMI AUTOMATICA"
-        if PackagingActivities.Emp_semi.value.upper() in activity_upper:
+        if PackagingActivities.EMP_SEMI.value.upper() in activity_upper:
             maquina1_team = teams_by_type.get("maquina1")
             if maquina1_team:
                 return {
@@ -540,7 +540,7 @@ class TeamSelectionService:
                 }
         
         # Regla 6: MAQUINA 2 para actividades "EMPAQUE MAQUINA AUTOMATICA"
-        if PackagingActivities.Emp_auto.value.upper() in activity_upper:
+        if PackagingActivities.EMP_AUTO.value.upper() in activity_upper:
             maquina2_team = teams_by_type.get("maquina2")
             if maquina2_team:
                 return {

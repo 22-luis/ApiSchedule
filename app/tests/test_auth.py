@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.models.user import User
 from app.models.role import UserRole
 from app.models.state import UserState
-from app.utils.security import get_password_hash
+from app.utils.security.security import get_password_hash
 
 class TestAuth:
     """Test authentication endpoints."""

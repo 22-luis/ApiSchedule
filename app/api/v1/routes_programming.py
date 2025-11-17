@@ -7,7 +7,7 @@ from app.models.task import Task
 from app.models.team import Team
 from app.schemas.programming import ProgrammingCreate, ProgrammingRead, ProgrammingUpdate, ProgrammingTaskOrderIn, ProgrammingReorderResponse, ProgrammingTaskOrderOut, AvailableProgrammingResponse, AvailableProgrammingItem, TasksOrderRequest
 from app.db.dependency import get_db
-from app.utils.dependencies import get_current_user, require_roles
+from app.utils.core.dependencies import get_current_user, require_roles
 from datetime import date, datetime, timedelta, time
 from uuid import UUID
 from app.models.programming import ProgrammingTask
@@ -17,8 +17,8 @@ from app.models.user import User
 import sys
 import traceback
 from pytz import timezone
-from app.utils.order_status_service import OrderStatusService
-from app.utils.programming_availability import update_programming_availability, update_all_programmings_availability_for_date
+from app.utils.business.order_status_service import OrderStatusService
+from app.utils.business.programming_availability import update_programming_availability, update_all_programmings_availability_for_date
 from app.models.order import Order as OrderModel
 from app.models.state import OrderStatus
 from app.models.programming import ProgrammingStatus
@@ -57,6 +57,14 @@ def get_programming_by_team_date(team_id: str, date: str, db: Session = Depends(
         # Convertir date a objeto date
         date_obj = datetime.strptime(date, "%Y-%m-%d").date()
         programming = db.query(Programming).filter_by(team_id=team_id, date=date_obj).first()
+
+        if programming:
+            print(f"DEBUG: Found programming {programming.id} for team {team_id} on date {date_obj}")
+            print(f"DEBUG: Number of programming_tasks: {len(programming.programming_tasks)}")
+            for pt in programming.programming_tasks:
+                print(f"DEBUG: ProgrammingTask found: task_id={pt.task_id}, programming_id={pt.programming_id}, order={pt.order}, is_completed={pt.is_completed}")
+        else:
+            print(f"DEBUG: No programming found for team {team_id} on date {date_obj}")
         if not programming:
             # Si no existe la programación, verificar si el usuario puede crearla
             if current_user.role.value not in ("admin", "planner", "supervisor", "timekeeper") and not user_belongs_to_team(current_user, team_id):
@@ -99,12 +107,6 @@ def get_programming_by_team_date(team_id: str, date: str, db: Session = Depends(
             else:
                 t['created_by_user'] = None
             t['is_completed'] = getattr(pt, 'is_completed', None)
-            # DEBUG: Log the is_completed value we are sending to the client for this pt
-            try:
-                print(f"DEBUG - Returning task for programming {programming.id}: task_id={pt.task_id}, pt.is_completed={t['is_completed']}, task.is_completed={getattr(task_obj, 'is_completed', None)}")
-            except Exception as e:
-                print(f"DEBUG - Error logging pt completion: {e}")
-
             tasks.append(t)
         response = {
             "id": programming.id,

@@ -9,8 +9,8 @@ from datetime import time
 import math
 
 from app.services.base_task_service import BaseTaskService
-from app.services.utils.team_selection_service import TeamSelectionService
 from app.services.config import ServiceType, ServiceConfig
+from app.utils.Auto.rules.weighning import WeighingRule
 
 
 class WeighingTaskService(BaseTaskService):
@@ -22,92 +22,16 @@ class WeighingTaskService(BaseTaskService):
         time_limit = ServiceConfig.get_time_limit(ServiceType.WEIGHING)
         tolerance_minutes = ServiceConfig.get_tolerance_minutes(ServiceType.WEIGHING)
         super().__init__(time_limit=time_limit, tolerance_minutes=tolerance_minutes)
+        self.weighing_rule = WeighingRule()
     
     def filter_activities(self, activities_data: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Filtra las actividades para obtener solo las relacionadas con pesado.
-        
-        Args:
-            activities_data: Diccionario con todas las actividades organizadas por código
-            
-        Returns:
-            Diccionario con solo las actividades de pesado organizadas por código
-        """
-        weighing_activities_by_code = {}
-        
-        activities_by_code = activities_data.get("activities_by_code", {})
-        for code, code_data in activities_by_code.items():
-            activities = code_data.get("activities", [])
-            weighing_activities = []
-            
-            for activity in activities:
-                activity_name = activity.get("activity", "").upper()
-                
-                # Buscar actividades relacionadas con pesado usando configuración centralizada
-                weighing_keywords = ServiceConfig.get_activity_keywords(ServiceType.WEIGHING)
-                if any(keyword in activity_name for keyword in weighing_keywords):
-                    weighing_activities.append(activity)
-            
-            if weighing_activities:
-                weighing_activities_by_code[code] = {
-                    "code": code,
-                    "weighing_activities": weighing_activities,
-                    "total_weighing_activities": len(weighing_activities),
-                    "found": True
-                }
-        
-        return {
-            "weighing_activities_by_code": weighing_activities_by_code,
-            "total_codes_with_weighing": len(weighing_activities_by_code),
-            "codes_with_weighing": list(weighing_activities_by_code.keys())
-        }
+        return self.weighing_rule.filter_activities(activities_data)
     
     def get_most_suitable_team(self, db: Session) -> Dict[str, Any]:
-        """
-        Obtiene el equipo más idóneo para actividades de pesado.
-        
-        Args:
-            db: Sesión de base de datos
-            
-        Returns:
-            Diccionario con información del equipo más idóneo para pesado
-        """
-        return TeamSelectionService.get_weighing_team(db)
+        return self.weighing_rule.get_most_suitable_team(db)
     
     def get_activity_for_order(self, order_data: Dict, activities_data: Dict) -> Optional[Dict]:
-        """
-        Obtiene la actividad de pesado específica para una orden.
-        
-        Args:
-            order_data: Datos de la orden (lote, quantity, code)
-            activities_data: Datos de actividades de pesado con minutos calculados
-            
-        Returns:
-            Actividad de pesado específica para la orden o None si no se encuentra
-        """
-        order_code = order_data.get('code')
-        if not order_code:
-            return None
-        
-        # Buscar las actividades para el código de esta orden
-        code_data = activities_data.get("weighing_activities_by_code", {}).get(order_code)
-        
-        if not code_data or not code_data.get("weighing_activities"):
-            return None
-        
-        # Buscar específicamente la actividad "PESADO"
-        pesado_activity = None
-        for activity in code_data["weighing_activities"]:
-            activity_name = activity.get("activity", "")
-            if activity_name and "PESADO" in activity_name.upper():
-                pesado_activity = activity
-                break
-        
-        # Si no se encuentra "PESADO", usar la primera actividad disponible
-        if not pesado_activity:
-            pesado_activity = code_data["weighing_activities"][0]
-        
-        return pesado_activity
+        return self.weighing_rule.get_activity_for_order(order_data, activities_data)
     
     def get_weighing_activities_with_minutes(self, extracted_orders: List[Dict], db: Session) -> Dict[str, Any]:
         """
@@ -154,8 +78,14 @@ class WeighingTaskService(BaseTaskService):
                         
                         # Calcular horas para mostrar en la fórmula
                         if performance:
-                            hours_calculation = performance * order_quantity
-                            formula = f"{performance} horas * {order_quantity} = {hours_calculation} horas * 60 = {calculated_minutes} minutos (con ceiling)"
+                            # performance = unidades por hora -> hours = quantity * (1/performance)
+                            try:
+                                hours_calc = order_quantity * (1.0 / performance) if performance != 0 else 0
+                                hours_calculation = hours_calc
+                                formula = f"{order_quantity} / {performance} = {hours_calculation} horas * 60 = {calculated_minutes} minutos (con ceiling)"
+                            except Exception:
+                                hours_calculation = 0
+                                formula = f"Error calculando fórmula: performance={performance}, quantity={order_quantity}"
                         elif time:
                             hours_calculation = 0  # Para tiempo directo, no hay cálculo de horas
                             formula = f"Tiempo directo: {time} minutos = {calculated_minutes} minutos (con ceiling)"
@@ -301,9 +231,12 @@ class WeighingTaskService(BaseTaskService):
             }
             
         except Exception as e:
-            return {
-                "success": False,
-                "message": f"Error durante la creación de tareas de pesado: {str(e)}",
-                "tasks_created": 0,
-                "total_orders": len(extracted_orders)
-            }
+            # Log a more detailed error message, including traceback
+            import traceback
+            print(f"Error during weighing task creation: {str(e)}\n{traceback.format_exc()}")
+            
+            # Rollback the transaction to avoid inconsistent state
+            db.rollback()
+            
+            # Re-raise the exception so it's not silent
+            raise

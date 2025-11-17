@@ -5,10 +5,10 @@ from app.models import order as order_model
 from app.db.dependency import get_db
 from typing import List, Union, Optional
 from app.models.user import User
-from app.utils.dependencies import get_current_user, require_roles
+from app.utils.core.dependencies import get_current_user, require_roles
 from app.models.role import UserRole
 from app.models.state import OrderStatus
-from app.utils.data_cleaning import clean_order_data
+from app.utils.business.data_cleaning import clean_order_data
 from datetime import datetime
 from sqlalchemy import or_, and_
 from app.core.task_config import (
@@ -16,9 +16,12 @@ from app.core.task_config import (
     get_orders_summary
 )
 from app.services.factory import TaskServiceFactory
-from app.utils.order_status_service import OrderStatusService
+from app.utils.business.order_status_service import OrderStatusService
 from app.models.programming import ProgrammingTask
 from datetime import date
+from app.utils.core.logging import get_logger
+
+logger = get_logger("routes_order")
 
 
 def _get_delivery_status_message(status: OrderStatus, missing_quantity: int) -> str:
@@ -44,14 +47,22 @@ def create_orders(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))
 ):
+    logger.info(f"Received request to create orders. auto_create_tasks={auto_create_tasks}")
+    
     # Si es una sola orden, la convertimos en lista
     if isinstance(orders, OrderCreate):
         orders = [orders]
+    
+    logger.debug(f"Processing {len(orders)} orders.")
+    
     created_orders = []
     for order in orders:
+        logger.debug(f"Processing order with lote: {order.lote}")
+        
         # Verificar si la orden ya existe por el lote
         existing_order = db.query(order_model.Order).filter(order_model.Order.lote == order.lote).first()
         if existing_order:
+            logger.warning(f"Order with lote {order.lote} already exists. Skipping.")
             continue 
         
         # Limpiar los datos de la orden
@@ -63,6 +74,7 @@ def create_orders(
         #Not programable condition
         if order.bin not in [8, 10, 100]:
             initial_status = OrderStatus.not_programmable
+            logger.info(f"Order with lote {order.lote} is not programmable (bin: {order.bin}). Setting status to {initial_status}.")
         
         db_order = order_model.Order(
             lote=order.lote,
@@ -76,7 +88,11 @@ def create_orders(
         )
         db.add(db_order)
         created_orders.append(db_order)
+        logger.info(f"Order with lote {order.lote} marked for creation.")
+
     db.commit()
+    logger.info(f"Committed {len(created_orders)} new orders to the database.")
+
     for db_order in created_orders:
         db.refresh(db_order)
     
@@ -109,6 +125,7 @@ def create_orders(
     
     # Solo crear tareas si auto_create_tasks es True
     if auto_create_tasks:
+        logger.info("auto_create_tasks is True. Proceeding with task creation.")
         
         # Obtener instancias de servicios usando el factory
         weighing_service, fabrication_service = get_task_services()
@@ -123,12 +140,33 @@ def create_orders(
         
         # Crear tareas de pesado para todas las órdenes usando el servicio
         weighing_tasks_result = weighing_service.create_weighing_tasks_for_orders(extracted_orders, db)
+        # Persistir los cambios hechos por el servicio (tareas/programaciones creadas)
+        try:
+            if weighing_tasks_result and weighing_tasks_result.get("tasks_created", 0) > 0:
+                db.commit()
+        except Exception:
+            db.rollback()
+            raise
         
         # Crear tareas de fabricación para todas las órdenes usando el servicio
-        fabrication_tasks_result = fabrication_service.create_fabrication_tasks_for_orders(extracted_orders, db)
+        fabrication_tasks_result = fabrication_service.create_fabrication_tasks_for_orders(extracted_orders, db, weighing_results=weighing_tasks_result)
+        # Persistir los cambios hechos por el servicio (tareas/programaciones creadas)
+        try:
+            if fabrication_tasks_result and fabrication_tasks_result.get("tasks_created", 0) > 0:
+                db.commit()
+        except Exception:
+            db.rollback()
+            raise
         
         # Crear tareas de empaque para todas las órdenes usando el servicio
-        packaging_tasks_result = packaging_service.create_packaging_tasks_for_orders(extracted_orders, db)
+        packaging_tasks_result = packaging_service.create_packaging_tasks_for_orders(extracted_orders, db, fabrication_results=fabrication_tasks_result)
+        # Persistir los cambios hechos por el servicio (tareas/programaciones creadas)
+        try:
+            if packaging_tasks_result and packaging_tasks_result.get("tasks_created", 0) > 0:
+                db.commit()
+        except Exception:
+            db.rollback()
+            raise
         
         response_data.update({
             "activities_data": activities_data,
@@ -138,10 +176,12 @@ def create_orders(
             "message": f"Se crearon {len(created_orders)} órdenes exitosamente. {weighing_tasks_result.get('tasks_created', 0)} tareas de pesado, {fabrication_tasks_result.get('tasks_created', 0)} tareas de fabricación y {packaging_tasks_result.get('tasks_created', 0)} tareas de empaque creadas."
         })
     else:
+        logger.info("auto_create_tasks is False. Skipping task creation.")
         response_data.update({
             "message": f"Se crearon {len(created_orders)} órdenes exitosamente. No se crearon tareas automáticamente."
         })
     
+    logger.info("Finished processing create_orders request.")
     return response_data
 
 @router.delete("/{order_id}")

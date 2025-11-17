@@ -5,8 +5,8 @@ from typing import List
 from app.db.dependency import get_db
 from app.models.user import User
 from app.models.role import UserRole
-from app.utils.jwt import decode_token
-from app.utils.security import oauth2_scheme
+from app.utils.security.jwt import decode_token
+from app.utils.security.security import oauth2_scheme
 
 # 1. Centralizar la jerarquía de roles en un solo lugar.
 # Esto evita la duplicación en `routes_user.py` y en otras funciones de este archivo.

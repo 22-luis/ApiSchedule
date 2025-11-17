@@ -11,7 +11,7 @@ from app.models.order import Order
 from app.models.state import ProgrammingStatus, OrderStatus
 from app.models.role import UserRole
 from app.models.code import Code
-from app.utils.dependencies import get_current_user
+from app.utils.core.dependencies import get_current_user
 from app.schemas.user import User
 
 router = APIRouter(prefix="/reports", tags=["reports"])
