@@ -331,6 +331,67 @@ def get_last_task_of_programming(programming_id: UUID, db: Session = Depends(get
     task_out['programming_end_time'] = last_prog_task.end_time.isoformat() if last_prog_task.end_time is not None else None
     return task_out 
 
+
+@router.get("/{programming_id}/total_time", response_model=dict)
+def get_programming_total_time(programming_id: UUID, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    """
+    Devuelve la suma de los tiempos de las tareas asociadas a una programación.
+    Calcula:
+      - total_planned_minutes: suma de `Task.minutes` cuando esté presente, si no, usa `ProgrammingTask.duration_in_hours * 60` cuando esté presente.
+      - total_real_minutes: suma de diferencias `real_end_time - real_start_time` en minutos cuando ambos estén presentes.
+      - task_count: número de tareas en la programación
+    """
+    programming = db.query(Programming).get(programming_id)
+    if not programming:
+        raise HTTPException(status_code=404, detail="Programming not found")
+    # permisos: admin/planner/supervisor/timekeeper o miembro del equipo
+    if current_user.role.value not in ("admin", "planner", "supervisor", "timekeeper") and not user_belongs_to_team(current_user, programming.team_id):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    total_planned_minutes = 0
+    total_real_minutes = 0
+    task_count = 0
+
+    # Cargar programming tasks junto con la tarea asociada
+    prog_tasks = db.query(ProgrammingTask).filter(ProgrammingTask.programming_id == programming_id).all()
+    for pt in prog_tasks:
+        task_count += 1
+        task = pt.task
+
+        # planned: prefer Task.minutes, si no tomar duration_in_hours
+        planned = 0
+        if task and getattr(task, 'minutes', None) is not None:
+            try:
+                planned = int(task.minutes)
+            except Exception:
+                planned = 0
+        elif getattr(pt, 'duration_in_hours', None) is not None:
+            try:
+                planned = int(float(pt.duration_in_hours) * 60)
+            except Exception:
+                planned = 0
+
+        total_planned_minutes += planned
+
+        # real: usar real_start_time y real_end_time si existen
+        if getattr(pt, 'real_start_time', None) and getattr(pt, 'real_end_time', None):
+            try:
+                delta = pt.real_end_time - pt.real_start_time
+                real_minutes = int(delta.total_seconds() / 60)
+                if real_minutes > 0:
+                    total_real_minutes += real_minutes
+            except Exception:
+                pass
+
+    return {
+        "programming_id": str(programming_id),
+        "task_count": task_count,
+        "total_planned_minutes": total_planned_minutes,
+        "total_planned_hours": round(total_planned_minutes / 60, 2),
+        "total_real_minutes": total_real_minutes,
+        "total_real_hours": round(total_real_minutes / 60, 2)
+    }
+
 @router.post("/{programming_id}/tasks/{task_id}/start_timer")
 def start_task_timer(programming_id: str, task_id: str, data: dict = Body(None), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     pt = db.query(ProgrammingTask).filter_by(programming_id=programming_id, task_id=task_id).first()
