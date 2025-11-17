@@ -159,7 +159,7 @@ async def get_task_performance_report(
 
     query = (
     select(
-        func.date(ProgrammingTask.created_at).label('fecha'),
+        func.date(ProgrammingTask.start_time).label('fecha'),
         Code.code,
         Code.description,
         Task.lote,
