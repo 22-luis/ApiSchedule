@@ -140,12 +140,33 @@ def create_orders(
         
         # Crear tareas de pesado para todas las órdenes usando el servicio
         weighing_tasks_result = weighing_service.create_weighing_tasks_for_orders(extracted_orders, db)
+        # Persistir los cambios hechos por el servicio (tareas/programaciones creadas)
+        try:
+            if weighing_tasks_result and weighing_tasks_result.get("tasks_created", 0) > 0:
+                db.commit()
+        except Exception:
+            db.rollback()
+            raise
         
         # Crear tareas de fabricación para todas las órdenes usando el servicio
         fabrication_tasks_result = fabrication_service.create_fabrication_tasks_for_orders(extracted_orders, db, weighing_results=weighing_tasks_result)
+        # Persistir los cambios hechos por el servicio (tareas/programaciones creadas)
+        try:
+            if fabrication_tasks_result and fabrication_tasks_result.get("tasks_created", 0) > 0:
+                db.commit()
+        except Exception:
+            db.rollback()
+            raise
         
         # Crear tareas de empaque para todas las órdenes usando el servicio
         packaging_tasks_result = packaging_service.create_packaging_tasks_for_orders(extracted_orders, db, fabrication_results=fabrication_tasks_result)
+        # Persistir los cambios hechos por el servicio (tareas/programaciones creadas)
+        try:
+            if packaging_tasks_result and packaging_tasks_result.get("tasks_created", 0) > 0:
+                db.commit()
+        except Exception:
+            db.rollback()
+            raise
         
         response_data.update({
             "activities_data": activities_data,

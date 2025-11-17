@@ -5,7 +5,8 @@ Hereda de BaseTaskService para reutilizar funcionalidad común.
 
 from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
-from datetime import time, datetime
+from datetime import date, time, datetime
+import logging
 import math
 
 from app.services.base_task_service import BaseTaskService
@@ -147,6 +148,8 @@ class FabricationTaskService(BaseTaskService):
                     if lote and end_time_str:
                         weighing_end_dates[lote] = datetime.fromisoformat(end_time_str).date()
 
+            logger = logging.getLogger(__name__)
+
             # Obtener actividades con minutos calculados
             activities_with_minutes = self.get_fabrication_activities_with_minutes(extracted_orders, db)
             
@@ -188,7 +191,13 @@ class FabricationTaskService(BaseTaskService):
                 team_id = selected_team.get("id")
                 
                 # Determinar la fecha de inicio para la búsqueda de programación
-                start_date = weighing_end_dates.get(lote)
+                start_date_candidate = weighing_end_dates.get(lote)
+                # Usar la fecha del pesado solo si es futura; en otro caso preferir hoy
+                if start_date_candidate and isinstance(start_date_candidate, date) and start_date_candidate > date.today():
+                    start_date = start_date_candidate
+                else:
+                    start_date = date.today()
+                logger.debug(f"Fabrication: lote={lote} start_date_candidate={start_date_candidate} -> start_date_used={start_date}")
 
                 # Obtener programaciones disponibles para el equipo seleccionado
                 available_programmings = self.get_available_programmings_for_team(team_id, db, start_date=start_date)

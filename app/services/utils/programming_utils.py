@@ -228,7 +228,15 @@ class ProgrammingUtils:
     def _create_new_programming(team_id: str, db: Session, start_date: Optional[date] = None) -> List[Programming]:
         """
         Crea una nueva programación para el equipo usando fechas más cercanas.
-        Busca huecos en las programaciones existentes.
+                    import logging
+        
+                    logger = logging.getLogger(__name__)
+        
+                    # Primero intentar desde la fecha actual para priorizar programaciones de hoy
+                    today = date.today()
+                    logger.debug(f"get_available_programmings_for_team: team_id={team_id} requested_start_date={start_date} trying_today={today}")
+        
+                    search_date = today
         
         Args:
             team_id: ID del equipo
@@ -249,7 +257,8 @@ class ProgrammingUtils:
         )
         
         # Buscar el primer hueco disponible en las próximas 30 días
-        search_start_date = current_date + timedelta(days=1)  # Empezar desde mañana
+        # Incluir la fecha 'current_date' como candidata (permitir crear programación en la misma fecha solicitada)
+        search_start_date = current_date  # Empezar desde la fecha proporcionada (incluye hoy)
         end_date = current_date + timedelta(days=30)   # Buscar hasta 30 días
         
         # Crear lista de fechas disponibles

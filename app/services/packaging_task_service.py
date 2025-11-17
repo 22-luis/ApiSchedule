@@ -5,7 +5,8 @@ Hereda de BaseTaskService para reutilizar funcionalidad común.
 
 from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
-from datetime import time, datetime
+from datetime import date, time, datetime
+import logging
 import math
 
 from app.services.base_task_service import BaseTaskService
@@ -136,6 +137,8 @@ class PackagingTaskService(BaseTaskService):
         Función principal que maneja todo el proceso de creación de tareas de empaque.
         """
         try:
+            logger = logging.getLogger(__name__)
+
             fabrication_end_dates = {}
             if fabrication_results and fabrication_results.get("created_tasks"):
                 for task in fabrication_results["created_tasks"]:
@@ -185,8 +188,13 @@ class PackagingTaskService(BaseTaskService):
                     # TeamSelectionService returns the chosen team under the key 'selected_team'
                     selected_team = team_selection.get("selected_team") or team_selection.get("team") or {}
                     team_id = selected_team.get("id")
-                    start_date = fabrication_end_dates.get(lote)
-                    
+                    start_date_candidate = fabrication_end_dates.get(lote)
+                    if start_date_candidate and isinstance(start_date_candidate, date) and start_date_candidate > date.today():
+                        start_date = start_date_candidate
+                    else:
+                        start_date = date.today()
+                    logger.debug(f"Packaging: lote={lote} start_date_candidate={start_date_candidate} -> start_date_used={start_date}")
+
                     available_programmings = self.get_available_programmings_for_team(team_id, db, start_date=start_date)
 
                     if not available_programmings:
