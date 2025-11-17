@@ -254,11 +254,11 @@ async def get_task_performance_group_report(
         "code": row.code,
         "description": row.description,
         "type": row.type,
-        "sum_hours": round(float(row.sum_hours), 2) if row.sum_hours else None,
+        "sum_hours": round(float(row.sum_hours), 4) if row.sum_hours else None,
         "sum_quantity": float(row.sum_quantity) if row.sum_quantity else None,
-        "avg_time_per_product": round(float(row.avg_time_per_product), 2) if row.avg_time_per_product else None,
+        "avg_time_per_product": round(float(row.avg_time_per_product), 4) if row.avg_time_per_product else None,
         "people": row.people,
-        "final_metric": round(float(row.final_metric), 2) if row.final_metric else None
+        "final_metric": round(float(row.final_metric), 4) if row.final_metric else None
     } for row in results]
 
 @router.get("/team-performance")
