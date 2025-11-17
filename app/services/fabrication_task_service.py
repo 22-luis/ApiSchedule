@@ -28,8 +28,8 @@ class FabricationTaskService(BaseTaskService):
     def filter_activities(self, activities_data: Dict[str, Any]) -> Dict[str, Any]:
         return self.manufactured_rule.filter_activities(activities_data)
     
-    def get_most_suitable_team(self, db: Session, order_data: Dict) -> Dict[str, Any]:
-        return self.manufactured_rule.get_most_suitable_team(db, order_data)
+    def get_most_suitable_team(self, db: Session, order_data: Dict, activity_type: Optional[str] = None) -> Dict[str, Any]:
+        return self.manufactured_rule.get_most_suitable_team(db, order_data, activity_type)
     
     def get_activity_for_order(self, order_data: Dict, activities_data: Dict) -> Optional[Dict]:
         return self.manufactured_rule.get_activity_for_order(order_data, activities_data)
@@ -184,7 +184,9 @@ class FabricationTaskService(BaseTaskService):
                 activity_name = activity_with_minutes.get("activity_data", {}).get("activity")
 
                 # Obtener el equipo específico para esta actividad
-                team_selection = self.get_most_suitable_team(db, order_data)
+                activity_details = activity_with_minutes.get("activity_data", {})
+                activity_type = activity_details.get("type")
+                team_selection = self.get_most_suitable_team(db, order_data, activity_type)
                 
                 if not team_selection.get("success"):
                     failed_orders.append({

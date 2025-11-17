@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, Body
+from fastapi import APIRouter, Depends, HTTPException, Query, Body, BackgroundTasks
 from sqlalchemy.orm import Session
 from app.schemas.order import OrderCreate, OrderOut, OrderStatusUpdate, OrderPageOut, OrderWarehouseUpdate, OrderWarehouseOut
 from app.models import order as order_model
@@ -16,6 +16,7 @@ from app.core.task_config import (
     get_orders_summary
 )
 from app.services.factory import TaskServiceFactory
+from app.services.auto import create_tasks_for_lotes
 from app.utils.business.order_status_service import OrderStatusService
 from app.models.programming import ProgrammingTask
 from datetime import date
@@ -45,6 +46,7 @@ def create_orders(
     orders: Union[OrderCreate, List[OrderCreate]],
     auto_create_tasks: bool = Query(True, description="Crear tareas automáticamente"),
     db: Session = Depends(get_db),
+    background_tasks: BackgroundTasks = None,
     current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))
 ):
     logger.info(f"Received request to create orders. auto_create_tasks={auto_create_tasks}")
@@ -102,17 +104,23 @@ def create_orders(
     # Generar resumen simplificado
     summary = get_orders_summary(created_orders)
     
-    # Serializar las órdenes creadas para la respuesta
+    # Serializar las órdenes creadas para la respuesta: normalizar tipos (str/int/float/ISO date)
     serialized_orders = []
     for order in created_orders:
+        # Convertir status a cadena si es enum
+        status_val = order.status.name if hasattr(order.status, 'name') else str(order.status)
+
+        # Asegurar dueDate como string ISO (YYYY-MM-DD) si es date
+        due_date_val = order.dueDate.isoformat() if hasattr(order.dueDate, 'isoformat') else order.dueDate
+
         order_dict = {
-            "lote": order.lote,
+            "lote": int(order.lote) if order.lote is not None else None,
             "code": order.code,
-            "status": order.status,
+            "status": status_val,
             "description": order.description,
-            "quantity": order.quantity,
-            "bin": order.bin,
-            "dueDate": order.dueDate
+            "quantity": float(order.quantity) if order.quantity is not None else 0.0,
+            "bin": int(order.bin) if order.bin is not None else None,
+            "dueDate": due_date_val
         }
         serialized_orders.append(order_dict)
     
@@ -123,58 +131,22 @@ def create_orders(
         "auto_create_tasks": auto_create_tasks
     }
     
-    # Solo crear tareas si auto_create_tasks es True
+    # Solo crear tareas si auto_create_tasks es True -> delegate to central service
     if auto_create_tasks:
-        logger.info("auto_create_tasks is True. Proceeding with task creation.")
-        
-        # Obtener instancias de servicios usando el factory
-        weighing_service, fabrication_service = get_task_services()
-        
-        # Crear instancia del servicio de empaque
-        
-        packaging_service = TaskServiceFactory.create_packaging_service()
-        
-        activities_data = weighing_service.get_activities_for_orders(extracted_orders, db)
-        
-        #La creacion automatica puede cambiar de como esta ahorita
-        
-        # Crear tareas de pesado para todas las órdenes usando el servicio
-        weighing_tasks_result = weighing_service.create_weighing_tasks_for_orders(extracted_orders, db)
-        # Persistir los cambios hechos por el servicio (tareas/programaciones creadas)
-        try:
-            if weighing_tasks_result and weighing_tasks_result.get("tasks_created", 0) > 0:
-                db.commit()
-        except Exception:
-            db.rollback()
-            raise
-        
-        # Crear tareas de fabricación para todas las órdenes usando el servicio
-        fabrication_tasks_result = fabrication_service.create_fabrication_tasks_for_orders(extracted_orders, db, weighing_results=weighing_tasks_result)
-        # Persistir los cambios hechos por el servicio (tareas/programaciones creadas)
-        try:
-            if fabrication_tasks_result and fabrication_tasks_result.get("tasks_created", 0) > 0:
-                db.commit()
-        except Exception:
-            db.rollback()
-            raise
-        
-        # Crear tareas de empaque para todas las órdenes usando el servicio
-        packaging_tasks_result = packaging_service.create_packaging_tasks_for_orders(extracted_orders, db, fabrication_results=fabrication_tasks_result)
-        # Persistir los cambios hechos por el servicio (tareas/programaciones creadas)
-        try:
-            if packaging_tasks_result and packaging_tasks_result.get("tasks_created", 0) > 0:
-                db.commit()
-        except Exception:
-            db.rollback()
-            raise
-        
-        response_data.update({
-            "activities_data": activities_data,
-            "weighing_tasks_result": weighing_tasks_result,
-            "fabrication_tasks_result": fabrication_tasks_result,
-            "packaging_tasks_result": packaging_tasks_result,
-            "message": f"Se crearon {len(created_orders)} órdenes exitosamente. {weighing_tasks_result.get('tasks_created', 0)} tareas de pesado, {fabrication_tasks_result.get('tasks_created', 0)} tareas de fabricación y {packaging_tasks_result.get('tasks_created', 0)} tareas de empaque creadas."
-        })
+        created_lotes = [o.lote for o in created_orders]
+        if background_tasks is not None:
+            background_tasks.add_task(create_tasks_for_lotes, created_lotes, current_user.username)
+            response_data.update({
+                "task_creation_scheduled": True,
+                "message": f"Se crearon {len(created_orders)} órdenes exitosamente. La creación de tareas se programó en background."
+            })
+        else:
+            # Fallback: run inline (keeps previous behavior)
+            create_tasks_for_lotes(created_lotes, current_user.username)
+            response_data.update({
+                "task_creation_scheduled": False,
+                "message": f"Se crearon {len(created_orders)} órdenes exitosamente. Las tareas se crearon en el mismo proceso."
+            })
     else:
         logger.info("auto_create_tasks is False. Skipping task creation.")
         response_data.update({
