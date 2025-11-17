@@ -84,8 +84,14 @@ class FabricationTaskService(BaseTaskService):
                         
                         # Calcular horas para mostrar en la fórmula
                         if performance:
-                            hours_calculation = performance * order_quantity
-                            formula = f"{performance} horas * {order_quantity} = {hours_calculation} horas * 60 = {calculated_minutes} minutos (con ceiling)"
+                            # performance = unidades por hora -> hours = quantity * (1/performance)
+                            try:
+                                hours_calc = order_quantity * (1.0 / performance) if performance != 0 else 0
+                                hours_calculation = hours_calc
+                                formula = f"{order_quantity} / {performance} = {hours_calculation} horas * 60 = {calculated_minutes} minutos (con ceiling)"
+                            except Exception:
+                                hours_calculation = 0
+                                formula = f"Error calculando fórmula: performance={performance}, quantity={order_quantity}"
                         elif time:
                             hours_calculation = 0  # Para tiempo directo, no hay cálculo de horas
                             formula = f"Tiempo directo: {time} minutos = {calculated_minutes} minutos (con ceiling)"

@@ -189,9 +189,18 @@ class BaseTaskService(ABC):
             return 0
         
         if performance is not None:
-            # Usar performance si está disponible
-            minutes = performance * quantity
-            return math.ceil(minutes)
+                # performance se interpreta como UNIDADES por HORA (throughput).
+                # Tiempo por unidad (en horas) = 1 / performance.
+                # Minutos totales = quantity * (1 / performance) * 60
+                try:
+                    if performance == 0:
+                        # Evitar división por cero
+                        return 0
+                    minutes = quantity * (1.0 / performance) * 60
+                    return math.ceil(minutes)
+                except Exception:
+                    # En caso de cualquier problema con los valores, fallback seguro
+                    return 0
         elif time is not None:
             # Usar time directamente como minutos
             return math.ceil(time)
