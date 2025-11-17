@@ -201,6 +201,8 @@ async def get_task_performance_report(
 
 @router.get("/task-performance-group")
 async def get_task_performance_group_report(
+    year: Optional[int] = Query(None, description="Año del reporte (opcional)"),
+    month: Optional[int] = Query(None, description="Mes del reporte (opcional)"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -221,7 +223,7 @@ async def get_task_performance_group_report(
             detail="No tienes permisos para acceder a este reporte. Se requiere rol admin o accounting."
         )
 
-    query = (
+    base_query = (
         select(
             Code.code,
             Code.description,
@@ -245,21 +247,42 @@ async def get_task_performance_group_report(
         .select_from(Code)
         .join(Task, Code.id == Task.code_id)
         .join(ProgrammingTask, Task.id == ProgrammingTask.task_id)
-        .group_by(Code.code, Code.description, Code.type, Task.people)
     )
+
+    if year is not None and month is not None:
+        query = base_query.where(
+            extract('year', ProgrammingTask.start_time) == year,
+            extract('month', ProgrammingTask.start_time) == month
+        ).group_by(extract('year', ProgrammingTask.start_time), extract('month', ProgrammingTask.start_time), Code.code, Code.description, Code.type, Task.people)
+    else:
+        query = base_query.group_by(Code.code, Code.description, Code.type, Task.people)
 
     results = db.execute(query).all()
 
-    return [{
-        "code": row.code,
-        "description": row.description,
-        "type": row.type,
-        "sum_hours": round(float(row.sum_hours), 4) if row.sum_hours else None,
-        "sum_quantity": float(row.sum_quantity) if row.sum_quantity else None,
-        "avg_time_per_product": round(float(row.avg_time_per_product), 4) if row.avg_time_per_product else None,
-        "people": row.people,
-        "final_metric": round(float(row.final_metric), 4) if row.final_metric else None
-    } for row in results]
+    if year is not None and month is not None:
+        return [{
+            "year": year,
+            "month": month,
+            "code": row.code,
+            "description": row.description,
+            "type": row.type,
+            "sum_hours": round(float(row.sum_hours), 4) if row.sum_hours else None,
+            "sum_quantity": float(row.sum_quantity) if row.sum_quantity else None,
+            "avg_time_per_product": round(float(row.avg_time_per_product), 4) if row.avg_time_per_product else None,
+            "people": row.people,
+            "final_metric": round(float(row.final_metric), 4) if row.final_metric else None
+        } for row in results]
+    else:
+        return [{
+            "code": row.code,
+            "description": row.description,
+            "type": row.type,
+            "sum_hours": round(float(row.sum_hours), 4) if row.sum_hours else None,
+            "sum_quantity": float(row.sum_quantity) if row.sum_quantity else None,
+            "avg_time_per_product": round(float(row.avg_time_per_product), 4) if row.avg_time_per_product else None,
+            "people": row.people,
+            "final_metric": round(float(row.final_metric), 4) if row.final_metric else None
+        } for row in results]
 
 @router.get("/team-performance")
 async def get_team_performance_report(
