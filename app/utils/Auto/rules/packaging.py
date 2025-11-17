@@ -1,4 +1,4 @@
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from sqlalchemy.orm import Session
 
 from app.services.utils.team_selection_service import TeamSelectionService
@@ -19,13 +19,20 @@ class PackagingRule:
         packaging_activities_by_code = {}
         
         activities_by_code = activities_data.get("activities_by_code", {})
+        # Actividades que pertenecen a fabricación y deben excluirse de empaque
+        manufacturing_types = {"M9", "M10", "M11", "M12", "M13", "M15"}
+
         for code, code_data in activities_by_code.items():
             activities = code_data.get("activities", [])
             packaging_activities = []
             
             for activity in activities:
+                # Excluir actividades que son de fabricación
+                if activity.get("type") in manufacturing_types:
+                    continue
+
                 activity_name = activity.get("activity", "").upper()
-                
+
                 # Buscar actividades relacionadas con empaque usando configuración centralizada
                 packaging_keywords = ServiceConfig.get_activity_keywords(ServiceType.PACKAGING)
                 if any(keyword in activity_name for keyword in packaging_keywords):
@@ -71,7 +78,7 @@ class PackagingRule:
         """
         return TeamSelectionService.get_packaging_teams(db)
 
-    def get_activity_for_order(self, order_data: Dict, activities_data: Dict) -> Dict[str, Any]:
+    def get_activity_for_order(self, order_data: Dict, activities_data: Dict) -> Optional[Dict[str, Any]]:
         """
         Obtiene la actividad de empaque específica para una orden.
         

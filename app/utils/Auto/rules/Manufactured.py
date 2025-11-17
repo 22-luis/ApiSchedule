@@ -1,4 +1,4 @@
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from sqlalchemy.orm import Session
 
 from app.services.utils.team_selection_service import TeamSelectionService
@@ -20,6 +20,9 @@ class ManufacturedRule:
         fabrication_activities_by_code = {}
         
         activities_by_code = activities_data.get("activities_by_code", {})
+        # Actividades que deben ser consideradas como empaque y por tanto excluidas
+        packaging_types = {"M1", "M2", "M3", "M4", "M5"}
+
         for code, code_data in activities_by_code.items():
             activities = code_data.get("activities", [])
             fabrication_activities = []
@@ -28,12 +31,18 @@ class ManufacturedRule:
             fabrication_keywords = ServiceConfig.get_activity_keywords(ServiceType.FABRICATION)
             
             for activity in activities:
-                # Excluir actividades de tipo M7 que son de pesado
-                if activity.get("type") == "M7":
+                # Excluir actividades que son de empaque
+                activity_type = activity.get("type")
+                if activity_type in packaging_types:
                     continue
-                
+
+                # Excluir actividades de pesado explícitamente
+                if activity_type == "M7":
+                    continue
+
                 activity_name = activity.get("activity", "").upper()
-                
+
+                # Incluir sólo si coincide con palabras clave de fabricación
                 if any(keyword in activity_name for keyword in fabrication_keywords):
                     fabrication_activities.append(activity)
             
@@ -51,7 +60,7 @@ class ManufacturedRule:
             "codes_with_fabrication": list(fabrication_activities_by_code.keys())
         }
 
-    def get_activity_for_order(self, order_data: Dict, activities_data: Dict) -> Dict[str, Any]:
+    def get_activity_for_order(self, order_data: Dict, activities_data: Dict) -> Optional[Dict[str, Any]]:
         """
         Obtiene la actividad de fabricación específica para una orden.
         
