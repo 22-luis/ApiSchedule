@@ -159,54 +159,43 @@ class WeighingTaskService(BaseTaskService):
                     "tasks_created": 0,
                     "total_orders": len(extracted_orders)
                 }
-            
-            # Obtener programaciones disponibles
-            available_programmings = self.get_available_programmings_for_team(team_id, db)
-            
-            if not available_programmings:
-                return {
-                    "success": False,
-                    "message": "No se encontraron programaciones disponibles",
-                    "tasks_created": 0,
-                    "total_orders": len(extracted_orders)
-                }
-            
+
             # Procesar cada orden
             created_tasks = []
             failed_orders = []
-            
+
             weighing_activities_with_minutes = activities_with_minutes.get("weighing_activities_with_minutes", {}).get("weighing_activities_with_minutes_by_code", {})
-            
+
             for order_data in extracted_orders:
                 order_code = order_data.get('code')
-                
+
                 # Obtener la actividad con minutos calculados para esta orden
                 code_activities = weighing_activities_with_minutes.get(order_code, {}).get("weighing_activities_with_minutes", [])
-                
+
                 if not code_activities:
                     failed_orders.append({
                         "order_data": order_data,
                         "reason": "No se encontró actividad válida"
                     })
                     continue
-                
+
                 # Usar la primera actividad (que debería ser la de pesado)
                 activity_with_minutes = code_activities[0]
                 task_minutes = activity_with_minutes.get("minutes_calculation", {}).get("calculated_minutes", 0)
                 activity_details = activity_with_minutes.get("activity_data", {})
-                
+
                 if task_minutes <= 0:
                     failed_orders.append({
                         "order_data": order_data,
                         "reason": "Los minutos calculados no son válidos"
                     })
                     continue
-                
+
                 # Verificar límite de tiempo y crear tarea
                 time_verification = self.verify_programming_time_limit(
-                    available_programmings, task_minutes, db, order_data, activity_details
+                    team_id, task_minutes, db, order_data, activity_details
                 )
-                
+
                 if time_verification.get("success") and time_verification.get("order_task_created"):
                     created_tasks.append({
                         "order_data": order_data,

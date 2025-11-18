@@ -333,7 +333,7 @@ def get_last_task_of_programming(programming_id: UUID, db: Session = Depends(get
 
 
 @router.get("/{programming_id}/total_time", response_model=dict)
-def get_programming_total_time(programming_id: UUID, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+def get_programming_total_time(programming_id: UUID, db: Session = Depends(get_db)):
     """
     Devuelve la suma de los tiempos de las tareas asociadas a una programación.
     Calcula:
@@ -344,9 +344,6 @@ def get_programming_total_time(programming_id: UUID, db: Session = Depends(get_d
     programming = db.query(Programming).get(programming_id)
     if not programming:
         raise HTTPException(status_code=404, detail="Programming not found")
-    # permisos: admin/planner/supervisor/timekeeper o miembro del equipo
-    if current_user.role.value not in ("admin", "planner", "supervisor", "timekeeper") and not user_belongs_to_team(current_user, programming.team_id):
-        raise HTTPException(status_code=403, detail="Not authorized")
 
     total_planned_minutes = 0
     total_real_minutes = 0
@@ -998,6 +995,7 @@ def check_programmings_availability_by_date(
 @router.get("/team/{team_uuid}/available", response_model=AvailableProgrammingResponse)
 def get_available_programmings_for_team(
     team_uuid: UUID,
+    create_if_none: bool = Query(False, description="Create a new programming for the next day if none are available"),
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
@@ -1025,8 +1023,8 @@ def get_available_programmings_for_team(
         .all()
     )
     
-    # Si no hay programaciones futuras disponibles, buscar la última programación del equipo
-    if not available_programmings:
+    # Si no hay programaciones futuras disponibles y create_if_none es True, crear una nueva
+    if not available_programmings and create_if_none:
         last_programming = (
             db.query(Programming)
             .filter(Programming.team_id == team_uuid)
@@ -1053,51 +1051,6 @@ def get_available_programmings_for_team(
         
         # Agregar la nueva programación a la lista
         available_programmings = [new_programming]
-    
-    # Preparar la respuesta usando el schema
-    available_items = []
-    for programming in available_programmings:
-        available_items.append(AvailableProgrammingItem(
-            id=str(programming.id),
-            team_name=team.name,
-            date=programming.date.isoformat()
-        ))
-    
-    return AvailableProgrammingResponse(
-        team_id=str(team_uuid),
-        team_name=team.name,
-        available_programmings=available_items
-    )
-
-@router.get("/team/{team_uuid}/available-only", response_model=AvailableProgrammingResponse)
-def get_only_available_programmings_for_team(
-    team_uuid: UUID,
-    db: Session = Depends(get_db),
-    current_user=Depends(get_current_user)
-):
-    # Verificar que el equipo existe
-    team = db.query(Team).filter(Team.id == team_uuid).first()
-    if not team:
-        raise HTTPException(status_code=404, detail="Team not found")
-    
-    # Verificar permisos del usuario
-    if current_user.role.value not in ("admin", "planner", "supervisor", "timekeeper") and not user_belongs_to_team(current_user, team_uuid):
-        raise HTTPException(status_code=403, detail="Not authorized to access this team")
-    
-    # Obtener la fecha actual
-    current_date = date.today()
-    
-    # Buscar programaciones disponibles desde la fecha actual
-    available_programmings = (
-        db.query(Programming)
-        .filter(
-            Programming.team_id == team_uuid,
-            Programming.date >= current_date,
-            Programming.status == ProgrammingStatus.available
-        )
-        .order_by(Programming.date)
-        .all()
-    )
     
     # Preparar la respuesta usando el schema
     available_items = []

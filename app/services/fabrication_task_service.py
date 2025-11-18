@@ -207,32 +207,22 @@ class FabricationTaskService(BaseTaskService):
                     start_date = date.today()
                 logger.debug(f"Fabrication: lote={lote} start_date_candidate={start_date_candidate} -> start_date_used={start_date}")
 
-                # Obtener programaciones disponibles para el equipo seleccionado
-                available_programmings = self.get_available_programmings_for_team(team_id, db, start_date=start_date)
-                
-                if not available_programmings:
-                    failed_orders.append({
-                        "order_data": order_data,
-                        "reason": f"No se encontraron programaciones para equipo: {selected_team.get('name')}"
-                    })
-                    continue
-                
                 # Calcular minutos de la tarea
                 task_minutes = activity_with_minutes.get("minutes_calculation", {}).get("calculated_minutes", 0)
                 activity_details = activity_with_minutes.get("activity_data", {})
-                
+
                 if task_minutes <= 0:
                     failed_orders.append({
                         "order_data": order_data,
                         "reason": "Los minutos calculados no son válidos"
                     })
                     continue
-                
+
                 # Verificar límite de tiempo y crear tarea
                 time_verification = self.verify_programming_time_limit(
-                    available_programmings, task_minutes, db, order_data, activity_details
+                    team_id, task_minutes, db, order_data, activity_details, start_date=start_date
                 )
-                
+
                 if time_verification.get("success") and time_verification.get("order_task_created"):
                     created_tasks.append({
                         "order_data": order_data,

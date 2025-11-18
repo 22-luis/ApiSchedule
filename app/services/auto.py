@@ -1,4 +1,5 @@
 from typing import List
+import datetime
 from app.db.session import SessionLocal
 from app.utils.core.logging import get_logger
 from app.core.task_config import extract_created_orders_data
@@ -83,7 +84,7 @@ def create_tasks_for_lotes(lotes: List[int], username: str):
                 "lotes": lotes,
                 "created_orders_count": len(orders),
                 "summary": summary,
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.datetime.utcnow().isoformat()
             }
         except Exception as e:
             logger.exception(f"Error in auto task creation for lotes={lotes}: {e}")

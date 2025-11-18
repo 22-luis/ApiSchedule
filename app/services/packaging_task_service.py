@@ -195,14 +195,8 @@ class PackagingTaskService(BaseTaskService):
                         start_date = date.today()
                     logger.debug(f"Packaging: lote={lote} start_date_candidate={start_date_candidate} -> start_date_used={start_date}")
 
-                    available_programmings = self.get_available_programmings_for_team(team_id, db, start_date=start_date)
-
-                    if not available_programmings:
-                        failed_orders.append({"order_data": order_data, "reason": f"No hay programaciones disponibles para el equipo {team_id}."})
-                        continue
-
                     time_verification = self.verify_programming_time_limit(
-                        available_programmings, task_minutes, db, order_data, activity_details
+                        team_id, task_minutes, db, order_data, activity_details, start_date=start_date
                     )
 
                     if time_verification.get("success"):

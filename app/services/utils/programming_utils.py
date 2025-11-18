@@ -169,20 +169,19 @@ class ProgrammingUtils:
         }
     
     @staticmethod
-    def get_available_programmings_for_team(team_id: str, db: Session, start_date: Optional[date] = None) -> List[Dict[str, Any]]:
+    def get_available_programmings_for_team(team_id: str, db: Session) -> List[Dict[str, Any]]:
         """
         Obtiene las programaciones disponibles para un equipo específico.
-        Devuelve todas las programaciones futuras a partir de start_date, ordenadas por fecha.
+        Devuelve todas las programaciones futuras a partir de la fecha actual, ordenadas por fecha.
         
         Args:
             team_id: ID del equipo
             db: Sesión de base de datos
-            start_date: Fecha de inicio para la búsqueda (opcional)
             
         Returns:
             Lista de programaciones disponibles ordenadas por fecha
         """
-        search_date = start_date if start_date else date.today()
+        search_date = date.today()
         
         # Buscar programaciones disponibles ordenadas por fecha (más cercana primero)
         available_programmings = (
@@ -190,7 +189,7 @@ class ProgrammingUtils:
             .filter(
                 Programming.team_id == team_id,
                 Programming.date >= search_date,
-                Programming.status == ProgrammingStatus.available
+                Programming.status.in_([ProgrammingStatus.available, ProgrammingStatus.in_progress])
             )
             .order_by(Programming.date)
             .all()
@@ -198,7 +197,7 @@ class ProgrammingUtils:
         
         # Si no hay programaciones disponibles, crear una nueva
         if not available_programmings:
-            new_programmings = ProgrammingUtils._create_new_programming(team_id, db, start_date=search_date)
+            new_programmings = ProgrammingUtils._create_new_programming(team_id, db)
             if new_programmings:
                 available_programmings = new_programmings
         
@@ -225,97 +224,56 @@ class ProgrammingUtils:
         return programming_data
     
     @staticmethod
-    def _create_new_programming(team_id: str, db: Session, start_date: Optional[date] = None) -> List[Programming]:
+    def _create_new_programming(team_id: str, db: Session) -> List[Programming]:
         """
-        Crea una nueva programación para el equipo usando fechas más cercanas.
-                    import logging
-        
-                    logger = logging.getLogger(__name__)
-        
-                    # Primero intentar desde la fecha actual para priorizar programaciones de hoy
-                    today = date.today()
-                    logger.debug(f"get_available_programmings_for_team: team_id={team_id} requested_start_date={start_date} trying_today={today}")
-        
-                    search_date = today
+        Crea una nueva programación para el equipo en la siguiente fecha válida.
         
         Args:
             team_id: ID del equipo
             db: Sesión de base de datos
-            start_date: Fecha de inicio para la búsqueda (opcional)
             
         Returns:
             Lista con la nueva programación creada
         """
-        current_date = start_date if start_date else date.today()
+        current_date = date.today()
         
-        # Buscar programaciones existentes del equipo ordenadas por fecha
-        existing_programmings = (
+        # Buscar la última programación existente del equipo para determinar la siguiente fecha
+        last_programming = (
             db.query(Programming)
             .filter(Programming.team_id == team_id)
-            .order_by(Programming.date)
-            .all()
+            .order_by(Programming.date.desc())
+            .first()
         )
         
-        # Buscar el primer hueco disponible en las próximas 30 días
-        # Incluir la fecha 'current_date' como candidata (permitir crear programación en la misma fecha solicitada)
-        search_start_date = current_date  # Empezar desde la fecha proporcionada (incluye hoy)
-        end_date = current_date + timedelta(days=30)   # Buscar hasta 30 días
-        
-        # Crear lista de fechas disponibles
-        available_dates = []
-        current_check_date = search_start_date
-        
-        while current_check_date <= end_date:
-            # Evitar domingos
-            if current_check_date.weekday() != 6:
-                # Verificar si ya existe una programación para esta fecha
-                existing_programming = (
-                    db.query(Programming)
-                    .filter(Programming.team_id == team_id, Programming.date == current_check_date)
-                    .first()
-                )
-                
-                if not existing_programming:
-                    available_dates.append(current_check_date)
+        if last_programming and last_programming.date >= current_date:
+            # Empezar desde el día siguiente a la última programación
+            new_date = last_programming.date + timedelta(days=1)
+        else:
+            # Si no hay programaciones futuras, empezar desde hoy
+            new_date = current_date
             
-            current_check_date += timedelta(days=1)
-        
-        # Si no hay fechas disponibles en los próximos 30 días, usar la lógica anterior
-        if not available_dates:
-            if existing_programmings:
-                # Usar la fecha siguiente a la última programación
-                last_programming = existing_programmings[-1]
-                new_date = last_programming.date + timedelta(days=1)
-            else:
-                # Si no hay programaciones, empezar desde mañana
-                new_date = current_date + timedelta(days=1)
-            
+        # Asegurarse de que no se cree una programación en una fecha para la que ya existe una
+        # y evitar domingos.
+        while True:
             # Evitar domingos
-            while new_date.weekday() == 6:
+            if new_date.weekday() == 6: # 6 is Sunday
                 new_date += timedelta(days=1)
-            
-            # Verificar que no exista ya una programación para esa fecha
+                continue
+
+            # Verificar si ya existe una programación para esa fecha
             existing_programming = (
                 db.query(Programming)
                 .filter(Programming.team_id == team_id, Programming.date == new_date)
                 .first()
             )
             
-            if existing_programming:
-                # Buscar la siguiente fecha disponible
-                while existing_programming:
-                    new_date += timedelta(days=1)
-                    while new_date.weekday() == 6:
-                        new_date += timedelta(days=1)
-                    existing_programming = (
-                        db.query(Programming)
-                        .filter(Programming.team_id == team_id, Programming.date == new_date)
-                        .first()
-                    )
-        else:
-            # Usar la primera fecha disponible
-            new_date = available_dates[0]
-        
+            if not existing_programming:
+                # Fecha encontrada
+                break
+            
+            # Si ya existe, pasar al día siguiente
+            new_date += timedelta(days=1)
+
         # Crear la nueva programación
         new_programming = Programming(
             team_id=team_id,
@@ -471,3 +429,24 @@ class ProgrammingUtils:
                 "quantity": order_task_obj.quantity
             }
         }
+
+    @staticmethod
+    def find_first_available_programming(
+        team_id: str,
+        task_minutes: int,
+        db: Session,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Finds the first available programming for a team.
+        The check for sufficient time has been removed as per user request.
+        """
+        # Get all available programmings for the team
+        available_programmings = ProgrammingUtils.get_available_programmings_for_team(
+            team_id, db
+        )
+
+        if not available_programmings:
+            return None
+
+        # Return the first available programming without checking for time
+        return available_programmings[0]

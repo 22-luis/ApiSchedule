@@ -211,19 +211,20 @@ class BaseTaskService(ABC):
     def create_preparation_task(self, programming_id: str, programming_tasks: List, db: Session) -> Dict[str, Any]:
         return self.schedule_rule.create_preparation_task(programming_id, programming_tasks, db)
     
-    def verify_programming_time_limit(self, programmings: List[Dict], task_minutes: int, db: Session, 
-                                    order_data: Optional[Dict] = None, 
-                                    activity_details: Optional[Dict] = None) -> Dict[str, Any]:
-        return self.schedule_rule.verify_programming_time_limit(programmings, task_minutes, db, order_data, activity_details)
-    
+    def verify_programming_time_limit(self, team_id: str, task_minutes: int, db: Session,
+                                    order_data: Optional[Dict] = None,
+                                    activity_details: Optional[Dict] = None,
+                                    start_date: Optional[date] = None) -> Dict[str, Any]:
+        return self.schedule_rule.verify_programming_time_limit(team_id, task_minutes, db, order_data, activity_details, start_date)
+
     def create_tasks_for_orders(self, extracted_orders: List[Dict], db: Session) -> Dict[str, Any]:
         """
         Función principal que maneja todo el proceso de creación de tareas.
-        
+
         Args:
             extracted_orders: Lista de órdenes extraídas
             db: Sesión de base de datos
-        
+
         Returns:
             Resultado del proceso con información de las tareas creadas
         """
@@ -231,10 +232,10 @@ class BaseTaskService(ABC):
             # Obtener actividades con minutos calculados
             activities_data = self.get_activities_for_orders(extracted_orders, db)
             filtered_activities = self.filter_activities(activities_data)
-            
+
             # Obtener equipo más idóneo
             team_result = self.get_most_suitable_team(db)
-            
+
             if not team_result.get("success"):
                 return {
                     "success": False,
@@ -242,7 +243,7 @@ class BaseTaskService(ABC):
                     "tasks_created": 0,
                     "total_orders": len(extracted_orders)
                 }
-            
+
             team_id = team_result.get("most_suitable_team", {}).get("id")
             if not team_id:
                 return {
@@ -251,48 +252,37 @@ class BaseTaskService(ABC):
                     "tasks_created": 0,
                     "total_orders": len(extracted_orders)
                 }
-            
-            # Obtener programaciones disponibles
-            available_programmings = self.get_available_programmings_for_team(team_id, db)
-            
-            if not available_programmings:
-                return {
-                    "success": False,
-                    "message": "No se encontraron programaciones disponibles",
-                    "tasks_created": 0,
-                    "total_orders": len(extracted_orders)
-                }
-            
+
             # Procesar cada orden
             created_tasks = []
             failed_orders = []
-            
+
             for order_data in extracted_orders:
                 # Obtener la actividad específica para esta orden
                 activity = self.get_activity_for_order(order_data, filtered_activities)
-                
+
                 if not activity:
                     failed_orders.append({
                         "order_data": order_data,
                         "reason": "No se encontró actividad válida"
                     })
                     continue
-                
+
                 task_minutes = activity.get("minutes_calculation", {}).get("calculated_minutes", 0)
                 activity_details = activity.get("activity_data", {})
-                
+
                 if task_minutes <= 0:
                     failed_orders.append({
                         "order_data": order_data,
                         "reason": "Los minutos calculados no son válidos"
                     })
                     continue
-                
+
                 # Verificar límite de tiempo y crear tarea
                 time_verification = self.verify_programming_time_limit(
-                    available_programmings, task_minutes, db, order_data, activity_details
+                    team_id, task_minutes, db, order_data, activity_details
                 )
-                
+
                 if time_verification.get("success") and time_verification.get("order_task_created"):
                     created_tasks.append({
                         "order_data": order_data,
@@ -304,7 +294,7 @@ class BaseTaskService(ABC):
                         "order_data": order_data,
                         "reason": time_verification.get("message", "Error desconocido")
                     })
-            
+
             return {
                 "success": True,
                 "message": f"Procesamiento completado. {len(created_tasks)} tareas creadas de {len(extracted_orders)} órdenes",
@@ -315,7 +305,7 @@ class BaseTaskService(ABC):
                 "team_data": team_result.get("most_suitable_team"),
                 "activities_data": filtered_activities
             }
-            
+
         except Exception as e:
             return {
                 "success": False,
