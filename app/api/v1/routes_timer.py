@@ -85,10 +85,19 @@ def resume_timer(task_id: uuid.UUID, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/stopwatch/status", response_model=List[TaskStatusResponse], tags=["Timer"])
-def get_tasks_status(payload: TaskStatusRequest, db: Session = Depends(get_db)):
+def get_tasks_status_programming(payload: TaskStatusRequest, db: Session = Depends(get_db)):
     timer_service = TimerService(db)
     try:
         statuses = timer_service.get_tasks_status(payload.task_ids)
+        return statuses
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/stopwatch/status/timer", response_model=List[TaskStatusResponse], tags=["Timer"])
+def get_tasks_status_manual(payload: TaskStatusRequest, db: Session = Depends(get_db)):
+    timer_service = TimerService(db)
+    try:
+        statuses = timer_service.get_tasks_status_not_programmed(payload.task_ids)
         return statuses
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

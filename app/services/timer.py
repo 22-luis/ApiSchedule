@@ -27,9 +27,12 @@ class TimerService:
         if not task:
             raise ValueError("Task not found")
 
-        existing_stopwatch = self.db.query(Stopwatch).filter(Stopwatch.task_id == task_id).first()
+        existing_stopwatch = self.db.query(Stopwatch).filter(
+            Stopwatch.task_id == task_id,
+            Stopwatch.is_from_programming == is_from_programming
+        ).first()
         if existing_stopwatch:
-            raise ValueError("Stopwatch already exists for this task")
+            raise ValueError("Stopwatch already exists for this task with the same programming flag")
 
         if start_time is None:
             start_time = datetime.now(timezone.utc) - timedelta(hours=6)
@@ -148,12 +151,11 @@ class TimerService:
     def get_tasks_status(self, task_ids: list[uuid.UUID]):
         logger.info(f"get_tasks_status called for task_ids: {task_ids}")
         # Get tasks from Stopwatch (running, paused)
-        stopwatch_tasks = self.db.query(Stopwatch.task_id, Stopwatch.status, Stopwatch.id, Stopwatch.is_from_programming).filter(Stopwatch.task_id.in_(task_ids)).all()
+        stopwatch_tasks = self.db.query(Stopwatch.task_id, Stopwatch.status, Stopwatch.id, Stopwatch.is_from_programming).filter(
+            Stopwatch.task_id.in_(task_ids),
+            Stopwatch.is_from_programming == True
+        ).all()
         logger.info(f"Stopwatch tasks found: {stopwatch_tasks}")
-
-        # Get tasks from RecordStopwatch (completed/done, not from programming)
-        record_stopwatch_tasks = self.db.query(RecordStopwatch.task_id).filter(RecordStopwatch.task_id.in_(task_ids)).all()
-        logger.info(f"RecordStopwatch tasks found: {record_stopwatch_tasks}")
 
         # Get tasks from ProgrammingTask (completed/done, from programming)
         programming_completed_tasks = self.db.query(ProgrammingTask.task_id).filter(
@@ -172,11 +174,6 @@ class TimerService:
         # Add completed tasks from ProgrammingTask (is_from_programming = True)
         for task_id_prog_completed, in programming_completed_tasks:
             task_statuses[str(task_id_prog_completed)] = {"status": TimerStatus.STOPPED.value, "record_id": None, "is_from_programming": True}
-
-        # Add completed tasks from RecordStopwatch (is_from_programming = False), only if not already in programming_completed_tasks
-        for task_id_record, in record_stopwatch_tasks:
-            if str(task_id_record) not in task_statuses:
-                task_statuses[str(task_id_record)] = {"status": TimerStatus.STOPPED.value, "record_id": None, "is_from_programming": False}
 
         final_statuses = [{"task_id": task_id, "status": data["status"], "record_id": data["record_id"], "is_from_programming": data["is_from_programming"]} for task_id, data in task_statuses.items()]
         logger.info(f"Final statuses returned: {final_statuses}")
@@ -255,3 +252,32 @@ class TimerService:
                 "task_people": task_people,
             })
         return result
+
+    def get_tasks_status_not_programmed(self, task_ids: list[uuid.UUID]):
+        logger.info(f"get_tasks_status_not_programmed called for task_ids: {task_ids}")
+        # Get tasks from Stopwatch (running, paused) for non-programming tasks
+        stopwatch_tasks = self.db.query(Stopwatch.task_id, Stopwatch.status, Stopwatch.id, Stopwatch.is_from_programming).filter(
+            Stopwatch.task_id.in_(task_ids),
+            Stopwatch.is_from_programming == False
+        ).all()
+        logger.info(f"Stopwatch tasks found: {stopwatch_tasks}")
+
+        # Get tasks from RecordStopwatch (completed/done, not from programming)
+        record_stopwatch_tasks = self.db.query(RecordStopwatch.task_id).filter(RecordStopwatch.task_id.in_(task_ids)).all()
+        logger.info(f"RecordStopwatch tasks found: {record_stopwatch_tasks}")
+
+        # Create a dictionary to hold the status
+        task_statuses = {}
+
+        # Add running/paused tasks from Stopwatch
+        for task_id, status, stopwatch_id, is_from_programming in stopwatch_tasks:
+            task_statuses[str(task_id)] = {"status": status.value, "record_id": str(stopwatch_id), "is_from_programming": is_from_programming}
+
+        # Add completed tasks from RecordStopwatch (is_from_programming = False)
+        for task_id_record, in record_stopwatch_tasks:
+            if str(task_id_record) not in task_statuses:
+                task_statuses[str(task_id_record)] = {"status": TimerStatus.STOPPED.value, "record_id": None, "is_from_programming": False}
+
+        final_statuses = [{"task_id": task_id, "status": data["status"], "record_id": data["record_id"], "is_from_programming": data["is_from_programming"]} for task_id, data in task_statuses.items()]
+        logger.info(f"Final statuses returned: {final_statuses}")
+        return final_statuses
