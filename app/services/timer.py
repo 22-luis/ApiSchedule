@@ -158,7 +158,7 @@ class TimerService:
         logger.info(f"Stopwatch tasks found: {stopwatch_tasks}")
 
         # Get tasks from ProgrammingTask (completed/done, from programming)
-        programming_completed_tasks = self.db.query(ProgrammingTask.task_id, ProgrammingTask.id).filter(
+        programming_completed_tasks = self.db.query(ProgrammingTask.task_id).filter(
             ProgrammingTask.task_id.in_(task_ids),
             ProgrammingTask.real_end_time.isnot(None)
         ).all()
@@ -172,8 +172,13 @@ class TimerService:
             task_statuses[str(task_id)] = {"status": status.value, "record_id": str(stopwatch_id), "is_from_programming": is_from_programming}
 
         # Add completed tasks from ProgrammingTask (is_from_programming = True)
-        for task_id_prog_completed, record_id in programming_completed_tasks:
-            task_statuses[str(task_id_prog_completed)] = {"status": TimerStatus.STOPPED.value, "record_id": str(record_id), "is_from_programming": True}
+        for result in programming_completed_tasks:
+            # result is a Row object or a tuple depending on sqlalchemy version/query style. 
+            # Since we only queried one column, it might be a single value or a tuple with one element.
+            # safely accessing task_id
+            task_id_prog_completed = result.task_id if hasattr(result, 'task_id') else result[0]
+            
+            task_statuses[str(task_id_prog_completed)] = {"status": TimerStatus.STOPPED.value, "record_id": None, "is_from_programming": True}
 
         final_statuses = [{"task_id": task_id, "status": data["status"], "record_id": data["record_id"], "is_from_programming": data["is_from_programming"]} for task_id, data in task_statuses.items()]
         logger.info(f"Final statuses returned: {final_statuses}")
