@@ -273,7 +273,6 @@ class TimerService:
         for task_id, status, stopwatch_id, is_from_programming in stopwatch_tasks:
             task_statuses[str(task_id)] = {"status": status.value, "record_id": str(stopwatch_id), "is_from_programming": is_from_programming}
 
-        # Add completed tasks from RecordStopwatch (is_from_programming = False)
         for task_id_record, in record_stopwatch_tasks:
             if str(task_id_record) not in task_statuses:
                 task_statuses[str(task_id_record)] = {"status": TimerStatus.STOPPED.value, "record_id": None, "is_from_programming": False}
@@ -281,3 +280,13 @@ class TimerService:
         final_statuses = [{"task_id": task_id, "status": data["status"], "record_id": data["record_id"], "is_from_programming": data["is_from_programming"]} for task_id, data in task_statuses.items()]
         logger.info(f"Final statuses returned: {final_statuses}")
         return final_statuses
+
+    def add_comment_to_record(self, record_id: uuid.UUID, comment: str):
+        record = self.db.query(RecordStopwatch).filter(RecordStopwatch.id == record_id).first()
+        if not record:
+            raise ValueError("Record not found")
+
+        record.comments = comment
+        self.db.commit()
+        self.db.refresh(record)
+        return record

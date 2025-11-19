@@ -5,7 +5,7 @@ from app.services.timer import TimerService
 import uuid
 
 from typing import Optional
-from app.schemas.record_stopwatch import RecordStopwatch as RecordStopwatchSchema
+from app.schemas.record_stopwatch import RecordStopwatch as RecordStopwatchSchema, RecordStopwatchComment
 
 router = APIRouter()
 
@@ -18,3 +18,18 @@ def get_record_stopwatch_info_api(
     record_info = timer_service.get_record_stopwatch_info(task_id)
 
     return record_info
+
+@router.post("/record-stopwatch/{record_id}/comment", response_model=RecordStopwatchSchema, summary="Add a comment to a record stopwatch")
+def add_comment_to_record_stopwatch(
+    record_id: uuid.UUID,
+    payload: RecordStopwatchComment,
+    db: Session = Depends(get_db)
+):
+    timer_service = TimerService(db)
+    try:
+        updated_record = timer_service.add_comment_to_record(record_id, payload.comment)
+        return updated_record
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))

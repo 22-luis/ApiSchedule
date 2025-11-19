@@ -22,3 +22,6 @@ class RecordStopwatchInDBBase(RecordStopwatchBase):
 
 class RecordStopwatch(RecordStopwatchInDBBase):
     pass
+
+class RecordStopwatchComment(BaseModel):
+    comment: str
