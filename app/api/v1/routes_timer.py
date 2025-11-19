@@ -25,6 +25,7 @@ class RecordStopwatchDetailSchema(BaseModel):
     task_type: Optional[str] = None
     task_activity: Optional[str] = None
     task_people: int
+    comments: Optional[str] = None
 
 router = APIRouter()
 

@@ -6,6 +6,7 @@ class RecordStopwatchBase(BaseModel):
     task_id: uuid.UUID
     quantity: float
     accumulated_duration: float
+    comments: str | None = None
 class RecordStopwatchCreate(RecordStopwatchBase):
     pass
 
