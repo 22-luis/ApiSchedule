@@ -141,3 +141,117 @@ def update_all_programmings_availability_for_date(db: Session, target_date: date
             results["unavailable_count"] += 1
     
     return results
+
+
+# Duración estándar de la programación en minutos
+STANDARD_DURATION_MINUTES = 460
+
+# Reglas de equipos
+# 'duration': duración máxima en minutos. None significa sin límite.
+TEAM_RULES = {
+    "Molino": {
+        "duration": STANDARD_DURATION_MINUTES
+    },
+    "Pesado": {
+        "duration": None  # Sin límite de duración estándar
+    },
+    "Fabricado 1": {
+        "duration": STANDARD_DURATION_MINUTES
+    },
+    "Fabricado 2": {
+        "duration": STANDARD_DURATION_MINUTES
+    },
+    "Fabricado 3": {
+        "duration": STANDARD_DURATION_MINUTES
+    },
+    "Empaque 1": {
+        "duration": STANDARD_DURATION_MINUTES
+    },
+    "Empaque 2": {
+        "duration": STANDARD_DURATION_MINUTES
+    },
+    "Empaque 3": {
+        "duration": STANDARD_DURATION_MINUTES
+    },
+    "Empaque 4": {
+        "duration": STANDARD_DURATION_MINUTES
+    },
+    "Maquina 1": {
+        "duration": STANDARD_DURATION_MINUTES
+    },
+    "Maquina 2": {
+        "duration": STANDARD_DURATION_MINUTES
+    }
+}
+
+
+def get_programming_availability(db: Session, programming_id: str, task_duration: float) -> dict:
+    """
+    Calcula el tiempo ya ocupado en una programación específica y determina si hay suficiente tiempo disponible para una nueva tarea.
+    
+    Args:
+        db: Sesión de base de datos
+        programming_id: ID de la programación
+        task_duration: Duración de la tarea en minutos
+        
+    Returns:
+        Diccionario con detalles de disponibilidad:
+        {
+            "available": bool,
+            "current_end_minutes": int,
+            "final_minutes": int,
+            "max_allowed_minutes": float,
+            "team_name": str
+        }
+    """
+    from app.services.utils.programming_utils import ProgrammingUtils
+    
+    # Obtener la programación
+    programming = db.query(Programming).filter(Programming.id == programming_id).first()
+    if not programming:
+        return {
+            "available": False,
+            "error": "Programming not found"
+        }
+        
+    # Obtener el equipo
+    team = db.query(Team).filter(Team.id == programming.team_id).first()
+    team_name = team.name if team else "Unknown"
+    
+    # Determinar duración máxima permitida
+    team_rule = TEAM_RULES.get(team_name)
+    if team_rule and "duration" in team_rule:
+        duration_minutes = team_rule["duration"]
+    else:
+        duration_minutes = STANDARD_DURATION_MINUTES
+        
+    # Aplicar tolerancia (por defecto 10 minutos, hardcoded por ahora para coincidir con lógica anterior)
+    tolerance_minutes = 10
+    
+    if duration_minutes is None:
+        max_allowed_minutes = float('inf')
+    else:
+        max_allowed_minutes = duration_minutes + tolerance_minutes
+        
+    # Calcular tiempo ocupado actual
+    programming_tasks = db.query(ProgrammingTask).filter(
+        ProgrammingTask.programming_id == programming_id
+    ).all()
+    
+    current_end_minutes = ProgrammingUtils.calculate_current_programming_time(
+        programming_tasks, programming.date
+    )
+    
+    # Calcular tiempo final
+    final_minutes = current_end_minutes + task_duration
+    
+    # Determinar disponibilidad
+    is_available = final_minutes <= max_allowed_minutes
+    
+    return {
+        "available": is_available,
+        "current_end_minutes": current_end_minutes,
+        "final_minutes": final_minutes,
+        "max_allowed_minutes": max_allowed_minutes,
+        "team_name": team_name
+    }

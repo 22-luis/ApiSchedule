@@ -196,11 +196,22 @@ class ProgrammingUtils:
             .all()
         )
         
-        # Si no hay programaciones disponibles, crear una nueva
+        # Si no hay programaciones disponibles O hay un hueco al principio (la primera disponible es posterior a la fecha buscada)
+        should_create_new = False
         if not available_programmings:
+            should_create_new = True
+        elif available_programmings[0].date > search_date:
+            should_create_new = True
+            
+        if should_create_new:
             new_programmings = ProgrammingUtils._create_new_programming(team_id, db, start_date=search_date)
             if new_programmings:
-                available_programmings = new_programmings
+                if not available_programmings:
+                    available_programmings = new_programmings
+                else:
+                    available_programmings.extend(new_programmings)
+                    # Reordenar por fecha
+                    available_programmings.sort(key=lambda p: p.date)
         
         # Preparar datos de programaciones con información adicional
         programming_data = []
