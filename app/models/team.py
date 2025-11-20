@@ -1,14 +1,9 @@
 import uuid
 
 from sqlalchemy import Column, String, ForeignKey, Table, Date
-import uuid
-
-from sqlalchemy import Column, String, ForeignKey, Table, Date
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from app.db.database import Base
-
-# Tabla de asociación para Task y Team
 
 # Tabla de asociación para Task y Team
 task_team_association = Table(
@@ -43,3 +38,19 @@ class Team(Base):
     
     tasks = relationship('Task', secondary=task_team_association, back_populates='teams')
     programmings = relationship("Programming", back_populates="team")
+
+    @property
+    def members(self):
+        """
+        Returns a list of members formatted for TeamMemberOut schema.
+        This bridges the gap between the UserTeam association and the Pydantic schema.
+        """
+        return [
+            {
+                "userId": ma.user_id,
+                "username": ma.user.username if ma.user else None,
+                "startDate": ma.start_date,
+                "endDate": ma.end_date
+            }
+            for ma in self.member_associations
+        ]
