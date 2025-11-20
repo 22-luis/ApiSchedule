@@ -5,7 +5,6 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
 from app.models.role import UserRole
 from app.models.state import UserState
-from app.models.team import user_team_association
 from app.db.database import Base
 
 class User(Base):
@@ -15,4 +14,8 @@ class User(Base):
     password = Column(String, nullable=False)
     role = Column(Enum(UserRole))
     state = Column(Enum(UserState), default=UserState.ACTIVE)
-    teams = relationship("Team", secondary=user_team_association, back_populates="users")
+    # Relationship to UserTeam (Association Object)
+    team_associations = relationship("UserTeam", back_populates="user", cascade="all, delete-orphan")
+    
+    # Proxy to get teams directly (optional)
+    teams = relationship("Team", secondary="user_teams", viewonly=True)
