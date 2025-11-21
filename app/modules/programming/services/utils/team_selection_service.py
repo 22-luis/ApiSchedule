@@ -115,3 +115,101 @@ class TeamSelectionService:
             result["total_packaging_teams"] = count
             
         return result
+
+    @staticmethod
+    def get_packaging_teams(db: Session) -> Dict[str, Any]:
+        """
+        Obtiene todos los equipos de empaque organizados por tipo.
+        """
+        teams = db.query(Team).all()
+        teams_by_type = {}
+        
+        for team in teams:
+            if not team.name:
+                continue
+                
+            name_lower = team.name.lower()
+            
+            # Clasificación basada en prioridades de config.py
+            if "empaque" in name_lower and "3" in name_lower:
+                 teams_by_type["empaque_manual"] = team
+            elif "empaque" in name_lower and "2" in name_lower:
+                 teams_by_type["empaque_mezcla"] = team
+            elif "maquina 1" in name_lower:
+                 teams_by_type["empaque_semi"] = team
+            elif "maquina 2" in name_lower:
+                 teams_by_type["empaque_auto"] = team
+            elif "empaque" in name_lower: # Fallback for generic "Empaque" or "Empaque Grupo"
+                 # Si solo dice "Empaque" o "Empaque Grupo", lo asignamos a grupo
+                 teams_by_type["empaque_grupo"] = team
+
+        return {
+            "success": True,
+            "teams_by_type": teams_by_type,
+            "count": len(teams_by_type)
+        }
+
+    @staticmethod
+    def get_specific_packaging_team_for_activity(activity_name: str, activity_description: str, teams_data: Dict) -> Dict[str, Any]:
+        """
+        Selecciona el equipo específico basado en la actividad.
+        """
+        teams_by_type = teams_data.get("teams_by_type", {})
+        activity_upper = activity_name.upper()
+        
+        selected_team = None
+        reason = ""
+        rule_applied = ""
+
+        # Logic from packaging.py priorities
+        if "GRUPO" in activity_upper:
+            selected_team = teams_by_type.get("empaque_grupo")
+            reason = "Actividad de grupo asignada a Empaque Grupo"
+            rule_applied = "empaque_grupo"
+        elif "MANUAL" in activity_upper:
+             selected_team = teams_by_type.get("empaque_manual")
+             reason = "Actividad manual asignada a Empaque Manual"
+             rule_applied = "empaque_manual"
+        elif "SEMI" in activity_upper:
+             selected_team = teams_by_type.get("empaque_semi")
+             reason = "Actividad semi-automática asignada a Máquina 1"
+             rule_applied = "empaque_semi"
+        elif "AUTO" in activity_upper:
+             selected_team = teams_by_type.get("empaque_auto")
+             reason = "Actividad automática asignada a Máquina 2"
+             rule_applied = "empaque_auto"
+        elif "MEZCLA" in activity_upper:
+             selected_team = teams_by_type.get("empaque_mezcla")
+             reason = "Actividad de mezcla asignada a Empaque 2"
+             rule_applied = "empaque_mezcla"
+        
+        # Fallback
+        if not selected_team:
+             # Try to find any team
+             if teams_by_type:
+                 # Prefer empaque_grupo if available as fallback
+                 if "empaque_grupo" in teams_by_type:
+                     selected_team = teams_by_type["empaque_grupo"]
+                     reason = "Fallback: Asignado a Empaque Grupo por defecto"
+                     rule_applied = "fallback_grupo"
+                 else:
+                     selected_team = next(iter(teams_by_type.values()))
+                     reason = "Fallback: Asignado a primer equipo disponible"
+                     rule_applied = "fallback_any"
+        
+        if selected_team:
+            return {
+                "success": True,
+                "selected_team": {
+                    "id": str(selected_team.id),
+                    "name": selected_team.name,
+                    "type": rule_applied
+                },
+                "reason": reason,
+                "rule_applied": rule_applied
+            }
+            
+        return {
+            "success": False,
+            "message": f"No se encontró equipo adecuado para la actividad {activity_name}"
+        }

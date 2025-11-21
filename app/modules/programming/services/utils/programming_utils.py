@@ -8,7 +8,7 @@ from app.modules.programming.models.code import Code
 # from app.modules.programming.models.preparation import Preparation
 from app.modules.programming.models.programming import Programming, ProgrammingTask
 from app.modules.programming.models.state import ProgrammingStatus
-from app.modules.programming.models.task import Task # Added import for Task model
+from app.modules.programming.models.task import Task
 from app.modules.core.models.team import Team
 from app.shared.utils.business.programming_availability import check_programming_availability
 
@@ -18,21 +18,35 @@ class ProgrammingUtils:
         """
         Extrae datos básicos de una lista de órdenes.
         """
-        from app.shared.utils.core.logging import get_logger
-        logger = get_logger("services.programming_utils")
-        logger.info(f"extract_order_data called with {len(orders) if orders else 0} orders")
-        logger.info(f"Orders type: {type(orders)}")
-        
+        # Debug logging to file
+        try:
+            with open("debug_extract.log", "a") as f:
+                f.write(f"[{datetime.now()}] extract_order_data called with {len(orders) if orders else 0} orders\n")
+                if orders:
+                    for i, o in enumerate(orders):
+                        f.write(f"  Order {i}: Lote={o.lote}, Code={o.code}, Qty={o.quantity}, Bin={o.bin}\n")
+                else:
+                    f.write("  Orders list is empty or None\n")
+        except Exception as e:
+            pass
+
         extracted_data = []
-        for order in orders:
-            logger.debug(f"Extracting order: lote={order.lote}, code={order.code}, quantity={order.quantity}")
-            extracted_data.append({
-                "lote": order.lote,
-                "quantity": order.quantity,
-                "code": order.code,
-                "order_id": order.lote
-            })
-        logger.info(f"extract_order_data returning {len(extracted_data)} extracted orders")
+        if orders:
+            for order in orders:
+                extracted_data.append({
+                    "lote": order.lote,
+                    "quantity": order.quantity,
+                    "code": order.code,
+                    "order_id": order.lote,
+                    "description": order.description
+                })
+        
+        try:
+            with open("debug_extract.log", "a") as f:
+                f.write(f"[{datetime.now()}] extracted_data result: {len(extracted_data)} items\n")
+        except:
+            pass
+            
         return extracted_data
 
     @staticmethod
@@ -44,8 +58,6 @@ class ProgrammingUtils:
         if not code_obj:
             return {"success": False, "message": f"Code {code} not found"}
         
-        # preparations = db.query(Preparation).filter(Preparation.code_id == code_obj.id).all()
-        
         activities = []
         # Usamos la información del código directamente ya que Preparation no tiene la info necesaria
         if code_obj.activity:
@@ -53,7 +65,16 @@ class ProgrammingUtils:
                 "activity": code_obj.activity,
                 "performance": code_obj.performance,
                 "time": code_obj.time,
-                "preparation_id": code_obj.id # Usamos el ID del código como referencia
+                "preparation_id": code_obj.id, # Usamos el ID del código como referencia
+                "code_id": code_obj.id,
+                "people": code_obj.people,
+                "material": code_obj.material,
+                "presentation": code_obj.presentation,
+                "fabricationCode": code_obj.fabricationCode,
+                "usefulLife": code_obj.usefulLife,
+                "unit": code_obj.unit,
+                "type": code_obj.type,
+                "description": code_obj.description
             })
             
         return {
@@ -101,12 +122,6 @@ class ProgrammingUtils:
         if not code_obj:
             return {"success": False, "message": f"Code {code} not found"}
             
-        # Assuming Preparation model is available and has these fields
-        # preparation = db.query(Preparation).filter(
-        #     Preparation.code_id == code_obj.id,
-        #     Preparation.activity == activity_name
-        # ).first()
-        
         # For now, using Code model directly as Preparation is commented out
         if code_obj.activity == activity_name:
             return {

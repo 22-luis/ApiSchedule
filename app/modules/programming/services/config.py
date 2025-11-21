@@ -57,7 +57,8 @@ class TeamPriorities:
     WEIGHING_PRIORITIES = [
         "principal",  # Pesado principal
         "pesado 1",   # Pesado 1
-        "pesado1"     # Pesado1 (sin espacio)
+        "pesado1",    # Pesado1 (sin espacio)
+        "pesado"      # Pesado (general)
     ]
     
     # Prioridades para equipos de fabricación

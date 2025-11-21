@@ -1,4 +1,4 @@
-﻿from typing import List, Dict, Any
+from typing import List, Dict, Any
 from pydantic import BaseModel, Field
 from datetime import time
 from sqlalchemy.orm import Session
@@ -51,36 +51,6 @@ class TaskConfiguration:
         
         hours = self.get_working_hours_for_day(weekday)
         start_time = hours["start"]
-        end_time = hours["end"]
-        
-        start_minutes = start_time.hour * 60 + start_time.minute
-        end_minutes = end_time.hour * 60 + end_time.minute
-        
-        total_minutes = end_minutes - start_minutes
-        return round(total_minutes / 60.0, 2)
-
-# Global instances to be used across the module
-task_config = TaskConfiguration()
-weighing_service = TaskServiceFactory.create_weighing_service()
-fabrication_service = TaskServiceFactory.create_fabrication_service()
-packaging_service = TaskServiceFactory.create_packaging_service()
-
-# Funciones de compatibilidad que redirigen al servicio
-def extract_created_orders_data(created_orders: list) -> list:
-    return weighing_service.extract_order_data(created_orders)
-
-def extract_order_data_for_processing(order) -> dict:
-    order_data = {
-        "lote": order.lote,
-        "quantity": order.quantity,
-        "code": order.code
-    }
-    return order_data
-
-def get_orders_summary(created_orders: list) -> dict:
-    if not created_orders:
-        return {
-            "total_orders": 0,
             "total_quantity": 0,
             "unique_codes": 0
         }
