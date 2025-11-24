@@ -54,28 +54,29 @@ class ProgrammingUtils:
         """
         Obtiene las actividades (preparaciones) asociadas a un código.
         """
-        code_obj = db.query(Code).filter(Code.code == code).first()
-        if not code_obj:
+        code_objs = db.query(Code).filter(Code.code == code).all()
+        if not code_objs:
             return {"success": False, "message": f"Code {code} not found"}
         
         activities = []
         # Usamos la información del código directamente ya que Preparation no tiene la info necesaria
-        if code_obj.activity:
-            activities.append({
-                "activity": code_obj.activity,
-                "performance": code_obj.performance,
-                "time": code_obj.time,
-                "preparation_id": code_obj.id, # Usamos el ID del código como referencia
-                "code_id": code_obj.id,
-                "people": code_obj.people,
-                "material": code_obj.material,
-                "presentation": code_obj.presentation,
-                "fabricationCode": code_obj.fabricationCode,
-                "usefulLife": code_obj.usefulLife,
-                "unit": code_obj.unit,
-                "type": code_obj.type,
-                "description": code_obj.description
-            })
+        for code_obj in code_objs:
+            if code_obj.activity:
+                activities.append({
+                    "activity": code_obj.activity,
+                    "performance": code_obj.performance,
+                    "time": code_obj.time,
+                    "preparation_id": code_obj.id, # Usamos el ID del código como referencia
+                    "code_id": code_obj.id,
+                    "people": code_obj.people,
+                    "material": code_obj.material,
+                    "presentation": code_obj.presentation,
+                    "fabricationCode": code_obj.fabricationCode,
+                    "usefulLife": code_obj.usefulLife,
+                    "unit": code_obj.unit,
+                    "type": code_obj.type,
+                    "description": code_obj.description
+                })
             
         return {
             "success": True,
@@ -161,14 +162,14 @@ class ProgrammingUtils:
         
         result = []
         for prog in programmings:
-            # Verificar disponibilidad real usando la utilidad compartida
-            if check_programming_availability(db, prog):
-                result.append({
-                    "id": prog.id,
-                    "date": prog.date,
-                    "status": prog.status,
-                    "team_id": prog.team_id
-                })
+            # Se ha deshabilitado el chequeo estricto aquí (check_programming_availability) para permitir 
+            # que verify_programming_time_limit tome la decisión final basada en la capacidad real.
+            result.append({
+                "id": prog.id,
+                "date": prog.date,
+                "status": prog.status,
+                "team_id": prog.team_id
+            })
                 
         return result
 
