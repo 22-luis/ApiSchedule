@@ -11,7 +11,7 @@ import math
 
 from app.modules.programming.services.base_task_service import BaseTaskService
 from app.modules.programming.services.config import ServiceType, ServiceConfig
-from app.shared.utils.Auto.rules.Manufactured import ManufacturedRule
+from app.modules.programming.rules.Manufactured import ManufacturedRule
 
 
 class FabricationTaskService(BaseTaskService):

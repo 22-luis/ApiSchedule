@@ -10,7 +10,7 @@ import math
 
 from app.modules.programming.services.base_task_service import BaseTaskService
 from app.modules.programming.services.config import ServiceType, ServiceConfig
-from app.shared.utils.Auto.rules.weighning import WeighingRule
+from app.modules.programming.rules.weighning import WeighingRule
 
 
 class WeighingTaskService(BaseTaskService):

@@ -66,7 +66,7 @@ from app.modules.programming.api.routes_calculations import router as calculatio
 from app.modules.timer.api.routes_timer import router as timer_router
 from app.modules.timer.api.routes_record_stopwatch import router as record_stopwatch_router
 
-from app.modules.programming.api.routes_report import router as report_router
+from app.modules.reports.api.routes_report import router as report_router
 
 # Import models to ensure they are registered with Base
 from app.modules.core.models import user, team

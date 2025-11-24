@@ -9,11 +9,16 @@ import subprocess
 import shutil
 from pathlib import Path
 
+# Determinar la raíz del proyecto
+SCRIPT_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = SCRIPT_DIR.parent
+
 def run_command(command, description):
     """Ejecuta un comando y maneja errores"""
     print(f"🔄 {description}...")
     try:
-        result = subprocess.run(command, shell=True, check=True, capture_output=True, text=True)
+        # Ejecutar desde la raíz del proyecto
+        result = subprocess.run(command, shell=True, check=True, capture_output=True, text=True, cwd=PROJECT_ROOT)
         print(f"✅ {description} completado")
         return True
     except subprocess.CalledProcessError as e:
@@ -35,12 +40,12 @@ def check_python_version():
 
 def create_env_file():
     """Crea el archivo .env si no existe"""
-    env_file = Path(".env")
+    env_file = PROJECT_ROOT / ".env"
     if env_file.exists():
         print("✅ Archivo .env ya existe")
         return True
     
-    env_example = Path("env.example")
+    env_example = PROJECT_ROOT / "env.example"
     if env_example.exists():
         shutil.copy(env_example, env_file)
         print("✅ Archivo .env creado desde env.example")
@@ -71,7 +76,8 @@ def create_directories():
     """Crea directorios necesarios"""
     directories = ["logs", "uploads"]
     for directory in directories:
-        Path(directory).mkdir(exist_ok=True)
+        dir_path = PROJECT_ROOT / directory
+        dir_path.mkdir(exist_ok=True)
         print(f"✅ Directorio {directory} creado/verificado")
 
 def check_database_connection():
@@ -84,9 +90,12 @@ def check_database_connection():
         print("   Asegúrate de tener PostgreSQL instalado y configurado")
         return False
     
+    # Agregar la raíz del proyecto al path para importar app
+    sys.path.append(str(PROJECT_ROOT))
+    
     # Intentar conectar usando las variables de entorno
     try:
-        from app.core.config import settings
+        from app.shared.core.config import settings
         print(f"   Usuario: {settings.POSTGRES_USER}")
         print(f"   Base de datos: {settings.POSTGRES_DB}")
         print(f"   Servidor: {settings.POSTGRES_SERVER}:{settings.POSTGRES_PORT}")
@@ -101,6 +110,7 @@ def check_database_connection():
 def main():
     """Función principal del script"""
     print("🚀 Configurando ApiSchedule...")
+    print(f"📂 Raíz del proyecto: {PROJECT_ROOT}")
     print("=" * 50)
     
     # Verificar Python
@@ -128,7 +138,7 @@ def main():
     print("1. Edita el archivo .env con tus configuraciones")
     print("2. Configura tu base de datos PostgreSQL")
     print("3. Ejecuta las migraciones: alembic upgrade head")
-    print("4. Inicia la aplicación: uvicorn app.main:app --reload")
+    print("4. Inicia la aplicación: python scripts/start_app.py")
     print("\n📚 Documentación:")
     print("- README.md - Guía principal")
     print("- API_DOCUMENTATION.md - Documentación de la API")

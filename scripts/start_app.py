@@ -8,14 +8,18 @@ import sys
 import subprocess
 from pathlib import Path
 
+# Determinar la raíz del proyecto
+SCRIPT_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = SCRIPT_DIR.parent
+
 def check_env_file():
     """Verifica si existe el archivo .env"""
-    env_file = Path(".env")
+    env_file = PROJECT_ROOT / ".env"
     if not env_file.exists():
         print("⚠️  No se encontró el archivo .env")
         print("   Creando archivo .env desde env.example...")
         
-        env_example = Path("env.example")
+        env_example = PROJECT_ROOT / "env.example"
         if env_example.exists():
             import shutil
             shutil.copy(env_example, env_file)
@@ -44,6 +48,7 @@ def check_dependencies():
 def start_application():
     """Inicia la aplicación"""
     print("🚀 Iniciando ApiSchedule...")
+    print(f"📂 Raíz del proyecto: {PROJECT_ROOT}")
     
     # Verificar archivo .env
     if not check_env_file():
@@ -59,6 +64,9 @@ def start_application():
     # Iniciar la aplicación
     try:
         print("🔄 Iniciando servidor...")
+        # Cambiar el directorio de trabajo a la raíz del proyecto
+        os.chdir(PROJECT_ROOT)
+        
         subprocess.run([
             sys.executable, "-m", "uvicorn", 
             "app.main:app", 

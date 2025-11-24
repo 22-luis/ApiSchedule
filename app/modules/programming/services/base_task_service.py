@@ -11,7 +11,7 @@ import math
 
 from app.modules.programming.services.utils.programming_utils import ProgrammingUtils
 from app.shared.utils.business.order_status_service import OrderStatusService
-from app.shared.utils.Auto.rules.schedule import ScheduleRule
+from app.modules.programming.rules.schedule import ScheduleRule
 
 
 class BaseTaskService(ABC):
