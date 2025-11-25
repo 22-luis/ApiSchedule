@@ -109,7 +109,12 @@ def create_task(
     if len(teams) != len(task.teamIds):
         raise HTTPException(status_code=400, detail="One or more teams not found")
 
-    task_data = task.dict(exclude={"teamIds", "programming_id", "total_time"})
+    task_data = task.dict(exclude={"teamIds", "programming_id"})
+    # Map total_time to minutes if minutes is not provided
+    if task.total_time and not task.minutes:
+        task_data["minutes"] = task.total_time
+    # Remove total_time from task_data as it's not a field in the Task model
+    task_data.pop("total_time", None)
     return _create_task_logic(db, task_data, teams, programming, current_user)
 
 @router.post("/{task_id}/duplicate", response_model=TaskOut)

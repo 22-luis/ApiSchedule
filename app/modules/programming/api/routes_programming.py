@@ -177,7 +177,12 @@ def delete_programming(programming_id: UUID, db: Session = Depends(get_db)):
 def ensure_programming_by_team_date(team_id: str = Query(...), date: date = Query(...), db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     programming = db.query(Programming).filter_by(team_id=team_id, date=date).first()
     if programming:
-        return programming
+        return {
+            "id": programming.id,
+            "date": programming.date,
+            "team_id": programming.team_id,
+            "tasks": [t.id for t in programming.tasks]
+        }
     # Solo admin/planner/supervisor pueden crear
     if current_user.role.value not in ("admin", "planner", "supervisor"):
         raise HTTPException(status_code=403, detail="Not authorized to create programming")
@@ -185,7 +190,12 @@ def ensure_programming_by_team_date(team_id: str = Query(...), date: date = Quer
     db.add(programming)
     db.commit()
     db.refresh(programming)
-    return programming 
+    return {
+        "id": programming.id,
+        "date": programming.date,
+        "team_id": programming.team_id,
+        "tasks": [t.id for t in programming.tasks]
+    } 
 
 @router.post("/{programming_id}/add_task", response_model=ProgrammingRead)
 def add_task_to_programming(
