@@ -1,7 +1,9 @@
 from typing import Dict, Any, Optional
 from sqlalchemy.orm import Session
+from datetime import date
 
 from app.modules.programming.services.utils.team_selection_service import TeamSelectionService
+from app.modules.programming.services.utils.capacity_verification_service import CapacityVerificationService
 from app.shared.core.enums import ManufacturingActivities
 from app.modules.programming.services.config import ServiceType, ServiceConfig
 
@@ -116,20 +118,24 @@ class ManufacturedRule:
         
         return None
 
-    def get_most_suitable_team(self, db: Session, order_data: Dict, activity_type: Optional[str] = None) -> Dict[str, Any]:
+    def get_most_suitable_team(self, db: Session, order_data: Dict, activity_type: Optional[str] = None, programming_date: date = None) -> Dict[str, Any]:
         """
-        Determina el equipo de fabricación más adecuado según las reglas de negocio.
+        Determina el equipo de fabricación más adecuado según las reglas de negocio del flujograma.
         
-        Reglas:
-        1. Fabricado 1: Códigos que inician con BX y la cantidad a producir es > 13.
-        2. Fabricado 2: Aplican EXACTAMENTE las mismas condiciones que Fabricado 1.
-        3. Fabricado 3: Códigos que inician con BX o BE y la cantidad a producir es < 13.
-        4. Fabricado 3: Códigos de tipo M13.
-        5. Molino: Códigos de tipo M9 y M10.
+        Reglas por tipo de actividad:
+        - M11, M15: FABRICADO 1 (si BX y cantidad > 13, verificar capacidad → FABRICADO 2)
+        - M13: FABRICADO 3 (especializado en líquidos, si BX/BE y cantidad < 13)
+        - M9, M10: MOLINO (molienda)
+        - M12: PESADO (mezcla en máquina, lotes grandes)
+        
+        Verificación de capacidad:
+        - Un equipo ha llegado a su límite cuando tiene 460±5 minutos programados (455-465 minutos)
         
         Args:
             db: Sesión de base de datos
             order_data: Datos de la orden (lote, quantity, code)
+            activity_type: Tipo de actividad (M9, M10, M11, M12, M13, M15)
+            programming_date: Fecha de programación para verificar capacidad (opcional)
             
         Returns:
             Diccionario con el equipo seleccionado y la razón
@@ -141,40 +147,66 @@ class ManufacturedRule:
         teams_data = TeamSelectionService.get_fabrication_teams(db)
         teams_by_type = teams_data.get("teams_by_type", {})
         
-        # Si se proporciona el tipo de actividad, priorizar asignación basada en él
-        if activity_type:
-            if activity_type == "M9" or activity_type == "M10":
-                molino_team = teams_by_type.get("molino")
-                if molino_team:
-                    return {
-                        "success": True,
-                        "selected_team": {
-                            "id": str(molino_team.id),
-                            "name": molino_team.name,
-                            "type": "molino"
-                        },
-                        "reason": f"Actividad de tipo {activity_type}. Asignado al grupo Molino.",
-                        "rule_applied": "molino_m9_m10"
-                    }
+        # REGLA 1: M9 y M10 (Molienda) -> MOLINO
+        if activity_type in ["M9", "M10"]:
+            molino_team = teams_by_type.get("molino")
+            if molino_team:
+                return {
+                    "success": True,
+                    "selected_team": {
+                        "id": str(molino_team.id),
+                        "name": molino_team.name,
+                        "type": "molino"
+                    },
+                    "reason": f"Actividad {activity_type} (Molienda). Asignado a MOLINO.",
+                    "rule_applied": "molino_m9_m10"
+                }
 
-            if activity_type == "M13":
-                fabricado3_team = teams_by_type.get("fabricado3")
-                if fabricado3_team:
-                    return {
-                        "success": True,
-                        "selected_team": {
-                            "id": str(fabricado3_team.id),
-                            "name": fabricado3_team.name,
-                            "type": "fabricado3"
-                        },
-                        "reason": "Actividad M13: asignado a Fabricado 3.",
-                        "rule_applied": "fabricado3_m13"
-                    }
+        # REGLA 2: M13 (Mezclas Líquidas) -> FABRICADO 3
+        if activity_type == "M13":
+            fabricado3_team = teams_by_type.get("fabricado3")
+            if fabricado3_team:
+                return {
+                    "success": True,
+                    "selected_team": {
+                        "id": str(fabricado3_team.id),
+                        "name": fabricado3_team.name,
+                        "type": "fabricado3"
+                    },
+                    "reason": "Actividad M13 (Mezclas Líquidas). Asignado a FABRICADO 3.",
+                    "rule_applied": "fabricado3_m13"
+                }
 
-            if activity_type == "M12":
-                # M12 puede ir a Fabricado1 o Fabricado2
+        # REGLA 3: M11 y M15 (Mezcla Manual Polvo / Fabricación Aderezos) -> FABRICADO 1
+        # Con verificación de código BX y cantidad > 13 para prioridad alta
+        # Y verificación de capacidad (460±5 minutos)
+        if activity_type in ["M11", "M15"]:
+            # Verificar si es código BX con cantidad > 13 (alta prioridad para FABRICADO 1)
+            if code.startswith("BX") and quantity > 13:
                 fabricado1_team = teams_by_type.get("fabricado1")
                 if fabricado1_team:
+                    # Verificar capacidad de FABRICADO 1 si se proporciona fecha de programación
+                    if programming_date:
+                        capacity_info = CapacityVerificationService.check_team_capacity(
+                            db, str(fabricado1_team.id), programming_date
+                        )
+                        
+                        # Si FABRICADO 1 ha llegado a su límite, asignar a FABRICADO 2
+                        if capacity_info["is_at_limit"] or capacity_info["is_over_limit"]:
+                            fabricado2_team = teams_by_type.get("fabricado2")
+                            if fabricado2_team:
+                                return {
+                                    "success": True,
+                                    "selected_team": {
+                                        "id": str(fabricado2_team.id),
+                                        "name": fabricado2_team.name,
+                                        "type": "fabricado2"
+                                    },
+                                    "reason": f"Actividad {activity_type}, código BX y cantidad > 13. FABRICADO 1 ha llegado a su límite de capacidad ({capacity_info['total_minutes']} minutos), asignado a FABRICADO 2.",
+                                    "rule_applied": "fabricado2_m11_m15_bx_gt13_capacity"
+                                }
+                    
+                    # Si tiene capacidad o no se proporcionó fecha, asignar a FABRICADO 1
                     return {
                         "success": True,
                         "selected_team": {
@@ -182,9 +214,10 @@ class ManufacturedRule:
                             "name": fabricado1_team.name,
                             "type": "fabricado1"
                         },
-                        "reason": "Actividad M12: asignado a Fabricado 1.",
-                        "rule_applied": "fabricado1_m12"
+                        "reason": f"Actividad {activity_type}, código BX y cantidad > 13. Asignado a FABRICADO 1.",
+                        "rule_applied": "fabricado1_m11_m15_bx_gt13"
                     }
+                # Si FABRICADO 1 no disponible, usar FABRICADO 2
                 fabricado2_team = teams_by_type.get("fabricado2")
                 if fabricado2_team:
                     return {
@@ -194,14 +227,35 @@ class ManufacturedRule:
                             "name": fabricado2_team.name,
                             "type": "fabricado2"
                         },
-                        "reason": "Actividad M12: Fabricado 1 no disponible, asignado a Fabricado 2.",
-                        "rule_applied": "fabricado2_m12"
+                        "reason": f"Actividad {activity_type}, código BX y cantidad > 13. FABRICADO 1 no disponible, asignado a FABRICADO 2.",
+                        "rule_applied": "fabricado2_m11_m15_bx_gt13"
                     }
-
-        # Regla: códigos tipo M11 o M15 -> Fabricado 1
-        if "M11" in code or "M15" in code:
+            
+            # Para M11/M15 sin condición BX > 13, asignar a FABRICADO 1 con verificación de capacidad
             fabricado1_team = teams_by_type.get("fabricado1")
             if fabricado1_team:
+                # Verificar capacidad de FABRICADO 1 si se proporciona fecha de programación
+                if programming_date:
+                    capacity_info = CapacityVerificationService.check_team_capacity(
+                        db, str(fabricado1_team.id), programming_date
+                    )
+                    
+                    # Si FABRICADO 1 ha llegado a su límite, asignar a FABRICADO 2
+                    if capacity_info["is_at_limit"] or capacity_info["is_over_limit"]:
+                        fabricado2_team = teams_by_type.get("fabricado2")
+                        if fabricado2_team:
+                            return {
+                                "success": True,
+                                "selected_team": {
+                                    "id": str(fabricado2_team.id),
+                                    "name": fabricado2_team.name,
+                                    "type": "fabricado2"
+                                },
+                                "reason": f"Actividad {activity_type}. FABRICADO 1 ha llegado a su límite de capacidad ({capacity_info['total_minutes']} minutos), asignado a FABRICADO 2.",
+                                "rule_applied": "fabricado2_m11_m15_capacity"
+                            }
+                
+                # Si tiene capacidad o no se proporcionó fecha, asignar a FABRICADO 1
                 return {
                     "success": True,
                     "selected_team": {
@@ -209,11 +263,39 @@ class ManufacturedRule:
                         "name": fabricado1_team.name,
                         "type": "fabricado1"
                     },
-                    "reason": f"Código de tipo M11/M15. Asignado a Fabricado 1.",
+                    "reason": f"Actividad {activity_type}. Asignado a FABRICADO 1.",
                     "rule_applied": "fabricado1_m11_m15"
                 }
+            # Fallback a FABRICADO 2 si FABRICADO 1 no está disponible
+            fabricado2_team = teams_by_type.get("fabricado2")
+            if fabricado2_team:
+                return {
+                    "success": True,
+                    "selected_team": {
+                        "id": str(fabricado2_team.id),
+                        "name": fabricado2_team.name,
+                        "type": "fabricado2"
+                    },
+                    "reason": f"Actividad {activity_type}. FABRICADO 1 no disponible, asignado a FABRICADO 2.",
+                    "rule_applied": "fabricado2_m11_m15"
+                }
 
-        # Reglas para Fabricado 1 y 2: códigos que inician con BX y cantidad > 13
+        # REGLA 4: Códigos BX/BE con cantidad < 13 -> FABRICADO 3
+        if (code.startswith("BX") or code.startswith("BE")) and quantity < 13:
+            fabricado3_team = teams_by_type.get("fabricado3")
+            if fabricado3_team:
+                return {
+                    "success": True,
+                    "selected_team": {
+                        "id": str(fabricado3_team.id),
+                        "name": fabricado3_team.name,
+                        "type": "fabricado3"
+                    },
+                    "reason": f"Código {code[:2]} con cantidad < 13. Asignado a FABRICADO 3.",
+                    "rule_applied": "fabricado3_bx_be_lt_13"
+                }
+
+        # REGLA 5: Códigos BX con cantidad > 13 -> FABRICADO 1 (con fallback a FABRICADO 2)
         if code.startswith("BX") and quantity > 13:
             fabricado1_team = teams_by_type.get("fabricado1")
             if fabricado1_team:
@@ -224,11 +306,10 @@ class ManufacturedRule:
                         "name": fabricado1_team.name,
                         "type": "fabricado1"
                     },
-                    "reason": f"Código inicia con BX y cantidad > 13. Asignado a Fabricado 1.",
+                    "reason": f"Código BX con cantidad > 13. Asignado a FABRICADO 1.",
                     "rule_applied": "fabricado1_bx_gt_13"
                 }
-
-            # Fabricado 2 actúa como fallback cuando Fabricado 1 no está disponible
+            # Fallback a FABRICADO 2
             fabricado2_team = teams_by_type.get("fabricado2")
             if fabricado2_team:
                 return {
@@ -238,38 +319,12 @@ class ManufacturedRule:
                         "name": fabricado2_team.name,
                         "type": "fabricado2"
                     },
-                    "reason": f"Código inicia con BX y cantidad > 13. Fabricado 1 no disponible, asignado a Fabricado 2.",
+                    "reason": f"Código BX con cantidad > 13. FABRICADO 1 no disponible, asignado a FABRICADO 2.",
                     "rule_applied": "fabricado2_bx_gt_13"
                 }
-
-        # Reglas para Fabricado 3
-        if ((code.startswith("BX") or code.startswith("BE")) and quantity < 13) or "M13" in code:
-            fabricado3_team = teams_by_type.get("fabricado3")
-            if fabricado3_team:
-                reason = (
-                    f"Código de tipo M13. Asignado a Fabricado 3."
-                    if "M13" in code
-                    else f"Código inicia con {code[:2]} y cantidad < 13. Asignado a Fabricado 3."
-                )
-                rule = "fabricado3_m13" if "M13" in code else "fabricado3_bx_be_lt_13"
-                
-                return {
-                    "success": True,
-                    "selected_team": {
-                        "id": str(fabricado3_team.id),
-                        "name": fabricado3_team.name,
-                        "type": "fabricado3"
-                    },
-                    "reason": reason,
-                    "rule_applied": rule
-                }
         
-        # Fallback: si no se cumple ninguna regla, asignar a Fabricado 1 si está disponible,
-        # luego Fabricado 2, Fabricado 3, y por último cualquier otro equipo disponible
+        # FALLBACK: Asignar por prioridad FABRICADO 1 -> FABRICADO 2 -> FABRICADO 3 -> MOLINO
         fabricado1_team = teams_by_type.get("fabricado1")
-        fabricado2_team = teams_by_type.get("fabricado2")
-        fabricado3_team = teams_by_type.get("fabricado3")
-
         if fabricado1_team:
             return {
                 "success": True,
@@ -278,10 +333,11 @@ class ManufacturedRule:
                     "name": fabricado1_team.name,
                     "type": "fabricado1"
                 },
-                "reason": "Fallback: Asignado a Fabricado 1 por defecto.",
+                "reason": "Fallback: Asignado a FABRICADO 1 por defecto.",
                 "rule_applied": "fallback_fabricado1"
             }
 
+        fabricado2_team = teams_by_type.get("fabricado2")
         if fabricado2_team:
             return {
                 "success": True,
@@ -290,10 +346,11 @@ class ManufacturedRule:
                     "name": fabricado2_team.name,
                     "type": "fabricado2"
                 },
-                "reason": "Fallback: Asignado a Fabricado 2 por defecto.",
+                "reason": "Fallback: Asignado a FABRICADO 2 por defecto.",
                 "rule_applied": "fallback_fabricado2"
             }
 
+        fabricado3_team = teams_by_type.get("fabricado3")
         if fabricado3_team:
             return {
                 "success": True,
@@ -302,25 +359,11 @@ class ManufacturedRule:
                     "name": fabricado3_team.name,
                     "type": "fabricado3"
                 },
-                "reason": "Fallback: Asignado a Fabricado 3 por defecto.",
+                "reason": "Fallback: Asignado a FABRICADO 3 por defecto.",
                 "rule_applied": "fallback_fabricado3"
             }
 
-        # Fallback: si no se cumple ninguna regla, asignar a Fabricado 1 si está disponible
-        fabricado1_team = teams_by_type.get("fabricado1")
-        if fabricado1_team:
-            return {
-                "success": True,
-                "selected_team": {
-                    "id": str(fabricado1_team.id),
-                    "name": fabricado1_team.name,
-                    "type": "fabricado1"
-                },
-                "reason": "Fallback: Asignado a Fabricado 1 por defecto.",
-                "rule_applied": "fallback_fabricado1"
-            }
-
-        # Si Fabricado 1 no está disponible, intentar con cualquier otro equipo
+        # Último fallback: cualquier equipo disponible
         for team_type, team in teams_by_type.items():
             if team:
                 return {

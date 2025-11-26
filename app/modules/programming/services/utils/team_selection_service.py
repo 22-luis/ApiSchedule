@@ -120,6 +120,7 @@ class TeamSelectionService:
     def get_packaging_teams(db: Session) -> Dict[str, Any]:
         """
         Obtiene todos los equipos de empaque organizados por tipo.
+        Actualizado para soportar las reglas del flujograma.
         """
         teams = db.query(Team).all()
         teams_by_type = {}
@@ -130,18 +131,26 @@ class TeamSelectionService:
                 
             name_lower = team.name.lower()
             
-            # Clasificación basada en prioridades de config.py
-            if "empaque" in name_lower and "3" in name_lower:
-                 teams_by_type["empaque_manual"] = team
-            elif "empaque" in name_lower and "2" in name_lower:
-                 teams_by_type["empaque_mezcla"] = team
-            elif "maquina 1" in name_lower:
-                 teams_by_type["empaque_semi"] = team
-            elif "maquina 2" in name_lower:
-                 teams_by_type["empaque_auto"] = team
-            elif "empaque" in name_lower: # Fallback for generic "Empaque" or "Empaque Grupo"
-                 # Si solo dice "Empaque" o "Empaque Grupo", lo asignamos a grupo
-                 teams_by_type["empaque_grupo"] = team
+            # Clasificación basada en nombres exactos de equipos
+            if "empaque 1" in name_lower or "empaque1" in name_lower:
+                teams_by_type["empaque1"] = team
+            elif "empaque 2" in name_lower or "empaque2" in name_lower:
+                teams_by_type["empaque2"] = team
+            elif "empaque 3" in name_lower or "empaque3" in name_lower:
+                teams_by_type["empaque3"] = team
+            elif "empaque 4" in name_lower or "empaque4" in name_lower:
+                teams_by_type["empaque4"] = team
+            elif "maquina 1" in name_lower or "máquina 1" in name_lower:
+                teams_by_type["maquina1"] = team
+            elif "maquina 2" in name_lower or "máquina 2" in name_lower:
+                teams_by_type["maquina2"] = team
+            elif "empaque" in name_lower and "grupo" in name_lower:
+                # Empaque Grupo puede ser un equipo genérico
+                teams_by_type["empaque_grupo"] = team
+            elif "empaque" in name_lower:
+                # Fallback para equipos de empaque genéricos
+                if "empaque_generic" not in teams_by_type:
+                    teams_by_type["empaque_generic"] = team
 
         return {
             "success": True,

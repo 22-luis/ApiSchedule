@@ -211,11 +211,31 @@ class FabricationTaskService(BaseTaskService):
                 available_programmings = self.get_available_programmings_for_team(team_id, db, start_date=start_date)
                 
                 if not available_programmings:
-                    failed_orders.append({
-                        "order_data": order_data,
-                        "reason": f"No se encontraron programaciones para equipo: {selected_team.get('name')}"
-                    })
-                    continue
+                    # Intentar crear programación automáticamente
+                    from app.modules.programming.services.utils.auto_create_programming import create_programming_if_not_exists
+                    
+                    logger.info(f"No programmings found for team {selected_team.get('name')} on {start_date}. Attempting to create one.")
+                    
+                    creation_result = create_programming_if_not_exists(db, team_id, start_date)
+                    
+                    if creation_result.get("success") and creation_result.get("programming"):
+                        # Volver a obtener programaciones disponibles
+                        available_programmings = self.get_available_programmings_for_team(team_id, db, start_date=start_date)
+                        
+                        if not available_programmings:
+                            failed_orders.append({
+                                "order_data": order_data,
+                                "reason": f"No se pudo obtener programación para equipo: {selected_team.get('name')} después de crearla"
+                            })
+                            continue
+                        
+                        logger.info(f"Successfully created programming for team {selected_team.get('name')} on {start_date}")
+                    else:
+                        failed_orders.append({
+                            "order_data": order_data,
+                            "reason": f"No se pudo crear programación para equipo: {selected_team.get('name')}. {creation_result.get('message', '')}"
+                        })
+                        continue
                 
                 # Calcular minutos de la tarea
                 task_minutes = activity_with_minutes.get("minutes_calculation", {}).get("calculated_minutes", 0)

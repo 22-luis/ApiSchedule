@@ -1,4 +1,4 @@
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from sqlalchemy.orm import Session
 
 from app.modules.programming.services.utils.team_selection_service import TeamSelectionService
@@ -44,21 +44,37 @@ class WeighingRule:
             "codes_with_weighing": list(weighing_activities_by_code.keys())
         }
 
-    def get_most_suitable_team(self, db: Session) -> Dict[str, Any]:
+    def get_most_suitable_team(self, db: Session, order_data: Dict = None, activity_type: Optional[str] = None) -> Dict[str, Any]:
         """
-        Obtiene el equipo de pesado. Se asume que esta función solo se llama para órdenes 
-        que ya han sido filtradas y se sabe que requieren pesado (códigos M7).
+        Obtiene el equipo de pesado según las reglas del flujograma.
+        
+        Reglas:
+        - M7: PESADO (función principal de pesado y/o fabricado)
+        - M12: PESADO (mezcla en máquina/empaque 25 kg, lotes grandes ~400 unidades)
         
         Args:
             db: Sesión de base de datos
+            order_data: Datos de la orden (opcional)
+            activity_type: Tipo de actividad (M7, M12)
             
         Returns:
             Diccionario con el equipo seleccionado y la razón
         """
         team_info = TeamSelectionService.get_weighing_team(db)
+        
         if team_info.get("success"):
-            team_info["reason"] = "Código de tipo M7. Asignado a Pesado."
-            team_info["rule_applied"] = "pesado_m7"
+            # Determinar la razón según el tipo de actividad
+            if activity_type == "M7":
+                team_info["reason"] = "Actividad M7 (Pesado y/o Fabricado). Asignado a PESADO."
+                team_info["rule_applied"] = "pesado_m7"
+            elif activity_type == "M12":
+                team_info["reason"] = "Actividad M12 (Mezcla en Máquina/Empaque 25 Kg, lotes grandes). Asignado a PESADO."
+                team_info["rule_applied"] = "pesado_m12"
+            else:
+                # Fallback para actividades de pesado sin tipo específico
+                team_info["reason"] = "Actividad de pesado. Asignado a PESADO."
+                team_info["rule_applied"] = "pesado_default"
+        
         return team_info
 
     def get_activity_for_order(self, order_data: Dict, activities_data: Dict) -> Dict[str, Any]:
