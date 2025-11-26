@@ -2,7 +2,7 @@ from sqlalchemy.orm import Session
 from app.modules.programming.models.order import Order
 from app.modules.programming.models.task import Task
 from app.modules.programming.models.programming import ProgrammingTask
-from app.modules.programming.models.state import OrderStatus
+from app.modules.programming.models.state import OrderStatus, TaskStatus
 from datetime import datetime, date
 from typing import Optional
 
@@ -98,33 +98,91 @@ class OrderStatusService:
             pass
     
     @staticmethod
+    def _are_all_tasks_completed_for_activity(db: Session, lote: str, activity_keywords: list[str]) -> bool:
+        """
+        Verifica si todas las tareas relacionadas con ciertas palabras clave de actividad están completadas.
+        Retorna True si existen tareas y todas están completadas.
+        Retorna False si no existen tareas o si alguna no está completada.
+        """
+        tasks = db.query(Task).join(ProgrammingTask).filter(Task.lote == lote).all()
+        
+        relevant_tasks = []
+        for task in tasks:
+            if not task.activity:
+                continue
+            activity_upper = task.activity.upper()
+            if any(keyword in activity_upper for keyword in activity_keywords):
+                relevant_tasks.append(task)
+        
+        if not relevant_tasks:
+            return False
+            
+        # Verificar si todas las tareas relevantes están completadas
+        # Una tarea se considera completada si tiene al menos un ProgrammingTask con estado COMPLETED (o is_completed=True)
+        for task in relevant_tasks:
+            # Verificar si alguna programación de esta tarea está completada
+            is_task_completed = False
+            for prog_task in task.programming_tasks:
+                if prog_task.is_completed:
+                    is_task_completed = True
+                    break
+            
+            if not is_task_completed:
+                return False
+                
+        return True
+
+    @staticmethod
     def update_order_status_for_task_completion(db: Session, programming_task: ProgrammingTask) -> None:
         """
-        Actualiza el estado de la orden cuando se completa una tarea.
-        Si la tarea completada tiene una actividad de empaque, cambia el estado a 'manufactured'.
-        Los procesos de pesado y fabricado no cambian el estado de la orden.
+        Actualiza el estado de la orden basándose en la etapa más avanzada completada.
+        Jerarquía: Empacada > Fabricada > Pesada
         """
         task = programming_task.task
         if not task or not task.lote or task.lote == '-':
-            print(f"[DEBUG] No se puede procesar tarea: task={task}, lote={task.lote if task else None}")
             return
             
         try:
             lote_int = int(task.lote)
             order = db.query(Order).filter(Order.lote == lote_int).first()
             if not order:
-                print(f"[DEBUG] No se encontró orden con lote {lote_int}")
+                return
+            
+            # Si la orden ya está entregada o completada, no retroceder automáticamente
+            if order.status in [OrderStatus.delivered, OrderStatus.completed]:
+                return
+
+            lote_str = str(lote_int)
+            
+            # 1. Verificar Empaque (Estado: packaged)
+            # Palabras clave: EMPAQUE, ENCAJADO, ETIQUETADO, PALETIZADO
+            packaging_keywords = ["EMPAQUE", "ENCAJADO", "ETIQUETADO", "PALETIZADO"]
+            if OrderStatusService._are_all_tasks_completed_for_activity(db, lote_str, packaging_keywords):
+                if order.status != OrderStatus.packaged:
+                    order.status = OrderStatus.packaged
+                    db.commit()
+                return
+
+            # 2. Verificar Fabricación (Estado: manufactured)
+            # Palabras clave: FABRICADO, MEZCLA, MOLIENDA, COCCCION
+            fabrication_keywords = ["FABRICADO", "MEZCLA", "MOLIENDA", "COCCION", "FABICACION"]
+            if OrderStatusService._are_all_tasks_completed_for_activity(db, lote_str, fabrication_keywords):
+                if order.status != OrderStatus.manufactured:
+                    order.status = OrderStatus.manufactured
+                    db.commit()
+                return
+
+            # 3. Verificar Pesado (Estado: weighed)
+            # Palabras clave: PESADO
+            weighing_keywords = ["PESADO"]
+            if OrderStatusService._are_all_tasks_completed_for_activity(db, lote_str, weighing_keywords):
+                if order.status != OrderStatus.weighed:
+                    order.status = OrderStatus.weighed
+                    db.commit()
                 return
                 
-            print(f"[DEBUG] Procesando tarea completada para orden {order.lote}, estado actual: {order.status}")
-            print(f"[DEBUG] Tarea completada: {programming_task.is_completed}")
-            
-            # Solo procesar si la tarea está marcada como completada
-            if programming_task.is_completed:
-                
-                pass
-            else:
-                print(f"[DEBUG] Tarea no está marcada como completada")
+            # Si no se cumple ninguno de los anteriores, mantener estado actual (o programmed/pending)
+            # No forzamos cambio aquí para no interferir con estados manuales como 'pending'
                 
         except (ValueError, TypeError) as e:
             print(f"[DEBUG] Error procesando lote {task.lote}: {e}")

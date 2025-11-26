@@ -442,31 +442,6 @@ def receive_order(
         "status_message": status_message
     }
 
-@router.post("/{order_id}/deliver")
-def deliver_order(
-    order_id: str,
-    delivery_data: dict = Body(...),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
-):
-    db_order = db.query(order_model.Order).filter(order_model.Order.lote == order_id).first()
-    if not db_order:
-        raise HTTPException(status_code=404, detail="Order not found")
-    
-    if db_order.status not in [OrderStatus.manufactured, OrderStatus.pending]:
-        raise HTTPException(status_code=400, detail="Order must be in manufactured or pending status to be delivered")
-    
-    delivered_quantity = delivery_data.get("delivered_quantity")
-    if delivered_quantity is None or delivered_quantity < 0:
-        # Allow 0 delivered (explicit), but reject negative or missing values
-        raise HTTPException(status_code=400, detail="Delivered quantity must be >= 0")
-    
-    submitted_observations = delivery_data.get("submitted_observations")
-
-    # Calcular cantidad recibida total y faltante
-    current_received = db_order.received_quantity or 0
-    new_received_total = current_received + delivered_quantity
-    new_missing_quantity = db_order.quantity - new_received_total
     
     # Actualizar campos de entrega
     db_order.submitted_user = current_user.username
