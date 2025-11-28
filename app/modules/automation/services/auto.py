@@ -22,8 +22,82 @@ def create_tasks_for_lotes(lotes: List[int], username: str):
             logger.warning(f"No orders found for lotes={lotes}")
             return
 
+        # Import fabrication code extractor for bin 8 orders
+        from app.shared.utils.business.fabrication_code_extractor import FabricationCodeExtractor
+        from app.modules.programming.models.state import OrderStatus
+
+        # Prepare extracted orders with special handling for bin 8
+        orders_to_extract = []
+        for order in orders:
+            # For bin 8 (packaging orders), extract fabrication code and find manufactured order
+            if order.bin == 8:
+                logger.info(f"Processing bin 8 order {order.lote} with code: {order.code}")
+                
+                # Extract fabrication code from packaging code
+                fabrication_code = FabricationCodeExtractor.extract_fabrication_code(order.code)
+                
+                if not fabrication_code:
+                    logger.warning(
+                        f"Could not extract fabrication code from packaging order {order.lote}. "
+                        f"Code: {order.code}. Skipping task creation for this order."
+                    )
+                    continue
+                
+                logger.info(
+                    f"Extracted fabrication code '{fabrication_code}' from packaging code '{order.code}' "
+                    f"for order {order.lote}"
+                )
+                
+                # Search for manufactured order with matching code and quantity
+                fab_order = db.query(order_model.Order).filter(
+                    order_model.Order.code == fabrication_code,
+                    order_model.Order.status == OrderStatus.manufactured,
+                    order_model.Order.quantity == order.quantity
+                ).first()
+                
+                if fab_order:
+                    logger.info(
+                        f"Found manufactured order {fab_order.lote} for packaging order {order.lote}. "
+                        f"Fabrication code: {fabrication_code}, Quantity: {order.quantity}"
+                    )
+                    
+                    # Use the fabrication order's lote for task creation
+                    # but keep track of the original packaging order
+                    order._original_packaging_lote = order.lote
+                    order._usar_lote_fabricacion = fab_order.lote
+                    
+                    # Update packaging order status to programmed
+                    order.status = OrderStatus.programmed
+                    db.commit()
+                    logger.info(f"Updated packaging order {order.lote} status to 'programmed'")
+                    
+                    orders_to_extract.append(order)
+                else:
+                    logger.warning(
+                        f"No manufactured order found for packaging order {order.lote}. "
+                        f"Fabrication code: {fabrication_code}, Quantity: {order.quantity}, "
+                        f"Packaging code pattern: {order.code}. Skipping task creation."
+                    )
+                    # Skip this order - no tasks will be created
+                    continue
+            else:
+                # For non-bin-8 orders, process normally
+                orders_to_extract.append(order)
+
         # Prepare extracted orders used by services (list of dicts with lote, code, quantity)
-        extracted_orders = extract_created_orders_data(orders)
+        extracted_orders = extract_created_orders_data(orders_to_extract)
+        
+        # For bin 8 orders, replace the lote with the fabrication order's lote
+        for i, extracted in enumerate(extracted_orders):
+            original_order = orders_to_extract[i]
+            if hasattr(original_order, '_usar_lote_fabricacion'):
+                logger.info(
+                    f"Using fabrication lote {original_order._usar_lote_fabricacion} "
+                    f"instead of packaging lote {extracted['lote']} for task creation"
+                )
+                extracted['lote'] = original_order._usar_lote_fabricacion
+                extracted['original_packaging_lote'] = original_order._original_packaging_lote
+                extracted['bin'] = original_order.bin
 
         weighing_service = TaskServiceFactory.create_weighing_service()
         fabrication_service = TaskServiceFactory.create_fabrication_service()
