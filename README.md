@@ -544,25 +544,3 @@ POST /api/v1/timer/start
 GET /api/v1/reports/productivity?team_id=1&start_date=2024-11-01&end_date=2024-11-30
 ```
 
-## 📝 Licencia
-
-Este proyecto está bajo la Licencia MIT. Ver el archivo `LICENSE` para más detalles.
-
-## 👨‍💻 Contribución
-
-Las contribuciones son bienvenidas. Por favor:
-
-1. Fork el proyecto
-2. Crea una rama para tu feature (`git checkout -b feature/AmazingFeature`)
-3. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
-4. Push a la rama (`git push origin feature/AmazingFeature`)
-5. Abre un Pull Request
-
-## 📞 Soporte
-
-Para reportar bugs o solicitar features, por favor abre un issue en GitHub.
-
----
-
-**Desarrollado con ❤️ usando FastAPI y SQLAlchemy**
-
