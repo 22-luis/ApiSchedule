@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.modules.core.models.team import Team
 from app.modules.programming.models.task import Task
 from app.modules.programming.models.programming import Programming, ProgrammingTask
-from app.modules.programming.models.code import Code
+from app.modules.codes.models.code import Code
 from datetime import datetime
 
 # Configurar logger

@@ -59,18 +59,18 @@ from app.modules.core.api.routes_team import router as team_router
 from app.modules.programming.api.routes_order import router as order_router
 from app.modules.programming.api.routes_task import router as task_router
 from app.modules.programming.api.routes_task_status_log import router as task_status_log_router
-from app.modules.programming.api.routes_preparation import router as preparation_router
-from app.modules.programming.api.routes_code import router as code_router
+from app.modules.codes.api.routes_preparation import router as preparation_router
+from app.modules.codes.api.routes_code import router as code_router
 from app.modules.programming.api.routes_programming import router as programming_router
 from app.modules.programming.api.routes_calculations import router as calculations_router
 from app.modules.timer.api.routes_timer import router as timer_router
 from app.modules.timer.api.routes_record_stopwatch import router as record_stopwatch_router
-
 from app.modules.reports.api.routes_report import router as report_router
 
 # Import models to ensure they are registered with Base
 from app.modules.core.models import user, team
-from app.modules.programming.models import task, order, preparation, programming
+from app.modules.programming.models import task, order, programming
+from app.modules.codes.models import code, preparation
 
 # Configurar logging si está disponible
 if LOGGING_AVAILABLE:

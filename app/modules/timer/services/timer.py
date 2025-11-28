@@ -4,7 +4,7 @@ from app.modules.programming.models.task import Task
 from app.modules.timer.models.stopwatch import Stopwatch
 from app.modules.timer.models.record_stopwatch import RecordStopwatch
 from app.modules.programming.models.programming import ProgrammingTask
-from app.modules.programming.models.code import Code
+from app.modules.codes.models.code import Code
 from app.modules.timer.models.state import TimerStatus
 from datetime import datetime, timezone, timedelta
 import uuid

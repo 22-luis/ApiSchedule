@@ -8,11 +8,11 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.shared.db.session import get_db
-from app.modules.programming.models.code import Code
+from app.modules.codes.models.code import Code
 from app.modules.programming.models.order import Order
 from app.modules.core.models.role import UserRole
 from app.modules.core.models.user import User
-from app.modules.programming.schemas.code import CodeCreate, CodeOut, CodePageOut, CodeUpdate
+from app.modules.codes.schemas.code import CodeCreate, CodeOut, CodePageOut, CodeUpdate
 from app.shared.utils.business.data_cleaning import clean_float, clean_str, clean_str_preserve_case
 from app.shared.utils.core.dependencies import require_roles
 

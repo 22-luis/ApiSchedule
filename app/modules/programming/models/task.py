@@ -4,7 +4,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
 from app.shared.db.database import Base
 from app.modules.core.models.team import task_team_association
-from app.modules.programming.models.code import Code
+from app.modules.codes.models.code import Code
 
 class Task(Base):
     __tablename__ = 'task'

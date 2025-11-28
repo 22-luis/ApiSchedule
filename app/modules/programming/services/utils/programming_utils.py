@@ -4,8 +4,8 @@ from sqlalchemy.orm import Session
 from datetime import datetime, time, timedelta, date
 
 from app.modules.programming.models.order import Order
-from app.modules.programming.models.code import Code
-# from app.modules.programming.models.preparation import Preparation
+from app.modules.codes.models.code import Code
+# from app.modules.codes.models.preparation import Preparation
 from app.modules.programming.models.programming import Programming, ProgrammingTask
 from app.modules.programming.models.state import ProgrammingStatus
 from app.modules.programming.models.task import Task

@@ -10,7 +10,7 @@ from app.modules.core.models.team import Team
 from app.modules.programming.models.order import Order
 from app.modules.programming.models.state import ProgrammingStatus, OrderStatus
 from app.modules.core.models.role import UserRole
-from app.modules.programming.models.code import Code
+from app.modules.codes.models.code import Code
 from app.shared.utils.core.dependencies import get_current_user
 from app.modules.core.models.user import User
 

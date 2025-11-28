@@ -17,8 +17,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 from app.shared.db.session import SessionLocal
 from app.modules.core.models.user import User
 from app.modules.core.models.team import Team
-from app.modules.programming.models.code import Code
-from app.modules.programming.models.preparation import Preparation
+from app.modules.codes.models.code import Code
+from app.modules.codes.models.preparation import Preparation
 from app.modules.programming.models.programming import Programming, ProgrammingTask
 from app.modules.programming.models.task import Task
 from app.modules.programming.models.order import Order

@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
-from app.modules.programming.models.preparation import Preparation
-from app.modules.programming.schemas.preparation import PreparationCreate, PreparationOut
+from app.modules.codes.models.preparation import Preparation
+from app.modules.codes.schemas.preparation import PreparationCreate, PreparationOut
 from app.shared.db.session import get_db
 from app.modules.core.models.user import User
 from app.shared.utils.core.dependencies import require_roles
