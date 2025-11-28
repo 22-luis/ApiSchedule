@@ -12,19 +12,19 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 # Usar configuración simple temporalmente
 try:
-    from app.core.config import settings, validate_critical_settings
+    from app.shared.core.config import settings, validate_critical_settings
     if settings.is_development:
         print("✅ Usando configuración completa con pydantic-settings")
 except ImportError as e:
     if settings.is_development:
         print(f"⚠️  Error importando configuración completa: {e}")
-    from app.core.config_simple import settings, validate_critical_settings
+    from app.shared.core.config_simple import settings, validate_critical_settings
     if settings.is_development:
         print("✅ Usando configuración simple")
 
-from app.db.session import engine
-from app.db.database import Base
-from app.utils.core.exception_handlers import (
+from app.shared.db.session import engine
+from app.shared.db.database import Base
+from app.shared.utils.core.exception_handlers import (
     http_exception_handler, 
     validation_exception_handler, 
     database_exception_handler,
@@ -32,12 +32,12 @@ from app.utils.core.exception_handlers import (
     generic_exception_handler
 )
 from sqlalchemy.exc import SQLAlchemyError
-from app.utils.performance.circuit_breaker import CircuitBreakerOpenError
+from app.shared.utils.performance.circuit_breaker import CircuitBreakerOpenError
 
 # Importar logging y rate limiting solo si están disponibles
 try:
-    from app.utils.core.logging import setup_logging, get_logger, RequestLogger
-    from app.utils.performance.rate_limiting import rate_limit_middleware, get_rate_limit_stats
+    from app.shared.utils.core.logging import setup_logging, get_logger, RequestLogger
+    from app.shared.utils.performance.rate_limiting import rate_limit_middleware, get_rate_limit_stats
     LOGGING_AVAILABLE = True
     if settings.is_development:
         print("✅ Sistema de logging y rate limiting disponible")
@@ -53,20 +53,24 @@ except ImportError as e:
     def rate_limit_middleware(request, call_next): return call_next(request)
     def get_rate_limit_stats(): return {"error": "Rate limiting no disponible"}
 
-from app.api.v1.routes_auth import router as auth_router
-from app.api.v1.routes_user import router as user_router
-from app.api.v1.routes_team import router as team_router
-from app.api.v1.routes_order import router as order_router
-from app.api.v1.routes_task import router as task_router
-from app.api.v1.routes_task_status_log import router as task_status_log_router
-from app.api.v1.routes_preparation import router as preparation_router
-from app.api.v1.routes_code import router as code_router
-from app.api.v1.routes_programming import router as programming_router
-from app.api.v1.routes_calculations import router as calculations_router
-from app.api.v1.routes_timer import router as timer_router
-from app.api.v1.routes_record_stopwatch import router as record_stopwatch_router
-from app.api.v1.routes_report import router as report_router
-from app.models import user, team, task, order, preparation, programming
+from app.modules.core.api.routes_auth import router as auth_router
+from app.modules.core.api.routes_user import router as user_router
+from app.modules.core.api.routes_team import router as team_router
+from app.modules.programming.api.routes_order import router as order_router
+from app.modules.programming.api.routes_task import router as task_router
+from app.modules.programming.api.routes_task_status_log import router as task_status_log_router
+from app.modules.programming.api.routes_preparation import router as preparation_router
+from app.modules.programming.api.routes_code import router as code_router
+from app.modules.programming.api.routes_programming import router as programming_router
+from app.modules.programming.api.routes_calculations import router as calculations_router
+from app.modules.timer.api.routes_timer import router as timer_router
+from app.modules.timer.api.routes_record_stopwatch import router as record_stopwatch_router
+
+from app.modules.reports.api.routes_report import router as report_router
+
+# Import models to ensure they are registered with Base
+from app.modules.core.models import user, team
+from app.modules.programming.models import task, order, preparation, programming
 
 # Configurar logging si está disponible
 if LOGGING_AVAILABLE:
@@ -279,7 +283,7 @@ async def health_check():
     Returns:
         Dict con el estado de salud básico del sistema
     """
-    from app.utils.core.health_checks import get_quick_health_status
+    from app.shared.utils.core.health_checks import get_quick_health_status
     return await get_quick_health_status()
 
 
@@ -297,8 +301,8 @@ async def detailed_health_check():
     Returns:
         Dict con el estado de salud completo del sistema
     """
-    from app.utils.core.health_checks import get_health_status
-    return await get_health_.status()
+    from app.shared.utils.core.health_checks import get_health_status
+    return await get_health_status()
 
 # Endpoint de información de la aplicación
 @app.get("/info")
@@ -341,7 +345,7 @@ async def get_metrics():
     if settings.is_production:
         raise HTTPException(status_code=404, detail="Endpoint no disponible en producción")
     
-    from app.utils.performance.metrics import metrics_collector
+    from app.shared.utils.performance.metrics import metrics_collector
     return metrics_collector.get_all_metrics()
 
 
@@ -357,14 +361,14 @@ async def get_circuit_breakers():
     if settings.is_production:
         raise HTTPException(status_code=404, detail="Endpoint no disponible en producción")
     
-    from app.utils.performance.circuit_breaker import circuit_breakers
+    from app.shared.utils.performance.circuit_breaker import circuit_breakers
     return circuit_breakers.get_status()
 
 @app.get("/cache-stats", include_in_schema=False)
 async def get_cache_stats():
     """Obtiene estadísticas del sistema de caché"""
     try:
-        from app.utils.cache import cache_manager
+        from app.shared.utils.cache import cache_manager
         return cache_manager.get_stats()
     except ImportError:
         return {"error": "Sistema de caché no disponible"}
@@ -373,7 +377,7 @@ async def get_cache_stats():
 async def get_database_pool_info():
     """Obtiene información del pool de conexiones de base de datos"""
     try:
-        from app.db.session import get_database_info
+        from app.shared.db.session import get_database_info
         return get_database_info()
     except ImportError:
         return {"error": "Información de base de datos no disponible"}
@@ -402,7 +406,7 @@ async def startup_event():
     
     # Inicializar sistema de métricas
     try:
-        from app.utils.performance.metrics import start_system_metrics_collector
+        from app.shared.utils.performance.metrics import start_system_metrics_collector
         start_system_metrics_collector()
         logger.info("Sistema de métricas inicializado correctamente")
     except Exception as e:
