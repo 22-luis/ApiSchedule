@@ -24,12 +24,18 @@ def get_team_type(team: Team) -> str:
     return "otro"
 
 
-def get_cutoff_time_for_team(team: Team) -> time:
+def get_cutoff_time_for_team(team: Team, date_obj: datetime.date = None) -> time:
     """
-    Returns the cutoff time for a team based on its type.
-    - Pesado teams: 17:40
-    - Other teams: 14:40
+    Returns the cutoff time for a team based on its type and the day of the week.
+    - Saturdays: 11:10 for all teams
+    - Monday-Friday:
+        - Pesado teams: 17:40
+        - Other teams: 14:40
     """
+    # If date is provided and it's Saturday (weekday 5), return 11:10
+    if date_obj and date_obj.weekday() == 5:
+        return time(11, 10)
+        
     team_type = get_team_type(team)
     if team_type == "pesado":
         return time(17, 40)  # 17:40 for pesado teams
@@ -59,7 +65,8 @@ def check_programming_availability(db: Session, programming: Programming) -> boo
     if not team:
         return True  # No team found, keep available
     
-    cutoff_time = get_cutoff_time_for_team(team)
+    # Pass the programming date to handle Saturday logic
+    cutoff_time = get_cutoff_time_for_team(team, programming.date)
     max_extension = timedelta(minutes=5)  # Maximum 5 minutes extension
     
     # Create cutoff datetime for the programming date
