@@ -208,8 +208,19 @@ class ProgrammingUtils:
         Crea una tarea de programación para una orden.
         """
         try:
+            # Obtener la fecha de la programación
+            programming = db.query(Programming).filter(Programming.id == programming_id).first()
+            if not programming:
+                return {
+                    "success": False,
+                    "message": "Programming not found"
+                }
+            programming_date = programming.date
+
             # Calcular hora de inicio basada en tareas existentes
-            start_minutes = ProgrammingUtils.calculate_current_programming_time(programming_tasks, date.today())
+            # Nota: calculate_current_programming_time usa la fecha solo para logs o lógica interna, 
+            # pero el cálculo real se basa en las horas de las tareas.
+            start_minutes = ProgrammingUtils.calculate_current_programming_time(programming_tasks, programming_date)
             
             # Convertir minutos a hora
             start_hour = start_minutes // 60
@@ -222,10 +233,9 @@ class ProgrammingUtils:
             end_minute = end_minutes % 60
             end_time_obj = time(end_hour, end_minute)
             
-            # Crear objetos datetime combinando la fecha actual con la hora calculada
-            today = date.today()
-            start_datetime = datetime.combine(today, start_time_obj)
-            end_datetime = datetime.combine(today, end_time_obj)
+            # Crear objetos datetime combinando la fecha de la programación con la hora calculada
+            start_datetime = datetime.combine(programming_date, start_time_obj)
+            end_datetime = datetime.combine(programming_date, end_time_obj)
             
             task_id = uuid.uuid4()
             next_order = order_data.get("lote")

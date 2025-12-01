@@ -6,7 +6,7 @@ import datetime
 
 from app.shared.db.session import get_db
 from app.modules.programming.models.task import Task
-from app.modules.core.models.team import Team
+from app.modules.core.models.team import Team, task_team_association
 from app.modules.core.models.user import User
 from app.modules.core.models.role import UserRole
 from app.modules.programming.models.programming import Programming, ProgrammingTask
@@ -300,6 +300,11 @@ def delete_task(
     OrderStatusService.update_order_status_for_task_deletion(db, db_task)
     update_programming_availability_by_task(db, task_id)
     
+    # Manually delete associations to handle potential duplicates
+    db.execute(
+        task_team_association.delete().where(task_team_association.c.task_id == task_id)
+    )
+    
     db.delete(db_task)
     db.commit()
     return {"message": "Task deleted successfully"}
@@ -331,6 +336,12 @@ def delete_many_tasks(
         for task in tasks_to_delete:
             OrderStatusService.update_order_status_for_task_deletion(db, task)
             update_programming_availability_by_task(db, str(task.id))
+            
+            # Manually delete associations to handle potential duplicates
+            db.execute(
+                task_team_association.delete().where(task_team_association.c.task_id == task.id)
+            )
+            
             db.delete(task)
         
         db.commit()
@@ -342,23 +353,3 @@ def delete_many_tasks(
             status_code=500,
             detail=f"An error occurred during the deletion process: {e}"
         )
-
-@router.get("/by-team/{team_id}", response_model=List[TaskOut])
-def get_tasks_by_team(
-    team_id: str,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
-):
-    team = db.query(Team).filter(Team.id == team_id).first()
-    if not team:
-        raise HTTPException(status_code=404, detail="Team not found")
-    
-    # Correctly filter for a many-to-many relationship
-    tasks = db.query(Task).options(
-        joinedload(Task.code),
-        joinedload(Task.preparation),
-        joinedload(Task.teams),
-        joinedload(Task.created_by_user)
-    ).filter(Task.teams.any(id=team_id)).all()
-    
-    return tasks

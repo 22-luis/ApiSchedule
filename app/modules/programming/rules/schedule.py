@@ -8,7 +8,7 @@ from app.shared.utils.business.order_status_service import OrderStatusService
 from app.modules.programming.services.utils.programming_utils import ProgrammingUtils
 from app.modules.programming.models.task import Task
 from app.shared.utils.core.logging import get_logger
-from app.shared.utils.business.programming_availability import get_programming_availability, TEAM_RULES, STANDARD_DURATION_MINUTES
+from app.shared.utils.business.programming_availability import get_programming_availability, get_team_rule, STANDARD_DURATION_MINUTES
 
 logger = get_logger(__name__)
 
@@ -19,7 +19,7 @@ class ScheduleRule:
 
     def get_team_duration(self, team_name: str) -> Optional[int]:
         """Obtiene la duración para un equipo específico."""
-        team_rule = TEAM_RULES.get(team_name)
+        team_rule = get_team_rule(team_name)
         if team_rule and "duration" in team_rule:
             return team_rule["duration"]
         # Fallback a una regla por defecto si no se encuentra el equipo

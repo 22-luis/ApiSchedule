@@ -48,6 +48,8 @@ STANDARD_DURATION_MINUTES = 460
 
 # Reglas de equipos
 # 'duration': duración máxima en minutos. None significa sin límite.
+# Reglas de equipos
+# 'duration': duración máxima en minutos. None significa sin límite.
 TEAM_RULES = {
     "Molino": {
         "duration": STANDARD_DURATION_MINUTES
@@ -85,6 +87,38 @@ TEAM_RULES = {
 }
 
 
+def get_team_rule(team_name: str) -> Optional[dict]:
+    """
+    Obtiene la regla del equipo permitiendo coincidencias flexibles.
+    """
+    if not team_name:
+        return None
+        
+    # 1. Coincidencia exacta
+    if team_name in TEAM_RULES:
+        return TEAM_RULES[team_name]
+    
+    # 2. Coincidencia insensible a mayúsculas/minúsculas
+    team_name_lower = team_name.lower()
+    for key, rule in TEAM_RULES.items():
+        if key.lower() == team_name_lower:
+            return rule
+            
+    # 3. Coincidencia parcial para tipos conocidos
+    if "pesado" in team_name_lower:
+        return TEAM_RULES["Pesado"]
+    if "molino" in team_name_lower:
+        return TEAM_RULES["Molino"]
+    # Para Fabricado, Empaque, Maquina, intentamos coincidir el número si existe
+    # o fallback a una regla genérica si decidiéramos agregarla.
+    # Por ahora, si es "Fabricado X" y no coincide arriba, quizás queramos
+    # devolver la regla de Fabricado 1 como default?
+    # Mejor mantener el comportamiento estricto para numerados para evitar errores,
+    # pero "Pesado" es el crítico que suele tener nombres variados.
+    
+    return None
+
+
 def check_programming_availability(db: Session, programming: Programming) -> bool:
     """
     Checks if a programming should be marked as unavailable based on:
@@ -114,7 +148,7 @@ def check_programming_availability(db: Session, programming: Programming) -> boo
             team_name = team.name
             
             # Determine max allowed minutes based on team rules
-            team_rule = TEAM_RULES.get(team_name)
+            team_rule = get_team_rule(team_name)
             if team_rule and "duration" in team_rule:
                 duration_minutes = team_rule["duration"]
             else:
@@ -290,10 +324,14 @@ def get_programming_availability(db: Session, programming_id: str, task_duration
         }
     """
     from app.modules.programming.services.utils.programming_utils import ProgrammingUtils
+    from app.shared.utils.core.logging import get_logger
+    
+    logger = get_logger(__name__)
     
     # Obtener la programación
     programming = db.query(Programming).filter(Programming.id == programming_id).first()
     if not programming:
+        logger.error(f"Programming {programming_id} not found")
         return {
             "available": False,
             "error": "Programming not found"
@@ -304,7 +342,7 @@ def get_programming_availability(db: Session, programming_id: str, task_duration
     team_name = team.name if team else "Unknown"
     
     # Determinar duración máxima permitida
-    team_rule = TEAM_RULES.get(team_name)
+    team_rule = get_team_rule(team_name)
     if team_rule and "duration" in team_rule:
         duration_minutes = team_rule["duration"]
     else:
@@ -312,11 +350,13 @@ def get_programming_availability(db: Session, programming_id: str, task_duration
         
     # Aplicar tolerancia (por defecto 10 minutos, hardcoded por ahora para coincidir con lógica anterior)
     tolerance_minutes = 10
+    STANDARD_START_MINUTES = 420  # 7:00 AM
     
     if duration_minutes is None:
         max_allowed_minutes = float('inf')
     else:
-        max_allowed_minutes = duration_minutes + tolerance_minutes
+        # Sumar hora de inicio (420) + duración (460) + tolerancia (10) = 890 (14:50)
+        max_allowed_minutes = STANDARD_START_MINUTES + duration_minutes + tolerance_minutes
         
     # Calcular tiempo ocupado actual
     programming_tasks = db.query(ProgrammingTask).filter(
@@ -332,6 +372,10 @@ def get_programming_availability(db: Session, programming_id: str, task_duration
     
     # Determinar disponibilidad
     is_available = final_minutes <= max_allowed_minutes
+
+    logger.info(f"Availability Check: Team='{team_name}', Rule={team_rule}, Duration={duration_minutes}, "
+                f"MaxAllowed={max_allowed_minutes}, Current={current_end_minutes}, "
+                f"Task={task_duration}, Final={final_minutes}, Available={is_available}")
     
     return {
         "available": is_available,
