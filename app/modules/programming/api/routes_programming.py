@@ -18,7 +18,7 @@ import sys
 import traceback
 from pytz import timezone
 from app.shared.utils.business.order_status_service import OrderStatusService
-from app.shared.utils.business.programming_availability import update_programming_availability, update_all_programmings_availability_for_date
+from app.shared.utils.business.programming_availability import update_programming_availability, update_all_programmings_availability_for_date, cleanup_past_programmings
 from app.modules.programming.models.order import Order as OrderModel
 from app.modules.programming.models.state import OrderStatus
 from app.modules.timer.services.timer import TimerService
@@ -1161,4 +1161,22 @@ def get_first_available_programming_for_task(
         "success": False,
         "message": "Ninguna programación disponible cumple con el límite de tiempo",
         "selected_programming": None
+    }
+
+
+# Cleanup past programmings (mark all past dates as unavailable)
+@router.post("/cleanup_past")
+def cleanup_past_programmings_endpoint(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
+):
+    """
+    Marks all programmings with dates in the past as unavailable.
+    This endpoint can be called manually or via a scheduled job.
+    """
+    results = cleanup_past_programmings(db)
+    
+    return {
+        "message": "Past programmings cleanup completed",
+        "results": results
     }
