@@ -55,13 +55,16 @@ def get_programming_by_team_date(team_id: str, date: str, db: Session = Depends(
     try:
         # Convertir date a objeto date
         date_obj = datetime.strptime(date, "%Y-%m-%d").date()
-        programming = db.query(Programming).filter_by(team_id=team_id, date=date_obj).first()
+        
+        # Optimización: Usar joinedload para cargar todas las relaciones en una sola consulta
+        programming = db.query(Programming).options(
+            joinedload(Programming.programming_tasks).joinedload(ProgrammingTask.task).joinedload(Task.code),
+            joinedload(Programming.programming_tasks).joinedload(ProgrammingTask.task).joinedload(Task.created_by_user)
+        ).filter_by(team_id=team_id, date=date_obj).first()
 
         if programming:
             print(f"DEBUG: Found programming {programming.id} for team {team_id} on date {date_obj}")
             print(f"DEBUG: Number of programming_tasks: {len(programming.programming_tasks)}")
-            for pt in programming.programming_tasks:
-                print(f"DEBUG: ProgrammingTask found: task_id={pt.task_id}, programming_id={pt.programming_id}, order={pt.order}, is_completed={pt.is_completed}")
         else:
             print(f"DEBUG: No programming found for team {team_id} on date {date_obj}")
         if not programming:
@@ -77,17 +80,12 @@ def get_programming_by_team_date(team_id: str, date: str, db: Session = Depends(
             # Si existe la programación, verificar permisos de acceso
             if current_user.role.value not in ("admin", "planner", "supervisor", "timekeeper") and not user_belongs_to_team(current_user, team_id):
                 raise HTTPException(status_code=403, detail="Not authorized")
-        # Obtener tareas completas con datos de la tabla intermedia
+        # Construir la respuesta con los datos ya cargados (sin consultas adicionales)
         tasks = []
-        # Usar joinedload para traer el objeto code completo y created_by_user
-        task_ids = [pt.task_id for pt in programming.programming_tasks]
-        tasks_with_code = db.query(Task).options(
-            joinedload(Task.code),
-            joinedload(Task.created_by_user)
-        ).filter(Task.id.in_(task_ids)).all()
-        task_map = {t.id: t for t in tasks_with_code}
         for pt in sorted(programming.programming_tasks, key=lambda pt: pt.order):
-            task_obj = task_map.get(pt.task_id, pt.task)
+            task_obj = pt.task
+            if not task_obj:
+                continue
             t = TaskOut.model_validate(task_obj, from_attributes=True).model_dump()
             t['type'] = task_obj.type
             t['start_time'] = pt.start_time
@@ -115,6 +113,102 @@ def get_programming_by_team_date(team_id: str, date: str, db: Session = Depends(
         return response
     except Exception as e:
         print("[DEBUG] Exception in get_programming_by_team_date:", e)
+        raise
+
+# Endpoint optimizado para el dashboard - devuelve todos los datos en una sola consulta
+@router.get("/dashboard", response_model=dict)
+def get_dashboard_data(date: str, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    """
+    Endpoint optimizado que devuelve todos los datos del dashboard en una sola consulta.
+    Elimina el problema N+1 del frontend al cargar todas las programaciones con sus tareas
+    y relaciones en una sola operación de base de datos.
+    """
+    try:
+        # Convertir date a objeto date
+        date_obj = datetime.strptime(date, "%Y-%m-%d").date()
+        
+        # Determinar qué programaciones puede ver el usuario
+        if current_user.role.value in ("admin", "planner", "supervisor", "timekeeper"):
+            # Usuarios privilegiados ven todas las programaciones
+            programmings_query = db.query(Programming)
+        else:
+            # Usuarios regulares solo ven las de sus equipos
+            team_ids = [team.id for team in getattr(current_user, "teams", [])]
+            programmings_query = db.query(Programming).filter(Programming.team_id.in_(team_ids))
+        
+        # Optimización: Cargar todas las programaciones de la fecha con eager loading
+        programmings = programmings_query.options(
+            joinedload(Programming.team),
+            joinedload(Programming.programming_tasks).joinedload(ProgrammingTask.task).joinedload(Task.code),
+            joinedload(Programming.programming_tasks).joinedload(ProgrammingTask.task).joinedload(Task.created_by_user)
+        ).filter(
+            Programming.date == date_obj
+        ).all()
+        
+        # Construir la respuesta con todos los datos
+        result = []
+        for programming in programmings:
+            # Solo incluir programaciones que tienen tareas
+            if not programming.programming_tasks:
+                continue
+                
+            # Serializar las tareas
+            tasks = []
+            for pt in sorted(programming.programming_tasks, key=lambda pt: pt.order):
+                task_obj = pt.task
+                if not task_obj:
+                    continue
+                    
+                t = TaskOut.model_validate(task_obj, from_attributes=True).model_dump()
+                t['type'] = task_obj.type
+                t['start_time'] = pt.start_time
+                t['end_time'] = pt.end_time
+                t['order'] = pt.order
+                t['real_start_time'] = getattr(pt, 'real_start_time', None)
+                t['real_end_time'] = getattr(pt, 'real_end_time', None)
+                t['real_quantity'] = getattr(pt, 'real_quantity', None)
+                t['duration_in_hours'] = getattr(pt, 'duration_in_hours', None)
+                t['comment'] = getattr(pt, 'comment', None)
+                t['created_at'] = getattr(pt, 'created_at', None)
+                
+                # Serializar created_by_user
+                if task_obj.created_by_user:
+                    t['created_by_user'] = UserOut.model_validate(task_obj.created_by_user, from_attributes=True).model_dump()
+                else:
+                    t['created_by_user'] = None
+                    
+                t['is_completed'] = getattr(pt, 'is_completed', None)
+                tasks.append(t)
+            
+            # Serializar el equipo
+            team_data = None
+            if programming.team:
+                team_data = {
+                    "id": str(programming.team.id),
+                    "name": programming.team.name,
+                    "description": getattr(programming.team, 'description', None)
+                }
+            
+            # Agregar al resultado
+            result.append({
+                "team": team_data,
+                "programming": {
+                    "id": programming.id,
+                    "date": programming.date,
+                    "team_id": str(programming.team_id) if not isinstance(programming.team_id, UUID) else programming.team_id,
+                    "tasks": tasks
+                }
+            })
+        
+        return {
+            "date": date_obj,
+            "team_programmings": result,
+            "count": len(result)
+        }
+        
+    except Exception as e:
+        print("[DEBUG] Exception in get_dashboard_data:", e)
+        traceback.print_exc()
         raise
 
 # Obtener una programación
