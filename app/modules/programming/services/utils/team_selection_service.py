@@ -84,9 +84,9 @@ class TeamSelectionService:
             
             if "molino" in name_lower:
                 teams_by_type["molino"] = team
-            elif "fabricado 1" in name_lower or "maquina 1" in name_lower:
+            elif "fabricado 1" in name_lower:
                 teams_by_type["fabricado1"] = team
-            elif "fabricado 2" in name_lower or "maquina 2" in name_lower:
+            elif "fabricado 2" in name_lower:
                 teams_by_type["fabricado2"] = team
             elif "fabricado 3" in name_lower:
                 teams_by_type["fabricado3"] = team
