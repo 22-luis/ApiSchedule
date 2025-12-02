@@ -14,6 +14,7 @@ class Order(Base):
     received_user = Column(String)
     received_date = Column(Date)
     received_quantity = Column(Float)
+    fabricated_quantity = Column(Float, nullable=True)
     missing_quantity = Column(Float)
     submitted_user = Column(String)
     submitted_date = Column(Date)

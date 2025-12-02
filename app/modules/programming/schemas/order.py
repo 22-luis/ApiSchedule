@@ -33,6 +33,7 @@ class OrderOut(BaseModel):
     received_user: Optional[str] = None
     received_date: Optional[datetime] = None
     received_quantity: Optional[float] = None
+    fabricated_quantity: Optional[float] = None
     missing_quantity: Optional[float] = None
     submitted_user: Optional[str] = None
     submitted_date: Optional[datetime] = None
@@ -77,6 +78,7 @@ class OrderWarehouseOut(BaseModel):
     received_user: Optional[str] = None
     received_date: Optional[datetime] = None
     received_quantity: Optional[float] = None
+    fabricated_quantity: Optional[float] = None
     missing_quantity: Optional[float] = None
     submitted_user: Optional[str] = None
     submitted_date: Optional[datetime] = None

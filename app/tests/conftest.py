@@ -12,18 +12,18 @@ import uuid
 from datetime import datetime, date, timedelta
 
 from app.main import app
-from app.db.database import Base
-from app.db.dependency import get_db
-from app.models.user import User
-from app.models.team import Team
-from app.models.task import Task
-from app.models.order import Order
-from app.models.preparation import Preparation
-from app.models.code import Code
-from app.models.programming import Programming, ProgrammingTask
-from app.models.role import UserRole
-from app.models.state import UserState
-from app.utils.security.jwt import create_access_token
+from app.shared.db.database import Base
+from app.shared.db.dependency import get_db
+from app.modules.core.models.user import User
+from app.modules.core.models.team import Team
+from app.modules.programming.models.task import Task
+from app.modules.programming.models.order import Order
+from app.modules.codes.models.preparation import Preparation
+from app.modules.codes.models.code import Code
+from app.modules.programming.models.programming import Programming, ProgrammingTask
+from app.modules.core.models.role import UserRole
+from app.modules.core.models.state import UserState
+from app.shared.utils.security.jwt import create_access_token
 
 # Test database configuration
 SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"

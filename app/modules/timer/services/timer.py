@@ -137,6 +137,14 @@ class TimerService:
                 record.is_completed = record.real_quantity >= task.quantity
             else:
                 record.is_completed = False
+            
+            # IMPORTANT: Update order status and fabricated_quantity
+            from app.shared.utils.business.order_status_service import OrderStatusService
+            try:
+                OrderStatusService.update_order_status_for_task_completion(self.db, record)
+                logger.info(f"Order status updated for task {task_id}")
+            except Exception as e:
+                logger.error(f"Error updating order status for task {task_id}: {e}")
 
         # Delete from stopwatch
         self.db.delete(stopwatch)

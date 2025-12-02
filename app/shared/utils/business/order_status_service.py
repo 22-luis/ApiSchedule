@@ -98,9 +98,9 @@ class OrderStatusService:
             pass
     
     @staticmethod
-    def _are_all_tasks_completed_for_activity(db: Session, lote: str, activity_keywords: list[str]) -> bool:
+    def _are_all_tasks_completed_for_types(db: Session, lote: str, task_types: list[str]) -> bool:
         """
-        Verifica si todas las tareas relacionadas con ciertas palabras clave de actividad están completadas.
+        Verifica si todas las tareas relacionadas con ciertos tipos están completadas.
         Retorna True si existen tareas y todas están completadas.
         Retorna False si no existen tareas o si alguna no está completada.
         """
@@ -108,10 +108,9 @@ class OrderStatusService:
         
         relevant_tasks = []
         for task in tasks:
-            if not task.activity:
+            if not task.type:
                 continue
-            activity_upper = task.activity.upper()
-            if any(keyword in activity_upper for keyword in activity_keywords):
+            if task.type in task_types:
                 relevant_tasks.append(task)
         
         if not relevant_tasks:
@@ -154,35 +153,55 @@ class OrderStatusService:
 
             lote_str = str(lote_int)
             
+            # IMPORTANTE: Actualizar cantidad fabricada PRIMERO si está disponible
+            # Esto debe hacerse antes de verificar el tipo de tarea para asegurar que siempre se guarde
+            quantity_updated = False
+            if programming_task.real_quantity is not None:
+                try:
+                    order.fabricated_quantity = float(programming_task.real_quantity)
+                    quantity_updated = True
+                except (ValueError, TypeError):
+                    pass
+            
             # 1. Verificar Empaque (Estado: packaged)
-            # Palabras clave: EMPAQUE, ENCAJADO, ETIQUETADO, PALETIZADO
-            packaging_keywords = ["EMPAQUE", "ENCAJADO", "ETIQUETADO", "PALETIZADO"]
-            if OrderStatusService._are_all_tasks_completed_for_activity(db, lote_str, packaging_keywords):
+            # Tipos: M1, M2, M3, M4, M5
+            packaging_types = ["M1", "M2", "M3", "M4", "M5"]
+            if OrderStatusService._are_all_tasks_completed_for_types(db, lote_str, packaging_types):
                 if order.status != OrderStatus.packaged:
                     order.status = OrderStatus.packaged
+                    db.commit()
+                elif quantity_updated:
+                    # Si solo se actualizó la cantidad pero el estado ya era packaged
                     db.commit()
                 return
 
             # 2. Verificar Fabricación (Estado: manufactured)
-            # Palabras clave: FABRICADO, MEZCLA, MOLIENDA, COCCCION
-            fabrication_keywords = ["FABRICADO", "MEZCLA", "MOLIENDA", "COCCION", "FABICACION"]
-            if OrderStatusService._are_all_tasks_completed_for_activity(db, lote_str, fabrication_keywords):
+            # Tipos: M9, M10, M11, M12, M13, M15
+            fabrication_types = ["M9", "M10", "M11", "M12", "M13", "M15"]
+            if OrderStatusService._are_all_tasks_completed_for_types(db, lote_str, fabrication_types):
                 if order.status != OrderStatus.manufactured:
                     order.status = OrderStatus.manufactured
+                    db.commit()
+                elif quantity_updated:
+                    # Si solo se actualizó la cantidad pero el estado ya era manufactured
                     db.commit()
                 return
 
             # 3. Verificar Pesado (Estado: weighed)
-            # Palabras clave: PESADO
-            weighing_keywords = ["PESADO"]
-            if OrderStatusService._are_all_tasks_completed_for_activity(db, lote_str, weighing_keywords):
+            # Tipos: M7
+            weighing_types = ["M7"]
+            if OrderStatusService._are_all_tasks_completed_for_types(db, lote_str, weighing_types):
                 if order.status != OrderStatus.weighed:
                     order.status = OrderStatus.weighed
                     db.commit()
+                elif quantity_updated:
+                    # Si solo se actualizó la cantidad
+                    db.commit()
                 return
-                
-            # Si no se cumple ninguno de los anteriores, mantener estado actual (o programmed/pending)
-            # No forzamos cambio aquí para no interferir con estados manuales como 'pending'
+            
+            # Si no se cumple ninguno de los anteriores pero se actualizó la cantidad, hacer commit
+            if quantity_updated:
+                db.commit()
                 
         except (ValueError, TypeError) as e:
             print(f"[DEBUG] Error procesando lote {task.lote}: {e}")
@@ -190,6 +209,7 @@ class OrderStatusService:
             print(f"[DEBUG] Error inesperado actualizando estado de orden: {e}")
             db.rollback()
             raise
+
     
     @staticmethod
     def update_order_status_for_programming_date(db: Session, programming_task: ProgrammingTask) -> None:
