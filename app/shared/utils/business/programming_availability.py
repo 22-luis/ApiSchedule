@@ -304,6 +304,95 @@ def cleanup_past_programmings(db: Session) -> dict:
     return results
 
 
+def restore_programmings_availability(db: Session) -> dict:
+    """
+    Revisa todas las programaciones con fecha actual o futura y las marca como 'available'
+    si el tiempo programado no excede el límite permitido.
+    
+    Esta función es útil para "liberar" programaciones que fueron marcadas como 'unavailable'
+    pero que ahora tienen espacio disponible (por ejemplo, si se eliminaron tareas).
+    
+    Returns:
+        Diccionario con los resultados de la operación:
+        {
+            "total_programmings": int,
+            "restored_to_available": int,
+            "marked_unavailable": int,
+            "already_correct": int,
+            "details": [...]
+        }
+    """
+    from app.shared.utils.core.logging import get_logger
+    logger = get_logger(__name__)
+    
+    current_date = date_class.today()
+    
+    # Obtener todas las programaciones con fecha actual o futura
+    programmings = (
+        db.query(Programming)
+        .filter(Programming.date >= current_date)
+        .all()
+    )
+    
+    results = {
+        "total_programmings": len(programmings),
+        "restored_to_available": 0,
+        "marked_unavailable": 0,
+        "already_correct": 0,
+        "details": []
+    }
+    
+    for programming in programmings:
+        old_status = programming.status
+        should_be_available = check_programming_availability(db, programming)
+        
+        # Obtener el equipo para logging
+        team = db.query(Team).filter(Team.id == programming.team_id).first()
+        team_name = team.name if team else "Unknown"
+        
+        detail = {
+            "programming_id": str(programming.id),
+            "date": programming.date.isoformat(),
+            "team_name": team_name,
+            "old_status": old_status.value if hasattr(old_status, 'value') else str(old_status),
+            "new_status": None,
+            "action": None
+        }
+        
+        if should_be_available and old_status == ProgrammingStatus.unavailable:
+            # Restaurar a available
+            programming.status = ProgrammingStatus.available
+            results["restored_to_available"] += 1
+            detail["new_status"] = "available"
+            detail["action"] = "restored"
+            logger.info(f"Restored programming {programming.id} ({team_name}, {programming.date}) to available")
+            
+        elif not should_be_available and old_status == ProgrammingStatus.available:
+            # Marcar como unavailable
+            programming.status = ProgrammingStatus.unavailable
+            results["marked_unavailable"] += 1
+            detail["new_status"] = "unavailable"
+            detail["action"] = "marked_unavailable"
+            logger.info(f"Marked programming {programming.id} ({team_name}, {programming.date}) as unavailable")
+            
+        else:
+            # Ya tiene el estado correcto
+            results["already_correct"] += 1
+            detail["new_status"] = old_status.value if hasattr(old_status, 'value') else str(old_status)
+            detail["action"] = "no_change"
+        
+        results["details"].append(detail)
+    
+    # Commit todos los cambios
+    if results["restored_to_available"] > 0 or results["marked_unavailable"] > 0:
+        db.commit()
+        logger.info(f"Restored {results['restored_to_available']} programmings to available, "
+                   f"marked {results['marked_unavailable']} as unavailable")
+    
+    return results
+
+
+
 def get_programming_availability(db: Session, programming_id: str, task_duration: float) -> dict:
     """
     Calcula el tiempo ya ocupado en una programación específica y determina si hay suficiente tiempo disponible para una nueva tarea.

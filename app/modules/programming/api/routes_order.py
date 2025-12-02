@@ -131,22 +131,42 @@ def create_orders(
         "auto_create_tasks": auto_create_tasks
     }
     
-    # Solo crear tareas si auto_create_tasks es True -> delegate to central service
-    if auto_create_tasks:
-        created_lotes = [o.lote for o in created_orders]
+    # Separar órdenes de Bin 8 de las demás
+    bin8_orders = [o for o in created_orders if o.bin == 8]
+    other_orders = [o for o in created_orders if o.bin != 8]
+    
+    # IMPORTANTE: Bin 8 siempre debe crear tareas automáticamente
+    # porque necesita vincularse con órdenes fabricadas
+    if bin8_orders:
+        bin8_lotes = [o.lote for o in bin8_orders]
+        logger.info(f"Processing {len(bin8_orders)} Bin 8 orders (always auto-create tasks)")
         if background_tasks is not None:
-            background_tasks.add_task(create_tasks_for_lotes, created_lotes, current_user.username)
+            background_tasks.add_task(create_tasks_for_lotes, bin8_lotes, current_user.username)
+        else:
+            create_tasks_for_lotes(bin8_lotes, current_user.username)
+    
+    # Solo crear tareas para otras órdenes si auto_create_tasks es True
+    if auto_create_tasks and other_orders:
+        other_lotes = [o.lote for o in other_orders]
+        if background_tasks is not None:
+            background_tasks.add_task(create_tasks_for_lotes, other_lotes, current_user.username)
             response_data.update({
                 "task_creation_scheduled": True,
                 "message": f"Se crearon {len(created_orders)} órdenes exitosamente. La creación de tareas se programó en background."
             })
         else:
             # Fallback: run inline (keeps previous behavior)
-            create_tasks_for_lotes(created_lotes, current_user.username)
+            create_tasks_for_lotes(other_lotes, current_user.username)
             response_data.update({
                 "task_creation_scheduled": False,
                 "message": f"Se crearon {len(created_orders)} órdenes exitosamente. Las tareas se crearon en el mismo proceso."
             })
+    elif bin8_orders and not other_orders:
+        # Solo había órdenes Bin 8
+        response_data.update({
+            "task_creation_scheduled": background_tasks is not None,
+            "message": f"Se crearon {len(bin8_orders)} órdenes de Bin 8. Las tareas se {'programaron' if background_tasks else 'crearon'} automáticamente."
+        })
     else:
         logger.info("auto_create_tasks is False. Skipping task creation.")
         response_data.update({

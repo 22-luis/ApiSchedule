@@ -31,13 +31,14 @@ class OrderFlowService:
             
             # 1. Find fabrication code
             fabrication_code = FabricationCodeFinder.find_fabrication_code(order.code, db)
+            
             if not fabrication_code:
                 logger.warning(f"Could not find fabrication code for order {order.lote} ({order.code}). Skipping.")
                 continue
 
             # 2. Find available manufactured order (fabricated_quantity > 0)
-            # We look for the oldest one first (FIFO) or maybe the one with enough quantity?
-            # For now, let's pick the first one with > 0 quantity.
+            # IMPORTANTE: Excluir órdenes que ya están empacadas (packaged)
+            # porque esos lotes ya no deben ser consumidos por nuevas órdenes de Bin 8
             manufactured_order = db.query(order_model.Order).filter(
                 order_model.Order.code == fabrication_code,
                 order_model.Order.status == OrderStatus.manufactured,

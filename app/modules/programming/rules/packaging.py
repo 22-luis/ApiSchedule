@@ -35,7 +35,12 @@ class PackagingRule:
 
                 # Buscar actividades relacionadas con empaque usando configuración centralizada
                 packaging_keywords = ServiceConfig.get_activity_keywords(ServiceType.PACKAGING)
-                if any(keyword in activity_name for keyword in packaging_keywords):
+                
+                # Tipos de empaque válidos
+                packaging_types = {"M1", "M2", "M3", "M4", "M5"}
+                activity_type = activity.get("type")
+
+                if (activity_type in packaging_types) or any(keyword in activity_name for keyword in packaging_keywords):
                     packaging_activities.append(activity)
             
             if packaging_activities:

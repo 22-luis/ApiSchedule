@@ -18,7 +18,7 @@ import sys
 import traceback
 from pytz import timezone
 from app.shared.utils.business.order_status_service import OrderStatusService
-from app.shared.utils.business.programming_availability import update_programming_availability, update_all_programmings_availability_for_date, cleanup_past_programmings
+from app.shared.utils.business.programming_availability import update_programming_availability, update_all_programmings_availability_for_date, cleanup_past_programmings, restore_programmings_availability
 from app.modules.programming.models.order import Order as OrderModel
 from app.modules.programming.models.state import OrderStatus
 from app.modules.timer.services.timer import TimerService
@@ -1178,5 +1178,20 @@ def cleanup_past_programmings_endpoint(
     
     return {
         "message": "Past programmings cleanup completed",
+        "results": results
+    }
+
+@router.post("/restore_availability")
+def restore_availability_endpoint(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
+):
+    """
+    Restaura la disponibilidad de las programaciones futuras que tienen espacio.
+    """
+    results = restore_programmings_availability(db)
+    
+    return {
+        "message": "Availability restoration completed",
         "results": results
     }

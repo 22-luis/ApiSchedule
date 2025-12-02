@@ -40,8 +40,8 @@ class CodeOut(BaseModel):
     code: str
     description: Optional[str] = None
     unit: Optional[str] = None
-    type: str
-    activity: str
+    type: Optional[str] = None
+    activity: Optional[str] = None
     quantity: Optional[str] = None
     time: Optional[float] = None
     people: Optional[int] = None

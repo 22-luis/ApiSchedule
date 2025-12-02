@@ -15,7 +15,7 @@ from app.modules.programming.schemas.task import TaskCreate, TaskUpdate, TaskOut
 from app.shared.utils.core.dependencies import get_current_user, require_roles
 from app.modules.programming.services.replicate_pesado import replicate_task_to_pesado_if_needed
 from app.shared.utils.business.order_status_service import OrderStatusService
-from app.shared.utils.business.programming_availability import update_programming_availability_by_task
+from app.shared.utils.business.programming_availability import update_programming_availability_by_task, restore_programmings_availability
 from app.shared.core.enums import TaskStatus, TaskType
 
 
@@ -307,6 +307,10 @@ def delete_task(
     
     db.delete(db_task)
     db.commit()
+    
+    # Restaurar disponibilidad de programaciones (por si se liberó espacio)
+    restore_programmings_availability(db)
+    
     return {"message": "Task deleted successfully"}
 
 @router.post("/bulk-delete", status_code=200)
@@ -345,6 +349,9 @@ def delete_many_tasks(
             db.delete(task)
         
         db.commit()
+        
+        # Restaurar disponibilidad de programaciones (por si se liberó espacio)
+        restore_programmings_availability(db)
         
         return {"message": f"Successfully deleted {len(tasks_to_delete)} tasks."}
     except Exception as e:
