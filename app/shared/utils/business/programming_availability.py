@@ -156,9 +156,23 @@ def check_programming_availability(db: Session, programming: Programming) -> boo
             
             # Apply tolerance (10 minutes)
             tolerance_minutes = 10
+            STANDARD_START_MINUTES = 420  # 7:00 AM
             
-            if duration_minutes is not None:
-                max_allowed_minutes = duration_minutes + tolerance_minutes
+            # Determinar hora de inicio y duración según el día de la semana
+            is_saturday = programming.date.weekday() == 5
+            
+            if is_saturday:
+                # Para sábados: 7:30 AM - 11:10 AM
+                saturday_start = 450  # 7:30 AM
+                day_duration = 220  # 11:10 AM - 7:30 AM = 220 minutos
+                max_allowed_minutes = saturday_start + day_duration + tolerance_minutes
+            else:
+                # Para días de semana
+                if duration_minutes is None:
+                    max_allowed_minutes = float('inf')
+                else:
+                    # Sumar hora de inicio (420) + duración (460) + tolerancia (10) = 890 (14:50)
+                    max_allowed_minutes = STANDARD_START_MINUTES + duration_minutes + tolerance_minutes
                 
                 # Calculate current total time using the utility function
                 from app.modules.programming.services.utils.programming_utils import ProgrammingUtils
