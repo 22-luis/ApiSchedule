@@ -425,6 +425,18 @@ def get_programming_availability(db: Session, programming_id: str, task_duration
             "available": False,
             "error": "Programming not found"
         }
+    
+    # BLOQUEO EXPLÍCITO DE DOMINGOS: Los domingos NO se programan NUNCA
+    if programming.date.weekday() == 6:
+        logger.info(f"Programming {programming_id} rejected: Sunday (no programming allowed)")
+        return {
+            "available": False,
+            "current_end_minutes": 0,
+            "final_minutes": 0,
+            "max_allowed_minutes": 0,
+            "team_name": "N/A",
+            "reason": "Sundays are not allowed for programming"
+        }
         
     # Obtener el equipo
     team = db.query(Team).filter(Team.id == programming.team_id).first()
@@ -439,13 +451,24 @@ def get_programming_availability(db: Session, programming_id: str, task_duration
         
     # Aplicar tolerancia (por defecto 10 minutos, hardcoded por ahora para coincidir con lógica anterior)
     tolerance_minutes = 10
-    STANDARD_START_MINUTES = 420  # 7:00 AM
     
-    if duration_minutes is None:
-        max_allowed_minutes = float('inf')
+    # Determinar hora de inicio y duración según el día de la semana
+    is_saturday = programming.date.weekday() == 5
+    
+    if is_saturday:
+        STANDARD_START_MINUTES = 450  # 7:30 AM
+        # Para sábados, la duración es fija hasta las 11:10 (670 min)
+        # 11:10 = 670 minutos. Duración = 670 - 450 = 220 minutos
+        day_duration = 220
+        max_allowed_minutes = STANDARD_START_MINUTES + day_duration + tolerance_minutes
     else:
-        # Sumar hora de inicio (420) + duración (460) + tolerancia (10) = 890 (14:50)
-        max_allowed_minutes = STANDARD_START_MINUTES + duration_minutes + tolerance_minutes
+        STANDARD_START_MINUTES = 420  # 7:00 AM
+        
+        if duration_minutes is None:
+            max_allowed_minutes = float('inf')
+        else:
+            # Sumar hora de inicio (420) + duración (460) + tolerancia (10) = 890 (14:50)
+            max_allowed_minutes = STANDARD_START_MINUTES + duration_minutes + tolerance_minutes
         
     # Calcular tiempo ocupado actual
     programming_tasks = db.query(ProgrammingTask).filter(

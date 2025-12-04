@@ -12,6 +12,9 @@ import math
 from app.modules.programming.services.utils.programming_utils import ProgrammingUtils
 from app.shared.utils.business.order_status_service import OrderStatusService
 from app.modules.programming.rules.schedule import ScheduleRule
+from app.modules.programming.services.utils.auto_create_programming import create_programming_if_not_exists
+from app.modules.programming.models.state import ProgrammingStatus
+from app.shared.utils.business.programming_availability import restore_programmings_availability
 
 
 class BaseTaskService(ABC):
@@ -252,20 +255,24 @@ class BaseTaskService(ABC):
                     "total_orders": len(extracted_orders)
                 }
             
-            # Obtener programaciones disponibles
-            available_programmings = self.get_available_programmings_for_team(team_id, db)
+            # Restaurar disponibilidad de programaciones (por si alguna válida estaba marcada como unavailable)
+            restore_programmings_availability(db)
+
+            # Obtener programaciones disponibles iniciando desde HOY
+            available_programmings = self.get_available_programmings_for_team(team_id, db, start_date=date.today())
             
-            if not available_programmings:
-                return {
-                    "success": False,
-                    "message": "No se encontraron programaciones disponibles",
-                    "tasks_created": 0,
-                    "total_orders": len(extracted_orders)
-                }
+            # Filtrar explícitamente los domingos (weekday == 6)
+            available_programmings = [
+                p for p in available_programmings 
+                if (p['date'] if isinstance(p['date'], date) else date.fromisoformat(p['date'])).weekday() != 6
+            ]
             
             # Procesar cada orden
             created_tasks = []
             failed_orders = []
+            
+            # Índice para rastrear la programación actual que estamos llenando
+            current_prog_idx = 0
             
             for order_data in extracted_orders:
                 # Obtener la actividad específica para esta orden
@@ -288,23 +295,74 @@ class BaseTaskService(ABC):
                     })
                     continue
                 
-                # Verificar límite de tiempo y crear tarea
-                time_verification = self.verify_programming_time_limit(
-                    available_programmings, task_minutes, db, order_data, activity_details
-                )
+                # Intentar programar la tarea
+                task_created = False
+                attempts = 0
+                max_attempts = 100 # Evitar bucles infinitos
                 
-                if time_verification.get("success") and time_verification.get("order_task_created"):
-                    created_tasks.append({
+                while not task_created and attempts < max_attempts:
+                    attempts += 1
+                    
+                    # Si no hay programaciones o se acabaron, crear una nueva
+                    if current_prog_idx >= len(available_programmings):
+                        if available_programmings:
+                            last_prog = available_programmings[-1]
+                            last_date = last_prog['date']
+                            if isinstance(last_date, str):
+                                last_date = date.fromisoformat(last_date)
+                            next_date = last_date + timedelta(days=1)
+                        else:
+                            next_date = date.today()
+                        
+                        # Si es domingo (6), sumar un día para pasar al lunes
+                        if next_date.weekday() == 6:
+                            next_date = next_date + timedelta(days=1)
+                        
+                        # Crear nueva programación
+                        new_prog_result = create_programming_if_not_exists(db, team_id, next_date)
+                        
+                        if new_prog_result['success']:
+                            p = new_prog_result['programming']
+                            available_programmings.append({
+                                "id": str(p.id),
+                                "date": p.date,
+                                "status": p.status,
+                                "team_id": str(p.team_id)
+                            })
+                            # No incrementamos current_prog_idx, usamos la nueva programación
+                        else:
+                            failed_orders.append({
+                                "order_data": order_data,
+                                "reason": f"No se pudo crear nueva programación: {new_prog_result.get('message')}"
+                            })
+                            break
+                    
+                    # Intentar con la programación actual
+                    current_prog = available_programmings[current_prog_idx]
+                    
+                    time_verification = self.verify_programming_time_limit(
+                        [current_prog], task_minutes, db, order_data, activity_details
+                    )
+                    
+                    if time_verification.get("success") and time_verification.get("order_task_created"):
+                        created_tasks.append({
+                            "order_data": order_data,
+                            "selected_programming": time_verification.get("selected_programming"),
+                            "order_task": time_verification.get("order_task_created")
+                        })
+                        task_created = True
+                    else:
+                        # Si falló por límite de tiempo, pasar a la siguiente programación
+                        # Si falló por otra razón, tal vez deberíamos abortar? 
+                        # Asumimos que es por espacio/tiempo y probamos la siguiente.
+                        current_prog_idx += 1
+                
+                if not task_created and attempts >= max_attempts:
+                     failed_orders.append({
                         "order_data": order_data,
-                        "selected_programming": time_verification.get("selected_programming"),
-                        "order_task": time_verification.get("order_task_created")
+                        "reason": "No se pudo programar después de múltiples intentos (posible error de sistema)"
                     })
-                else:
-                    failed_orders.append({
-                        "order_data": order_data,
-                        "reason": time_verification.get("message", "Error desconocido")
-                    })
-            
+
             return {
                 "success": True,
                 "message": f"Procesamiento completado. {len(created_tasks)} tareas creadas de {len(extracted_orders)} órdenes",
@@ -317,6 +375,8 @@ class BaseTaskService(ABC):
             }
             
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             return {
                 "success": False,
                 "message": f"Error durante la creación de tareas: {str(e)}",
