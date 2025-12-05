@@ -179,12 +179,37 @@ class OrderStatusService:
             # Tipos: M9, M10, M11, M12, M13, M15
             fabrication_types = ["M9", "M10", "M11", "M12", "M13", "M15"]
             if OrderStatusService._are_all_tasks_completed_for_types(db, lote_str, fabrication_types):
-                if order.status != OrderStatus.manufactured:
-                    order.status = OrderStatus.manufactured
-                    db.commit()
-                elif quantity_updated:
-                    # Si solo se actualizó la cantidad pero el estado ya era manufactured
-                    db.commit()
+                # Verificar si hay tareas de empaque pendientes
+                # Si existen tareas de empaque y NO están completadas, no marcar como manufactured
+                has_pending_packaging = False
+                packaging_tasks = db.query(Task).filter(
+                    Task.lote == lote_str,
+                    Task.type.in_(packaging_types)
+                ).all()
+                
+                if packaging_tasks:
+                    # Si hay tareas de empaque, verificar si alguna está pendiente
+                    for p_task in packaging_tasks:
+                        is_p_task_completed = False
+                        for pt in p_task.programming_tasks:
+                            if pt.is_completed:
+                                is_p_task_completed = True
+                                break
+                        if not is_p_task_completed:
+                            has_pending_packaging = True
+                            break
+                
+                if not has_pending_packaging:
+                    if order.status != OrderStatus.manufactured:
+                        order.status = OrderStatus.manufactured
+                        db.commit()
+                    elif quantity_updated:
+                        # Si solo se actualizó la cantidad pero el estado ya era manufactured
+                        db.commit()
+                else:
+                     # Si hay empaque pendiente, y se actualizó cantidad, hacer commit de la cantidad
+                     if quantity_updated:
+                         db.commit()
                 return
 
             # 3. Verificar Pesado (Estado: weighed)
