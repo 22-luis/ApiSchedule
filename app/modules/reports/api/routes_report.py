@@ -19,6 +19,10 @@ router = APIRouter(prefix="/reports", tags=["reports"])
 # Incluir router de compare
 from app.modules.reports.api.compare import router as compare_router
 router.include_router(compare_router)
+
+# Incluir router de historico comparacion fechas
+from app.modules.reports.api.historico_comparacion_fechas import router as historico_fechas_router
+router.include_router(historico_fechas_router)
 performance_inverso = case(
     (Task.performance != 0, 1.0 / cast(Task.performance, Float)),
     else_=None  # Devuelve NULL si es 0

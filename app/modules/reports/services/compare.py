@@ -2,7 +2,8 @@ from sqlalchemy.orm import Session
 from app.modules.reports.models.compare import ProductionReport
 from app.modules.reports.schemas.compare import CompareCreate, CompareUpdate, CompareOut
 import uuid
-from typing import Optional
+from typing import Optional, List
+from datetime import date
 
 class CompareService:
     def __init__(self, db: Session):
@@ -82,4 +83,18 @@ class CompareService:
             ProductionReport o None si no existe
         """
         return self.db.query(ProductionReport).filter(ProductionReport.id == compare_id).first()
+
+    def get_by_date(self, compare_date: date) -> List[ProductionReport]:
+        """
+        Obtiene todos los registros de comparación que tengan una fecha específica.
+        
+        Args:
+            compare_date: Fecha a filtrar
+            
+        Returns:
+            Lista de ProductionReport que coinciden con la fecha
+        """
+        return self.db.query(ProductionReport).filter(ProductionReport.compare_date == compare_date).all()
+
+
 

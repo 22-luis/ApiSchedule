@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
+from datetime import date
 import uuid
 
 from app.shared.db.session import get_db
@@ -55,16 +56,24 @@ def create_compare_records(
 
 
 @router.get("/", response_model=List[CompareOut])
-def get_all_compare_records(
+def get_compare_records(
+    compare_date: Optional[date] = Query(None, description="Filtrar por fecha específica (opcional)"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
-    Obtiene todos los registros de comparación.
+    Obtiene los registros de comparación.
+    Si se proporciona compare_date, filtra por esa fecha específica.
+    Si no se proporciona, retorna todos los registros.
     """
-    from app.modules.reports.models.compare import ProductionReport
+    service = CompareService(db)
     
-    records = db.query(ProductionReport).all()
+    if compare_date:
+        records = service.get_by_date(compare_date)
+    else:
+        from app.modules.reports.models.compare import ProductionReport
+        records = db.query(ProductionReport).all()
+    
     return records
 
 
