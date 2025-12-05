@@ -90,7 +90,7 @@ class TimerService:
         self.db.refresh(stopwatch)
         return stopwatch
 
-    def stop_stopwatch(self, task_id: uuid.UUID, real_quantity: float, user_id: uuid.UUID):
+    def stop_stopwatch(self, task_id: uuid.UUID, real_quantity: float, user_id: uuid.UUID, is_completed: bool | None = None):
         now = datetime.now(timezone.utc) - timedelta(hours=6)
         
         stopwatch = self.db.query(Stopwatch).filter(Stopwatch.task_id == task_id).first()
@@ -133,7 +133,9 @@ class TimerService:
             record.duration_in_hours = accumulated_duration
             record.completed_by_user_id = user_id
             
-            if record.real_quantity is not None and task.quantity is not None:
+            if is_completed is not None:
+                record.is_completed = is_completed
+            elif record.real_quantity is not None and task.quantity is not None:
                 record.is_completed = record.real_quantity >= task.quantity
             else:
                 record.is_completed = False
