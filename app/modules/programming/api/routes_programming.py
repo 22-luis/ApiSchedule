@@ -5,7 +5,7 @@ from app.modules.programming.models.programming import Programming, ProgrammingT
 from app.modules.programming.models.state import ProgrammingStatus
 from app.modules.core.models.role import UserRole
 from app.modules.programming.models.task import Task
-from app.modules.core.models.team import Team
+from app.modules.core.models.team import Team, UserTeam
 from app.modules.programming.schemas.programming import ProgrammingCreate, ProgrammingRead, ProgrammingUpdate, ProgrammingTaskOrderIn, ProgrammingReorderResponse, ProgrammingTaskOrderOut, AvailableProgrammingResponse, AvailableProgrammingItem, TasksOrderRequest, ProgrammingTaskReportIn
 from app.shared.db.session import get_db
 from app.shared.utils.core.dependencies import get_current_user, require_roles
@@ -138,7 +138,8 @@ def get_dashboard_data(date: str, db: Session = Depends(get_db), current_user=De
         
         # Optimización: Cargar todas las programaciones de la fecha con eager loading
         programmings = programmings_query.options(
-            joinedload(Programming.team),
+            joinedload(Programming.team).joinedload(Team.supervisor),
+            joinedload(Programming.team).joinedload(Team.member_associations).joinedload(UserTeam.user),
             joinedload(Programming.programming_tasks).joinedload(ProgrammingTask.task).joinedload(Task.code),
             joinedload(Programming.programming_tasks).joinedload(ProgrammingTask.task).joinedload(Task.created_by_user)
         ).filter(
@@ -186,7 +187,9 @@ def get_dashboard_data(date: str, db: Session = Depends(get_db), current_user=De
                 team_data = {
                     "id": str(programming.team.id),
                     "name": programming.team.name,
-                    "description": getattr(programming.team, 'description', None)
+                    "description": getattr(programming.team, 'description', None),
+                    "supervisorUsername": programming.team.supervisor.username if programming.team.supervisor else None,
+                    "members": programming.team.members
                 }
             
             # Agregar al resultado

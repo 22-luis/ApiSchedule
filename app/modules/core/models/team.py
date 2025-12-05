@@ -29,6 +29,7 @@ class Team(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
     name = Column(String)
     supervisorId = Column(UUID(as_uuid=True), ForeignKey("users.id"))
+    supervisor = relationship("User", foreign_keys=[supervisorId])
     
     # Relationship to UserTeam (Association Object)
     member_associations = relationship("UserTeam", back_populates="team", cascade="all, delete-orphan")
