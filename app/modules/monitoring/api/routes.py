@@ -111,3 +111,110 @@ async def get_database_pool_info():
         return get_database_info()
     except ImportError:
         return {"error": "Información de base de datos no disponible"}
+
+@router.get("/debug-friday-tasks", include_in_schema=False)
+async def debug_friday_tasks():
+    """DEBUG: Muestra todas las tareas del viernes para debugging"""
+    from app.shared.db.session import SessionLocal
+    from app.modules.programming.models.programming import Programming, ProgrammingTask
+    from app.modules.programming.models.task import Task
+    from datetime import date
+    
+    db = SessionLocal()
+    try:
+        friday_date = date(2025, 12, 5)
+        friday_id = '4a28a6c2-dcbe-48f5-bc51-2fea49878df4'
+        
+        # Get programming
+        programming = db.query(Programming).filter(
+            Programming.id == friday_id
+        ).first()
+        
+        if not programming:
+            return {"error": "Programming not found"}
+        
+        # Get all tasks
+        programming_tasks = db.query(ProgrammingTask).filter(
+            ProgrammingTask.programming_id == friday_id
+        ).order_by(ProgrammingTask.start_time).all()
+        
+        tasks_data = []
+        for pt in programming_tasks:
+            task = db.query(Task).filter(Task.id == pt.task_id).first()
+            if task:
+                tasks_data.append({
+                    "lote": task.lote,
+                    "start_time": str(pt.start_time) if pt.start_time else None,
+                    "end_time": str(pt.end_time) if pt.end_time else None,
+                    "duration": task.minutes,
+                    "order": pt.order
+                })
+        
+        # Calculate current_end_minutes
+        if programming_tasks:
+            last_task = max(programming_tasks, key=lambda x: x.end_time if x.end_time else x.start_time)
+            if last_task.end_time:
+                end_minutes = last_task.end_time.hour * 60 + last_task.end_time.minute
+            else:
+                end_minutes = None
+        else:
+            end_minutes = 420
+        
+        return {
+            "programming_id": friday_id,
+            "date": str(programming.date),
+            "status": programming.status,
+            "total_tasks": len(programming_tasks),
+            "current_end_minutes": end_minutes,
+            "current_end_time": f"{end_minutes // 60}:{end_minutes % 60:02d}" if end_minutes else None,
+            "tasks": tasks_data
+        }
+    finally:
+        db.close()
+
+@router.post("/cleanup-friday-tasks", include_in_schema=False)
+async def cleanup_friday_tasks():
+    """DEBUG: Elimina TODAS las tareas del viernes para limpiar datos corruptos"""
+    from app.shared.db.session import SessionLocal
+    from app.modules.programming.models.programming import Programming, ProgrammingTask
+    from app.modules.programming.models.task import Task
+    from datetime import date
+    
+    db = SessionLocal()
+    try:
+        friday_id = '4a28a6c2-dcbe-48f5-bc51-2fea49878df4'
+        
+        # Get all ProgrammingTasks for this Friday
+        programming_tasks = db.query(ProgrammingTask).filter(
+            ProgrammingTask.programming_id == friday_id
+        ).all()
+        
+        task_ids = [pt.task_id for pt in programming_tasks]
+        deleted_count = len(programming_tasks)
+        
+        # Delete ProgrammingTask relationships first
+        for pt in programming_tasks:
+            db.delete(pt)
+        
+        # Delete the Task objects
+        for task_id in task_ids:
+            task = db.query(Task).filter(Task.id == task_id).first()
+            if task:
+                db.delete(task)
+        
+        db.commit()
+        
+        return {
+            "success": True,
+            "message": f"Deleted {deleted_count} tasks from Friday",
+            "deleted_task_count": deleted_count,
+            "friday_id": friday_id
+        }
+    except Exception as e:
+        db.rollback()
+        return {
+            "success": False,
+            "error": str(e)
+        }
+    finally:
+        db.close()
