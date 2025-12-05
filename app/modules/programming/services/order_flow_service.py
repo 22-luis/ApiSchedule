@@ -36,32 +36,27 @@ class OrderFlowService:
                 logger.warning(f"Could not find fabrication code for order {order.lote} ({order.code}). Skipping.")
                 continue
 
-            # 2. Find available manufactured order (fabricated_quantity > 0)
+            # 2. Find available manufactured order (fabricated_quantity >= order.quantity)
             # IMPORTANTE: Excluir órdenes que ya están empacadas (packaged)
-            # porque esos lotes ya no deben ser consumidos por nuevas órdenes de Bin 8
+            # Buscamos una orden que tenga SUFICIENTE cantidad para cubrir el requerimiento
             manufactured_order = db.query(order_model.Order).filter(
                 order_model.Order.code == fabrication_code,
                 order_model.Order.status == OrderStatus.manufactured,
-                order_model.Order.fabricated_quantity > 0
+                order_model.Order.fabricated_quantity >= order.quantity
             ).order_by(order_model.Order.lote.asc()).first()
 
             if not manufactured_order:
-                logger.warning(f"No available manufactured order found for {order.code} (Fab Code: {fabrication_code}). Skipping.")
+                logger.warning(f"No available manufactured order with sufficient quantity found for {order.code} (Req: {order.quantity}). Skipping.")
                 continue
 
             logger.info(f"Found manufactured order {manufactured_order.lote} with {manufactured_order.fabricated_quantity} available.")
 
             # 3. Consume quantity
-            # Logic: "Va restando de esa cantidad hasta ya no poder"
-            # We assume we can consume even if it goes negative? Or do we cap it?
-            # The user said "Si la cantidad de la orden de empaque es 100 solo se puede quitar 100 de la orden de fabricado no mas"
-            # This implies we consume what is needed.
-            
             quantity_to_consume = order.quantity
             current_available = manufactured_order.fabricated_quantity
             
             new_available = current_available - quantity_to_consume
-            manufactured_order.fabricated_quantity = max(0.0, new_available) # Prevent negative for now, or should we allow partial?
+            manufactured_order.fabricated_quantity = max(0.0, new_available)
             
             # 4. Update status if exhausted
             if manufactured_order.fabricated_quantity <= 0:
@@ -69,6 +64,7 @@ class OrderFlowService:
                 logger.info(f"Manufactured order {manufactured_order.lote} exhausted. Status changed to 'packaged'.")
             
             db.add(manufactured_order)
+            db.flush() # CRITICAL: Flush changes so next iteration sees updated quantity
             
             # 5. Prepare for task creation
             # "A la hora de crear la tarea de empaque debe usar el lote de fabricado"
