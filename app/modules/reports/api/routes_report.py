@@ -15,6 +15,10 @@ from app.shared.utils.core.dependencies import get_current_user
 from app.modules.core.models.user import User
 
 router = APIRouter(prefix="/reports", tags=["reports"])
+
+# Incluir router de compare
+from app.modules.reports.api.compare import router as compare_router
+router.include_router(compare_router)
 performance_inverso = case(
     (Task.performance != 0, 1.0 / cast(Task.performance, Float)),
     else_=None  # Devuelve NULL si es 0
