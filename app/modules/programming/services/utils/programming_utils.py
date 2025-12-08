@@ -245,6 +245,8 @@ class ProgrammingUtils:
                 id=task_id,
                 code_id=activity_details.get("code_id"),
                 lote=str(order_data.get("lote")),
+                # Guardar el lote original de empaque si existe (para órdenes bin 8)
+                original_packaging_lote=str(order_data.get("original_packaging_lote")) if order_data.get("original_packaging_lote") else None,
                 quantity=order_data.get("quantity"),
                 minutes=task_minutes,
                 description=order_data.get("description"),

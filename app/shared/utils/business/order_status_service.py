@@ -173,6 +173,21 @@ class OrderStatusService:
                 elif quantity_updated:
                     # Si solo se actualizó la cantidad pero el estado ya era packaged
                     db.commit()
+                
+                # NUEVO: Si hay un lote de empaque original, también actualizar esa orden
+                if task.original_packaging_lote:
+                    try:
+                        original_packaging_lote_int = int(task.original_packaging_lote)
+                        original_packaging_order = db.query(Order).filter(
+                            Order.lote == original_packaging_lote_int
+                        ).first()
+                        if original_packaging_order and original_packaging_order.status not in [OrderStatus.delivered, OrderStatus.completed, OrderStatus.packaged]:
+                            original_packaging_order.status = OrderStatus.packaged
+                            db.commit()
+                            print(f"[DEBUG] También se actualizó la orden de empaque original {original_packaging_lote_int} a 'packaged'")
+                    except (ValueError, TypeError) as e:
+                        print(f"[DEBUG] Error procesando original_packaging_lote {task.original_packaging_lote}: {e}")
+                
                 return
 
             # 2. Verificar Fabricación (Estado: manufactured)

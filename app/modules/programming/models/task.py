@@ -23,6 +23,8 @@ class Task(Base):
     created_by_user = relationship('User', foreign_keys=[created_by_user_id])
     # Información principal de la tarea
     lote = Column(String, nullable=True)
+    # Campo para almacenar el lote original de empaque cuando se usa el lote de fabricación
+    original_packaging_lote = Column(String, nullable=True)
     quantity = Column(Float, nullable=True)
     specification = Column(String, nullable=True)
     minutes = Column(Integer, nullable=True)
