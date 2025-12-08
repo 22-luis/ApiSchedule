@@ -36,90 +36,102 @@ class WeighingTaskService(BaseTaskService):
     def get_weighing_activities_with_minutes(self, extracted_orders: List[Dict], db: Session) -> Dict[str, Any]:
         """
         Obtiene las actividades de pesado para todas las órdenes extraídas y calcula los minutos.
+        CORREGIDO: Ahora calcula minutos POR ORDEN (lote) en lugar de por código.
         
         Args:
             extracted_orders: Lista de órdenes extraídas (con lote, quantity, code)
             db: Sesión de base de datos
             
         Returns:
-            Diccionario con actividades de pesado y minutos calculados
+            Diccionario con actividades de pesado y minutos calculados por lote
         """
         # Obtener todas las actividades
         all_activities = self.get_activities_for_orders(extracted_orders, db)
         
         # Filtrar solo las de pesado
         weighing_activities = self.filter_activities(all_activities)
-        
-        # Calcular minutos para cada actividad de pesado
-        weighing_activities_with_minutes = {}
         weighing_activities_by_code = weighing_activities.get("weighing_activities_by_code", {})
         
-        for code, code_data in weighing_activities_by_code.items():
+        # NUEVO: Calcular minutos POR CADA ORDEN (lote), no por código
+        weighing_activities_with_minutes_by_code = {}
+        
+        for order in extracted_orders:
+            code = order.get("code")
+            lote = order.get("lote")
+            order_quantity = order.get("quantity")
+            
+            if not code or order_quantity is None:
+                continue
+            
+            code_data = weighing_activities_by_code.get(code, {})
             weighing_activities_list = code_data.get("weighing_activities", [])
+            
             activities_with_minutes = []
             
             for activity_data in weighing_activities_list:
                 activity_name = activity_data.get("activity")
                 if activity_name:
-                    # Buscar la cantidad de la orden correspondiente
-                    order_quantity = None
-                    for order in extracted_orders:
-                        if order.get("code") == code:
-                            order_quantity = order.get("quantity")
-                            break
+                    # Calcular minutos usando la cantidad de ESTA orden específica
+                    performance = activity_data.get("performance")
+                    time_val = activity_data.get("time")
+                    calculated_minutes = self.calculate_minutes_from_performance_and_quantity(
+                        performance, order_quantity, time_val
+                    )
                     
-                    if order_quantity is not None:
-                        # Calcular minutos
-                        performance = activity_data.get("performance")
-                        time = activity_data.get("time")
-                        calculated_minutes = self.calculate_minutes_from_performance_and_quantity(
-                            performance, order_quantity, time
-                        )
-                        
-                        # Calcular horas para mostrar en la fórmula
-                        if performance:
-                            # performance = unidades por hora -> hours = quantity * (1/performance)
-                            try:
-                                hours_calc = order_quantity * (1.0 / performance) if performance != 0 else 0
-                                hours_calculation = hours_calc
-                                formula = f"{order_quantity} / {performance} = {hours_calculation} horas * 60 = {calculated_minutes} minutos (con ceiling)"
-                            except Exception:
-                                hours_calculation = 0
-                                formula = f"Error calculando fórmula: performance={performance}, quantity={order_quantity}"
-                        elif time:
-                            hours_calculation = 0  # Para tiempo directo, no hay cálculo de horas
-                            formula = f"Tiempo directo: {time} minutos = {calculated_minutes} minutos (con ceiling)"
-                        else:
+                    # Calcular horas para mostrar en la fórmula
+                    if performance:
+                        try:
+                            hours_calc = order_quantity * (1.0 / performance) if performance != 0 else 0
+                            hours_calculation = hours_calc
+                            formula = f"{order_quantity} / {performance} = {hours_calculation:.4f} horas * 60 = {calculated_minutes} minutos (con ceiling)"
+                        except Exception:
                             hours_calculation = 0
-                            formula = f"Valor por defecto: {calculated_minutes} minutos"
-                        
-                        activities_with_minutes.append({
-                            "activity_data": activity_data,
-                            "minutes_calculation": {
-                                "performance": performance,
-                                "time": time,
-                                "quantity": order_quantity,
-                                "hours_calculation": hours_calculation,
-                                "calculated_minutes": calculated_minutes,
-                                "formula": formula
-                            }
-                        })
+                            formula = f"Error calculando fórmula: performance={performance}, quantity={order_quantity}"
+                    elif time_val:
+                        hours_calculation = 0
+                        formula = f"Tiempo directo: {time_val} minutos = {calculated_minutes} minutos (con ceiling)"
+                    else:
+                        hours_calculation = 0
+                        formula = f"Valor por defecto: {calculated_minutes} minutos"
+                    
+                    activities_with_minutes.append({
+                        "activity_data": activity_data,
+                        "minutes_calculation": {
+                            "performance": performance,
+                            "time": time_val,
+                            "quantity": order_quantity,
+                            "lote": lote,
+                            "hours_calculation": hours_calculation,
+                            "calculated_minutes": calculated_minutes,
+                            "formula": formula
+                        }
+                    })
             
             if activities_with_minutes:
-                weighing_activities_with_minutes[code] = {
-                    "code": code,
-                    "weighing_activities_with_minutes": activities_with_minutes,
-                    "total_weighing_activities": len(activities_with_minutes),
-                    "found": True
-                }
+                # Almacenar por código Y lote para poder buscar por ambos
+                if code not in weighing_activities_with_minutes_by_code:
+                    weighing_activities_with_minutes_by_code[code] = {
+                        "code": code,
+                        "weighing_activities_with_minutes": [],
+                        "weighing_activities_by_lote": {},
+                        "total_weighing_activities": 0,
+                        "found": True
+                    }
+                
+                # Agregar actividades para este lote específico
+                weighing_activities_with_minutes_by_code[code]["weighing_activities_by_lote"][lote] = activities_with_minutes
+                weighing_activities_with_minutes_by_code[code]["weighing_activities_with_minutes"].extend(activities_with_minutes)
+                weighing_activities_with_minutes_by_code[code]["total_weighing_activities"] = len(
+                    weighing_activities_with_minutes_by_code[code]["weighing_activities_with_minutes"]
+                )
         
         return {
             "all_activities": all_activities,
             "weighing_activities": weighing_activities,
             "weighing_activities_with_minutes": {
-                "weighing_activities_with_minutes_by_code": weighing_activities_with_minutes,
-                "total_codes_with_weighing_minutes": len(weighing_activities_with_minutes),
-                "codes_with_weighing_minutes": list(weighing_activities_with_minutes.keys())
+                "weighing_activities_with_minutes_by_code": weighing_activities_with_minutes_by_code,
+                "total_codes_with_weighing_minutes": len(weighing_activities_with_minutes_by_code),
+                "codes_with_weighing_minutes": list(weighing_activities_with_minutes_by_code.keys())
             },
             "total_orders_processed": len(extracted_orders)
         }
@@ -179,19 +191,22 @@ class WeighingTaskService(BaseTaskService):
             
             for order_data in extracted_orders:
                 order_code = order_data.get('code')
+                lote = order_data.get('lote')
                 
-                # Obtener la actividad con minutos calculados para esta orden
-                code_activities = weighing_activities_with_minutes.get(order_code, {}).get("weighing_activities_with_minutes", [])
+                # CORREGIDO: Usar actividades por LOTE específico, no por código
+                code_data = weighing_activities_with_minutes.get(order_code, {})
+                activities_by_lote = code_data.get("weighing_activities_by_lote", {})
+                lote_activities = activities_by_lote.get(lote, [])
                 
-                if not code_activities:
+                if not lote_activities:
                     failed_orders.append({
                         "order_data": order_data,
                         "reason": "No se encontró actividad válida"
                     })
                     continue
                 
-                # Usar la primera actividad (que debería ser la de pesado)
-                activity_with_minutes = code_activities[0]
+                # Usar la primera actividad de pesado para este lote
+                activity_with_minutes = lote_activities[0]
                 task_minutes = activity_with_minutes.get("minutes_calculation", {}).get("calculated_minutes", 0)
                 activity_details = activity_with_minutes.get("activity_data", {})
                 

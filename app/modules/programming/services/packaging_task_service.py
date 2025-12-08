@@ -50,84 +50,102 @@ class PackagingTaskService(BaseTaskService):
     def get_packaging_activities_with_minutes(self, extracted_orders: List[Dict], db: Session) -> Dict[str, Any]:
         """
         Obtiene las actividades de empaque para todas las órdenes extraídas y calcula los minutos.
+        CORREGIDO: Ahora calcula minutos POR ORDEN (lote) en lugar de por código.
         
         Args:
             extracted_orders: Lista de órdenes extraídas (con lote, quantity, code)
             db: Sesión de base de datos
             
         Returns:
-            Diccionario con actividades de empaque y minutos calculados
+            Diccionario con actividades de empaque y minutos calculados por lote
         """
         # Obtener todas las actividades
         all_activities = self.get_activities_for_orders(extracted_orders, db)
         
         # Filtrar solo las de empaque
         packaging_activities = self.filter_activities(all_activities)
-        
-        # Calcular minutos para cada actividad de empaque
-        packaging_activities_with_minutes = {}
         packaging_activities_by_code = packaging_activities.get("packaging_activities_by_code", {})
         
-        for code, code_data in packaging_activities_by_code.items():
+        # NUEVO: Calcular minutos POR CADA ORDEN (lote), no por código
+        packaging_activities_with_minutes_by_code = {}
+        
+        for order in extracted_orders:
+            code = order.get("code")
+            lote = order.get("lote")
+            order_quantity = order.get("quantity")
+            
+            if not code or order_quantity is None:
+                continue
+            
+            code_data = packaging_activities_by_code.get(code, {})
             packaging_activities_list = code_data.get("packaging_activities", [])
+            
             activities_with_minutes = []
             
             for activity_data in packaging_activities_list:
                 activity_name = activity_data.get("activity")
                 if activity_name:
-                    # Buscar la cantidad de la orden correspondiente
-                    order_quantity = None
-                    for order in extracted_orders:
-                        if order.get("code") == code:
-                            order_quantity = order.get("quantity")
-                            break
+                    # Calcular minutos usando la cantidad de ESTA orden específica
+                    performance = activity_data.get("performance")
+                    time_val = activity_data.get("time")
+                    calculated_minutes = self.calculate_minutes_from_performance_and_quantity(
+                        performance, order_quantity, time_val
+                    )
                     
-                    if order_quantity is not None:
-                        # Calcular minutos
-                        performance = activity_data.get("performance")
-                        time = activity_data.get("time")
-                        calculated_minutes = self.calculate_minutes_from_performance_and_quantity(
-                            performance, order_quantity, time
-                        )
-                        
-                        # Calcular horas para mostrar en la fórmula
-                        if performance:
-                            hours_calculation = performance * order_quantity
-                            formula = f"{performance} horas * {order_quantity} = {hours_calculation} horas * 60 = {calculated_minutes} minutos (con ceiling)"
-                        elif time:
-                            hours_calculation = 0  # Para tiempo directo, no hay cálculo de horas
-                            formula = f"Tiempo directo: {time} minutos = {calculated_minutes} minutos (con ceiling)"
-                        else:
+                    # Calcular horas para mostrar en la fórmula
+                    if performance:
+                        try:
+                            hours_calc = order_quantity * (1.0 / performance) if performance != 0 else 0
+                            hours_calculation = hours_calc
+                            formula = f"{order_quantity} / {performance} = {hours_calculation:.4f} horas * 60 = {calculated_minutes} minutos (con ceiling)"
+                        except Exception:
                             hours_calculation = 0
-                            formula = f"Valor por defecto: {calculated_minutes} minutos"
-                        
-                        activities_with_minutes.append({
-                            "activity_data": activity_data,
-                            "minutes_calculation": {
-                                "performance": performance,
-                                "time": time,
-                                "quantity": order_quantity,
-                                "hours_calculation": hours_calculation,
-                                "calculated_minutes": calculated_minutes,
-                                "formula": formula
-                            }
-                        })
+                            formula = f"Error calculando fórmula: performance={performance}, quantity={order_quantity}"
+                    elif time_val:
+                        hours_calculation = 0
+                        formula = f"Tiempo directo: {time_val} minutos = {calculated_minutes} minutos (con ceiling)"
+                    else:
+                        hours_calculation = 0
+                        formula = f"Valor por defecto: {calculated_minutes} minutos"
+                    
+                    activities_with_minutes.append({
+                        "activity_data": activity_data,
+                        "minutes_calculation": {
+                            "performance": performance,
+                            "time": time_val,
+                            "quantity": order_quantity,
+                            "lote": lote,
+                            "hours_calculation": hours_calculation,
+                            "calculated_minutes": calculated_minutes,
+                            "formula": formula
+                        }
+                    })
             
             if activities_with_minutes:
-                packaging_activities_with_minutes[code] = {
-                    "code": code,
-                    "packaging_activities_with_minutes": activities_with_minutes,
-                    "total_packaging_activities": len(activities_with_minutes),
-                    "found": True
-                }
+                # Almacenar por código Y lote para poder buscar por ambos
+                if code not in packaging_activities_with_minutes_by_code:
+                    packaging_activities_with_minutes_by_code[code] = {
+                        "code": code,
+                        "packaging_activities_with_minutes": [],
+                        "packaging_activities_by_lote": {},
+                        "total_packaging_activities": 0,
+                        "found": True
+                    }
+                
+                # Agregar actividades para este lote específico
+                packaging_activities_with_minutes_by_code[code]["packaging_activities_by_lote"][lote] = activities_with_minutes
+                packaging_activities_with_minutes_by_code[code]["packaging_activities_with_minutes"].extend(activities_with_minutes)
+                packaging_activities_with_minutes_by_code[code]["total_packaging_activities"] = len(
+                    packaging_activities_with_minutes_by_code[code]["packaging_activities_with_minutes"]
+                )
         
         return {
             "all_activities": all_activities,
             "packaging_activities": packaging_activities,
             "packaging_activities_with_minutes": {
-                "packaging_activities_with_minutes_by_code": packaging_activities_with_minutes,
-                "total_codes_with_packaging_minutes": len(packaging_activities_with_minutes),
-                "codes_with_packaging_minutes": list(packaging_activities_with_minutes.keys())
+                "packaging_activities_with_minutes_by_code": packaging_activities_with_minutes_by_code,
+                "total_codes_with_packaging_minutes": len(packaging_activities_with_minutes_by_code),
+                "codes_with_packaging_minutes": list(packaging_activities_with_minutes_by_code.keys())
             },
             "total_orders_processed": len(extracted_orders)
         }
@@ -160,13 +178,17 @@ class PackagingTaskService(BaseTaskService):
             for order_data in extracted_orders:
                 code = order_data.get("code")
                 lote = order_data.get("lote")
-                activities_for_code = packaging_activities_by_code.get(code, {}).get("packaging_activities_with_minutes", [])
+                
+                # CORREGIDO: Usar actividades por LOTE específico, no por código
+                code_data = packaging_activities_by_code.get(code, {})
+                activities_by_lote = code_data.get("packaging_activities_by_lote", {})
+                activities_for_order = activities_by_lote.get(lote, [])
 
-                if not activities_for_code:
+                if not activities_for_order:
                     failed_orders.append({"order_data": order_data, "reason": "No se encontraron actividades de empaque para el código."})
                     continue
 
-                for activity in activities_for_code:
+                for activity in activities_for_order:
                     activity_details = activity.get("activity_data", {})
                     task_minutes = activity.get("minutes_calculation", {}).get("calculated_minutes", 0)
 
