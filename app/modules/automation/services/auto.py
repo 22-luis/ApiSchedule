@@ -33,10 +33,14 @@ def create_tasks_for_lotes(lotes: List[int], username: str):
         programmable_bins = [10, 100]
         other_orders = [o for o in orders if o.bin in programmable_bins]
         
-        # Process Bin 8 orders
+        # Process Bin 8 orders - pass fabrication orders from same batch for linking
         processed_bin_8 = []
         if bin_8_orders:
-            processed_bin_8 = OrderFlowService.process_bin_8_orders(bin_8_orders, db)
+            processed_bin_8 = OrderFlowService.process_bin_8_orders(
+                bin_8_orders, 
+                db, 
+                fabrication_orders_in_batch=other_orders  # órdenes bin 10/100 del mismo archivo
+            )
             
         # Combine for task creation
         # Note: OrderFlowService returns only the orders that were successfully processed/matched.
