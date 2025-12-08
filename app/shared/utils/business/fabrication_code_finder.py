@@ -2,7 +2,7 @@
 Servicio para obtener el código de fabricación de un código de empaque.
 """
 
-from typing import Optional, List
+from typing import Optional
 from sqlalchemy.orm import Session
 from app.modules.codes.models.code import Code
 from app.shared.utils.core.logging import get_logger
@@ -16,7 +16,7 @@ class FabricationCodeFinder:
     
     Estrategia:
     1. Buscar en Code.fabricationCode si existe
-    2. Si no, generar variantes del código y buscar en tabla Code
+    2. Si el código tiene sufijo, buscar el código base en tabla Code
     """
     
     # Sufijos conocidos de variantes
@@ -39,8 +39,11 @@ class FabricationCodeFinder:
         """
         Encuentra el código de fabricación para un código de empaque.
         
+        Solo busca en el campo fabricationCode de la tabla Code.
+        Si el código tiene sufijo (como -B), también intenta buscar el código base.
+        
         Args:
-            packaging_code: Código de la orden de empaque (ej: "A1012")
+            packaging_code: Código de la orden de empaque (ej: "EA106", "F1041-B")
             db: Sesión de base de datos
             
         Returns:
@@ -49,7 +52,7 @@ class FabricationCodeFinder:
         if not packaging_code:
             return None
         
-        # Paso 1: Buscar en tabla Code si tiene fabricationCode
+        # Paso 1: Buscar directamente en tabla Code
         code_record = db.query(Code).filter(Code.code == packaging_code).first()
         
         if code_record and code_record.fabricationCode:
@@ -59,64 +62,26 @@ class FabricationCodeFinder:
             )
             return code_record.fabricationCode
         
-        # Paso 2: Si no tiene fabricationCode, generar candidatos
-        logger.info(
-            f"No fabricationCode in Code table for '{packaging_code}'. "
-            f"Generating candidate codes..."
-        )
+        # Paso 2: Si el código tiene sufijo, intentar buscar el código base
+        for suffix in cls.VARIANT_SUFFIXES:
+            if suffix and packaging_code.endswith(suffix):
+                base_code = packaging_code[:-len(suffix)]
+                logger.info(f"Trying base code '{base_code}' (without suffix '{suffix}')")
+                
+                base_record = db.query(Code).filter(Code.code == base_code).first()
+                if base_record and base_record.fabricationCode:
+                    logger.info(
+                        f"Found fabricationCode from base code '{base_code}': "
+                        f"{base_record.fabricationCode}"
+                    )
+                    return base_record.fabricationCode
+                break  # Solo intentar un sufijo
         
-        candidate_codes = cls._generate_candidate_codes(packaging_code)
-        
-        # Buscar cuál de los candidatos existe en la tabla Code
-        for candidate in candidate_codes:
-            exists = db.query(Code).filter(Code.code == candidate).first()
-            if exists:
-                logger.info(
-                    f"Found matching code in Code table: '{candidate}' "
-                    f"(generated from '{packaging_code}')"
-                )
-                return candidate
-        
-        # Si no se encuentra ningún candidato
+        # No se encontró código de fabricación
         logger.warning(
-            f"No fabrication code found for '{packaging_code}'. "
-            f"Tried candidates: {candidate_codes}"
+            f"No fabricationCode found for '{packaging_code}' in Code table."
         )
         return None
-    
-    @classmethod
-    def _generate_candidate_codes(cls, base_code: str) -> List[str]:
-        """
-        Genera códigos candidatos basándose en el patrón de sufijos.
-        
-        Ejemplos:
-        - A1012 → [AX1012, A1012-V, A1012-L, ...]
-        - E1061 → [EX1061, E1061-L, E1061-F, ...]
-        
-        Args:
-            base_code: Código base (ej: "A1012")
-            
-        Returns:
-            Lista de códigos candidatos
-        """
-        candidates = []
-        
-        # Patrón 1: Agregar X después de la primera letra
-        # A1012 → AX1012, E1061 → EX1061
-        if len(base_code) > 0:
-            first_letter = base_code[0]
-            rest = base_code[1:]
-            candidates.append(f"{first_letter}X{rest}")
-        
-        # Patrón 2: Código base + sufijos
-        for suffix in cls.VARIANT_SUFFIXES:
-            if suffix:  # Skip empty suffix
-                candidates.append(f"{base_code}{suffix}")
-        
-        # Patrón 3: Código base sin modificar (por si la orden de fabricación tiene el mismo código)
-        candidates.append(base_code)
-        
-        return candidates
     
     @classmethod
     def find_manufactured_order(
