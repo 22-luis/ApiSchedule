@@ -188,53 +188,76 @@ class PackagingTaskService(BaseTaskService):
                     failed_orders.append({"order_data": order_data, "reason": "No se encontraron actividades de empaque para el código."})
                     continue
 
+                # CORREGIDO: Usar get_activity_for_order para seleccionar UNA SOLA actividad según las reglas de prioridad
+                # En lugar de iterar sobre todas las actividades
+                selected_activity = self.get_activity_for_order(order_data, {
+                    "packaging_activities_by_code": {
+                        code: {
+                            "packaging_activities": [a.get("activity_data", {}) for a in activities_for_order]
+                        }
+                    }
+                })
+                
+                if not selected_activity:
+                    failed_orders.append({"order_data": order_data, "reason": "No se pudo seleccionar actividad de empaque."})
+                    continue
+                
+                # Buscar los minutos calculados para esta actividad específica
+                activity_name = selected_activity.get("activity", "")
+                activity_type = selected_activity.get("type", "")
+                task_minutes = 0
+                activity_details = selected_activity
+                
                 for activity in activities_for_order:
-                    activity_details = activity.get("activity_data", {})
-                    task_minutes = activity.get("minutes_calculation", {}).get("calculated_minutes", 0)
+                    act_data = activity.get("activity_data", {})
+                    if act_data.get("activity") == activity_name or act_data.get("type") == activity_type:
+                        task_minutes = activity.get("minutes_calculation", {}).get("calculated_minutes", 0)
+                        activity_details = act_data
+                        break
 
-                    if task_minutes <= 0:
-                        failed_orders.append({"order_data": order_data, "reason": "Minutos calculados no válidos."})
-                        continue
+                if task_minutes <= 0:
+                    failed_orders.append({"order_data": order_data, "reason": "Minutos calculados no válidos."})
+                    continue
 
-                    team_selection = self.get_specific_team_for_activity(
-                        activity_details.get("activity"),
-                        activity_details.get("description"),
-                        teams_data
-                    )
+                team_selection = self.get_specific_team_for_activity(
+                    activity_details.get("activity"),
+                    activity_details.get("description"),
+                    teams_data
+                )
 
-                    if not team_selection.get("success"):
-                        # TeamSelectionService returns 'reason' (and sometimes 'message'), use either
-                        failed_orders.append({"order_data": order_data, "reason": team_selection.get("reason") or team_selection.get("message")})
-                        continue
+                if not team_selection.get("success"):
+                    # TeamSelectionService returns 'reason' (and sometimes 'message'), use either
+                    failed_orders.append({"order_data": order_data, "reason": team_selection.get("reason") or team_selection.get("message")})
+                    continue
 
-                    # TeamSelectionService returns the chosen team under the key 'selected_team'
-                    selected_team = team_selection.get("selected_team") or team_selection.get("team") or {}
-                    team_id = selected_team.get("id")
-                    start_date_candidate = fabrication_end_dates.get(lote)
-                    if start_date_candidate and isinstance(start_date_candidate, date) and start_date_candidate > date.today():
-                        start_date = start_date_candidate
-                    else:
-                        start_date = date.today()
-                    logger.debug(f"Packaging: lote={lote} start_date_candidate={start_date_candidate} -> start_date_used={start_date}")
+                # TeamSelectionService returns the chosen team under the key 'selected_team'
+                selected_team = team_selection.get("selected_team") or team_selection.get("team") or {}
+                team_id = selected_team.get("id")
+                start_date_candidate = fabrication_end_dates.get(lote)
+                if start_date_candidate and isinstance(start_date_candidate, date) and start_date_candidate > date.today():
+                    start_date = start_date_candidate
+                else:
+                    start_date = date.today()
+                logger.debug(f"Packaging: lote={lote} start_date_candidate={start_date_candidate} -> start_date_used={start_date}")
 
-                    available_programmings = self.get_available_programmings_for_team(team_id, db, start_date=start_date)
+                available_programmings = self.get_available_programmings_for_team(team_id, db, start_date=start_date)
 
-                    if not available_programmings:
-                        failed_orders.append({"order_data": order_data, "reason": f"No hay programaciones disponibles para el equipo {team_id}."})
-                        continue
+                if not available_programmings:
+                    failed_orders.append({"order_data": order_data, "reason": f"No hay programaciones disponibles para el equipo {team_id}."})
+                    continue
 
-                    time_verification = self.verify_programming_time_limit(
-                        available_programmings, task_minutes, db, order_data, activity_details
-                    )
+                time_verification = self.verify_programming_time_limit(
+                    available_programmings, task_minutes, db, order_data, activity_details
+                )
 
-                    if time_verification.get("success"):
-                        created_tasks.append({
-                            "order_data": order_data,
-                            "selected_programming": time_verification.get("selected_programming"),
-                            "order_task": time_verification.get("order_task_created")
-                        })
-                    else:
-                        failed_orders.append({"order_data": order_data, "reason": time_verification.get("message")})
+                if time_verification.get("success"):
+                    created_tasks.append({
+                        "order_data": order_data,
+                        "selected_programming": time_verification.get("selected_programming"),
+                        "order_task": time_verification.get("order_task_created")
+                    })
+                else:
+                    failed_orders.append({"order_data": order_data, "reason": time_verification.get("message")})
 
             return {
                 "success": True,
