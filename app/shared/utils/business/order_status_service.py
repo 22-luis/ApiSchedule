@@ -153,10 +153,25 @@ class OrderStatusService:
 
             lote_str = str(lote_int)
             
-            # IMPORTANTE: Actualizar cantidad fabricada PRIMERO si está disponible
+            # Tipos de fabricación
+            fabrication_types = [
+                "M9", "M10", "M11", "M12", "M13", "M15",
+                "MOLIENDA POLVOS/HORNEO", 
+                "MOLIENDA EN PASTA", 
+                "MEZCLA MANUAL POLVO", 
+                "MEZCLA EN MAQUINA/EMPAQUE 25 KG", 
+                "MEZCLAS LIQUIDAS Y/O EMPAQUE", 
+                "FABRICACION DE ADEREZOS, JALEAS"
+            ]
+
+            # IMPORTANTE: Actualizar cantidad fabricada PRIMERO si está disponible Y es tarea de fabricación
             # Esto debe hacerse antes de verificar el tipo de tarea para asegurar que siempre se guarde
             quantity_updated = False
-            if programming_task.real_quantity is not None:
+            
+            # Verificar si la tarea actual es de fabricación
+            is_fabrication_task = task.type in fabrication_types or (task.description and task.description in fabrication_types)
+            
+            if programming_task.real_quantity is not None and is_fabrication_task:
                 try:
                     order.fabricated_quantity = float(programming_task.real_quantity)
                     quantity_updated = True
@@ -198,16 +213,7 @@ class OrderStatusService:
                 return
 
             # 2. Verificar Fabricación (Estado: manufactured)
-            # Tipos: M9, M10, M11, M12, M13, M15 y sus descripciones
-            fabrication_types = [
-                "M9", "M10", "M11", "M12", "M13", "M15",
-                "MOLIENDA POLVOS/HORNEO", 
-                "MOLIENDA EN PASTA", 
-                "MEZCLA MANUAL POLVO", 
-                "MEZCLA EN MAQUINA/EMPAQUE 25 KG", 
-                "MEZCLAS LIQUIDAS Y/O EMPAQUE", 
-                "FABRICACION DE ADEREZOS, JALEAS"
-            ]
+            # Tipos ya definidos arriba en fabrication_types
             if OrderStatusService._are_all_tasks_completed_for_types(db, lote_str, fabrication_types):
                 # Si ya está empaquetado (estado superior), no retroceder a fabricado
                 if order.status == OrderStatus.packaged:

@@ -611,27 +611,8 @@ def stop_task_timer(programming_id: str, task_id: str, data: ProgrammingTaskRepo
     db.commit()
     
     # Ahora que la tarea actual está guardada, verificamos las tareas pendientes
-    if lote:
-        incomplete_task = db.query(Task).filter(
-            Task.lote == lote,
-            Task.is_completed == False
-        ).first()
-        has_pending_tasks = incomplete_task is not None
-
-        # Si ya no hay tareas pendientes para el lote, actualizar estado de la orden
-        if has_pending_tasks is False:
-            try:
-                order = db.query(OrderModel).filter(OrderModel.lote == int(lote)).first()
-                if order:
-                    if order.bin == 8:
-                        order.status = OrderStatus.manufactured
-                    else:
-                        order.status = OrderStatus.completed
-                    # Commit para guardar el cambio de estado de la orden
-                    db.commit()
-            except (ValueError, TypeError):
-                # Ignorar si el lote no es un número válido
-                pass
+    # Actualizar estado de la orden usando el servicio centralizado
+    # Eliminamos la lógica manual anterior para evitar conflictos y centralizar en el servicio
     
     # Actualizar estado de la orden usando el servicio centralizado
     try:
