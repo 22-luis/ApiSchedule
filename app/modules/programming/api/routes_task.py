@@ -138,9 +138,11 @@ def duplicate_task(
     # --- Core Logic ---
     task_data = {
         field: getattr(original_task, field) for field in Task.__table__.columns.keys()
-        if field not in ['id', 'created_at', 'updated_at', 'created_by_user_id']
+        if field not in ['id', 'created_at', 'updated_at', 'created_by_user_id', 'status', 'is_completed']
     }
     task_data['lote'] = request.lote # Set the new lote
+    task_data['status'] = TaskStatus.PENDING.value
+    task_data['is_completed'] = False
 
     return _create_task_logic(db, task_data, original_task.teams, programming, current_user)
 

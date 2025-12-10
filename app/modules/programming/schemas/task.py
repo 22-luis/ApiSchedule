@@ -73,6 +73,9 @@ class TaskOut(BaseModel):
     description: Optional[str] = None
     created_by_user_id: Optional[uuid.UUID] = None
     created_by_user: Optional[UserOut] = None
+    status: Optional[str] = None
+    is_completed: Optional[bool] = None
+    real_quantity: Optional[float] = None
 
     class Config:
         from_attributes = True
