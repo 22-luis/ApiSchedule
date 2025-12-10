@@ -206,22 +206,38 @@ class OrderStatusService:
                 elif quantity_updated:
                     # Si solo se actualizó la cantidad pero el estado ya era packaged
                     db.commit()
-                
-                # NUEVO: Si hay un lote de empaque original, también actualizar esa orden
-                if task.original_packaging_lote:
+                return
+
+            # NUEVO: Si hay un lote de empaque original, verificar si debe actualizarse esa orden específica
+            # Esto se hace independiente de si toda la orden de fabricación (padre) se completó
+            # Tipos de empaque ya definidos en packaging_types
+            is_packaging_task = task.type in packaging_types or (task.description and task.description in packaging_types)
+            
+            if is_packaging_task and task.original_packaging_lote:
+                 # Verificar si ESTA tarea específica está completada (ya sea por flag o cantidad)
+                 # Usamos la misma lógica de "completada" que _are_all_tasks_completed...
+                 is_this_task_completed = programming_task.is_completed
+                 if not is_this_task_completed and programming_task.real_quantity is not None:
+                     try:
+                         qty = float(task.quantity) if task.quantity else 0
+                         real_qty = float(programming_task.real_quantity)
+                         if qty > 0 and real_qty >= qty:
+                             is_this_task_completed = True
+                     except (ValueError, TypeError):
+                         pass
+                 
+                 if is_this_task_completed:
                     try:
                         original_packaging_lote_int = int(task.original_packaging_lote)
                         original_packaging_order = db.query(Order).filter(
                             Order.lote == original_packaging_lote_int
                         ).first()
-                        if original_packaging_order and original_packaging_order.status not in [OrderStatus.delivered, OrderStatus.completed, OrderStatus.packaged]:
-                            original_packaging_order.status = OrderStatus.packaged
+                        if original_packaging_order and original_packaging_order.status not in [OrderStatus.delivered, OrderStatus.completed]:
+                            original_packaging_order.status = OrderStatus.completed
                             db.commit()
-                            print(f"[DEBUG] También se actualizó la orden de empaque original {original_packaging_lote_int} a 'packaged'")
+                            print(f"[DEBUG] Se actualizó la orden de empaque original {original_packaging_lote_int} a 'completed'")
                     except (ValueError, TypeError) as e:
                         print(f"[DEBUG] Error procesando original_packaging_lote {task.original_packaging_lote}: {e}")
-                
-                return
 
             # 2. Verificar Fabricación (Estado: manufactured)
             # Tipos ya definidos arriba en fabrication_types
