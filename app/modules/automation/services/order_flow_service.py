@@ -87,9 +87,11 @@ class OrderFlowService:
                 manufactured_order = db.query(order_model.Order).filter(
                     order_model.Order.code == fabrication_code,
                     order_model.Order.status == OrderStatus.manufactured,
-                    order_model.Order.fabricated_quantity >= order.quantity,
-                    order_model.Order.lote.notin_(reserved_fabrication_lotes) if reserved_fabrication_lotes else True
-                ).order_by(order_model.Order.lote.asc()).first()
+                    order_model.Order.fabricated_quantity >= order.quantity
+                ).order_by(
+                    order_model.Order.fabricated_quantity.asc(),
+                    order_model.Order.lote.asc()
+                ).first()
                 
                 if manufactured_order:
                     matched_order = manufactured_order
