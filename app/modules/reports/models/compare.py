@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Numeric, Date
+from sqlalchemy import Column, String, Numeric, Date,Integer
 import uuid
 from sqlalchemy.dialects.postgresql import UUID
 from app.shared.db.database import Base
@@ -15,3 +15,4 @@ class ProductionReport(Base):
     total_tiempo_real = Column(Numeric(7, 3), nullable=True)    # tiempo real utilizado
     diferencia = Column(Numeric(6, 2), nullable=True)           # diferencia calculada
     compare_date = Column(Date, nullable=True)                  # fecha a comparar
+    numero_personas = Column(Integer, nullable=True)          # numero de personas involucradas   

@@ -97,3 +97,4 @@ class HistoricoComparacionFechasService:
         return self.db.query(HistoricoComparacionFechas).all()
 
 
+

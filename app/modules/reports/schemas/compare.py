@@ -12,6 +12,7 @@ class CompareCreate(BaseModel):
     total_tiempo_real: Optional[Decimal] = None
     diferencia: Optional[Decimal] = None
     compare_date: Optional[date] = None
+    numero_personas: Optional[int] = None
 
 class CompareInputItem(BaseModel):
     """Schema para recibir datos del frontend en formato JSON"""
@@ -23,6 +24,7 @@ class CompareInputItem(BaseModel):
     unitsReq: Optional[float] = Field(None, alias="unitsReq")
     diferencia: Optional[float] = Field(None, alias="diferencia")
     compareDate: Optional[datetime] = Field(None, alias="compareDate")
+    numeroPersonas: Optional[int] = Field(None, alias="numeroPersonas")
     
     @validator('compareDate', pre=True)
     def parse_date(cls, v):
@@ -98,6 +100,7 @@ class CompareOut(BaseModel):
     total_tiempo_real: Optional[Decimal] = None
     diferencia: Optional[Decimal] = None
     compare_date: Optional[date] = None
+    numero_personas: Optional[int] = None
 
     class Config:
         from_attributes = True
