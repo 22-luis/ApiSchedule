@@ -164,8 +164,15 @@ class OrderStatusService:
                     pass
             
             # 1. Verificar Empaque (Estado: packaged)
-            # Tipos: M1, M2, M3, M4, M5
-            packaging_types = ["M1", "M2", "M3", "M4", "M5"]
+            # Tipos: M1, M2, M3, M4, M5 y sus descripciones
+            packaging_types = [
+                "M1", "M2", "M3", "M4", "M5",
+                "EMPAQUE MANUAL MAS MEZCLA", 
+                "EMPAQUE MANUAL GRUPO", 
+                "EMPAQUE BOLSA DE 50, 55 LB", 
+                "EMPAQUE MAQUINA SEMI AUTOMATICA", 
+                "EMPAQUE MAQUINA AUTOMATICA"
+            ]
             if OrderStatusService._are_all_tasks_completed_for_types(db, lote_str, packaging_types):
                 if order.status != OrderStatus.packaged:
                     order.status = OrderStatus.packaged
@@ -191,45 +198,34 @@ class OrderStatusService:
                 return
 
             # 2. Verificar Fabricación (Estado: manufactured)
-            # Tipos: M9, M10, M11, M12, M13, M15
-            fabrication_types = ["M9", "M10", "M11", "M12", "M13", "M15"]
+            # Tipos: M9, M10, M11, M12, M13, M15 y sus descripciones
+            fabrication_types = [
+                "M9", "M10", "M11", "M12", "M13", "M15",
+                "MOLIENDA POLVOS/HORNEO", 
+                "MOLIENDA EN PASTA", 
+                "MEZCLA MANUAL POLVO", 
+                "MEZCLA EN MAQUINA/EMPAQUE 25 KG", 
+                "MEZCLAS LIQUIDAS Y/O EMPAQUE", 
+                "FABRICACION DE ADEREZOS, JALEAS"
+            ]
             if OrderStatusService._are_all_tasks_completed_for_types(db, lote_str, fabrication_types):
-                # Verificar si hay tareas de empaque pendientes
-                # Si existen tareas de empaque y NO están completadas, no marcar como manufactured
-                has_pending_packaging = False
-                packaging_tasks = db.query(Task).filter(
-                    Task.lote == lote_str,
-                    Task.type.in_(packaging_types)
-                ).all()
-                
-                if packaging_tasks:
-                    # Si hay tareas de empaque, verificar si alguna está pendiente
-                    for p_task in packaging_tasks:
-                        is_p_task_completed = False
-                        for pt in p_task.programming_tasks:
-                            if pt.is_completed:
-                                is_p_task_completed = True
-                                break
-                        if not is_p_task_completed:
-                            has_pending_packaging = True
-                            break
-                
-                if not has_pending_packaging:
-                    if order.status != OrderStatus.manufactured:
-                        order.status = OrderStatus.manufactured
+                # Si ya está empaquetado (estado superior), no retroceder a fabricado
+                if order.status == OrderStatus.packaged:
+                    if quantity_updated:
                         db.commit()
-                    elif quantity_updated:
-                        # Si solo se actualizó la cantidad pero el estado ya era manufactured
-                        db.commit()
-                else:
-                     # Si hay empaque pendiente, y se actualizó cantidad, hacer commit de la cantidad
-                     if quantity_updated:
-                         db.commit()
+                    return
+
+                if order.status != OrderStatus.manufactured:
+                    order.status = OrderStatus.manufactured
+                    db.commit()
+                elif quantity_updated:
+                    # Si solo se actualizó la cantidad pero el estado ya era manufactured
+                    db.commit()
                 return
 
             # 3. Verificar Pesado (Estado: weighed)
-            # Tipos: M7
-            weighing_types = ["M7"]
+            # Tipos: M7 y sus descripciones
+            weighing_types = ["M7", "PESADO Y/O FABRICADO"]
             if OrderStatusService._are_all_tasks_completed_for_types(db, lote_str, weighing_types):
                 if order.status != OrderStatus.weighed:
                     order.status = OrderStatus.weighed
