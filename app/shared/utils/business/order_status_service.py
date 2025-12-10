@@ -125,6 +125,17 @@ class OrderStatusService:
                 if prog_task.is_completed:
                     is_task_completed = True
                     break
+                
+                # Fallback: Revisar si la cantidad real cumple con lo asignado
+                try:
+                    qty = float(task.quantity) if task.quantity else 0
+                    real_qty = float(prog_task.real_quantity) if prog_task.real_quantity else 0
+                    
+                    if qty > 0 and real_qty >= qty:
+                        is_task_completed = True
+                        break
+                except (ValueError, TypeError):
+                    pass
             
             if not is_task_completed:
                 return False
