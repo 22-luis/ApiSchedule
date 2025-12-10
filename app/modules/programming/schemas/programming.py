@@ -73,6 +73,28 @@ class ProgrammingTaskReportIn(BaseModel):
         except (ValueError, TypeError):
             return None
 
+class ToggleTaskStatusRequest(BaseModel):
+    assigned_quantity: Optional[float] = None
+    real_quantity: Optional[float] = None
+
+    @validator('assigned_quantity', pre=True)
+    def validate_assigned_quantity(cls, v):
+        if v is None or (isinstance(v, str) and v.strip() == ""):
+            return None
+        try:
+            return float(v)
+        except (ValueError, TypeError):
+            return None
+
+    @validator('real_quantity', pre=True)
+    def validate_real_quantity(cls, v):
+        if v is None or (isinstance(v, str) and v.strip() == ""):
+            return None
+        try:
+            return float(v)
+        except (ValueError, TypeError):
+            return None
+
 # Schema para programaciones disponibles por equipo
 class AvailableProgrammingItem(BaseModel):
     id: str
