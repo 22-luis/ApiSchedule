@@ -6,7 +6,7 @@ from app.modules.programming.models.state import ProgrammingStatus
 from app.modules.core.models.role import UserRole
 from app.modules.programming.models.task import Task
 from app.modules.core.models.team import Team, UserTeam
-from app.modules.programming.schemas.programming import ProgrammingCreate, ProgrammingRead, ProgrammingUpdate, ProgrammingTaskOrderIn, ProgrammingReorderResponse, ProgrammingTaskOrderOut, AvailableProgrammingResponse, AvailableProgrammingItem, TasksOrderRequest, ProgrammingTaskReportIn
+from app.modules.programming.schemas.programming import ProgrammingCreate, ProgrammingRead, ProgrammingUpdate, ProgrammingTaskOrderIn, ProgrammingReorderResponse, ProgrammingTaskOrderOut, AvailableProgrammingResponse, AvailableProgrammingItem, TasksOrderRequest, ProgrammingTaskReportIn, ToggleTaskStatusRequest
 from app.shared.db.session import get_db
 from app.shared.utils.core.dependencies import get_current_user, require_roles
 from datetime import date, datetime, timedelta, time
@@ -673,7 +673,7 @@ def add_task_comment(programming_id: str, task_id: str, data: ProgrammingTaskRep
     return {"ok": True, "comment": pt.comment}
 
 @router.post("/{programming_id}/tasks/{task_id}/toggle_status")
-def toggle_task_status(programming_id: str, task_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def toggle_task_status(programming_id: str, task_id: str, data: Optional[ToggleTaskStatusRequest] = Body(None), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     try:
         # Cargar ProgrammingTask con todas las relaciones necesarias
         pt = (
@@ -709,6 +709,17 @@ def toggle_task_status(programming_id: str, task_id: str, db: Session = Depends(
                 print(f"DEBUG - Task completed_by_user_id: {pt.completed_by_user_id}")
                 print(f"DEBUG - Current user ID: {current_user.id}")
                 raise HTTPException(status_code=403, detail="No autorizado")
+        # Actualizar cantidades si se proporcionan en el body
+        if data:
+            if data.assigned_quantity is not None and pt.task:
+                print(f"DEBUG - Updating assigned_quantity to {data.assigned_quantity}")
+                pt.task.quantity = data.assigned_quantity
+                # Opcionalmente, recalcular duration/assigned_quantity localmente si fuera necesario, 
+                # pero por ahora solo actualizamos el valor.
+            
+            if data.real_quantity is not None:
+                print(f"DEBUG - Updating real_quantity to {data.real_quantity}")
+                pt.real_quantity = data.real_quantity
 
         # Realizar el toggle del estado
         try:

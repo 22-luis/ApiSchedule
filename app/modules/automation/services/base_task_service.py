@@ -9,10 +9,10 @@ from sqlalchemy.orm import Session
 from datetime import time, timedelta, date, datetime
 import math
 
-from app.modules.programming.services.utils.programming_utils import ProgrammingUtils
+from app.modules.automation.services.utils.programming_utils import ProgrammingUtils
 from app.shared.utils.business.order_status_service import OrderStatusService
-from app.modules.programming.rules.schedule import ScheduleRule
-from app.modules.programming.services.utils.auto_create_programming import create_programming_if_not_exists
+from app.modules.automation.rules.schedule import ScheduleRule
+from app.modules.automation.services.utils.auto_create_programming import create_programming_if_not_exists
 from app.modules.programming.models.state import ProgrammingStatus
 from app.shared.utils.business.programming_availability import restore_programmings_availability
 
@@ -21,13 +21,6 @@ class BaseTaskService(ABC):
     """Clase base abstracta para servicios de tareas"""
     
     def __init__(self, time_limit: time, tolerance_minutes: int = 5):
-        """
-        Inicializa el servicio base con configuración de tiempo.
-        
-        Args:
-            time_limit: Límite de tiempo para las tareas
-            tolerance_minutes: Minutos de tolerancia adicionales
-        """
         self.time_limit = time_limit
         self.tolerance_minutes = tolerance_minutes
         self.max_allowed_minutes = time_limit.hour * 60 + time_limit.minute + tolerance_minutes
@@ -35,121 +28,35 @@ class BaseTaskService(ABC):
     
     @abstractmethod
     def filter_activities(self, activities_data: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Filtra las actividades específicas del servicio.
-        
-        Args:
-            activities_data: Datos de todas las actividades
-            
-        Returns:
-            Actividades filtradas específicas del servicio
-        """
         pass
     
     @abstractmethod
     def get_most_suitable_team(self, db: Session) -> Dict[str, Any]:
-        """
-        Obtiene el equipo más idóneo para el tipo de tarea.
-        
-        Args:
-            db: Sesión de base de datos
-            
-        Returns:
-            Información del equipo más idóneo
-        """
         pass
     
     @abstractmethod
     def get_activity_for_order(self, order_data: Dict, activities_data: Dict) -> Optional[Dict]:
-        """
-        Obtiene la actividad específica para una orden.
-        
-        Args:
-            order_data: Datos de la orden
-            activities_data: Datos de actividades filtradas
-            
-        Returns:
-            Actividad específica para la orden o None
-        """
         pass
     
     def extract_order_data(self, orders: List) -> List[Dict[str, Any]]:
-        """
-        Extrae datos de órdenes usando las utilidades comunes.
-        
-        Args:
-            orders: Lista de objetos Order
-            
-        Returns:
-            Lista de diccionarios con datos extraídos
-        """
         return ProgrammingUtils.extract_order_data(orders)
     
     def get_activities_by_code(self, code: str, db: Session) -> Dict[str, Any]:
-        """
-        Obtiene actividades por código usando las utilidades comunes.
-        
-        Args:
-            code: Código de la orden
-            db: Sesión de base de datos
-            
-        Returns:
-            Actividades del código
-        """
         return ProgrammingUtils.get_activities_by_code(code, db)
     
     def get_activities_for_orders(self, extracted_orders: List[Dict], db: Session) -> Dict[str, Any]:
-        """
-        Obtiene actividades para órdenes usando las utilidades comunes.
-        
-        Args:
-            extracted_orders: Órdenes extraídas
-            db: Sesión de base de datos
-            
-        Returns:
-            Actividades organizadas por código
-        """
         return ProgrammingUtils.get_activities_for_orders(extracted_orders, db)
     
     def get_activity_details_by_code_and_activity(self, code: str, activity: str, db: Session) -> Dict[str, Any]:
-        """
-        Obtiene detalles de actividad usando las utilidades comunes.
-        
-        Args:
-            code: Código del producto
-            activity: Nombre de la actividad
-            db: Sesión de base de datos
-            
-        Returns:
-            Detalles de la actividad
-        """
         return ProgrammingUtils.get_activity_details_by_code_and_activity(code, activity, db)
     
     def get_available_programmings_for_team(self, team_id: str, db: Session, start_date: Optional[date] = None) -> List[Dict[str, Any]]:
-        """
-        Obtiene programaciones disponibles usando las utilidades comunes.
-        
-        Args:
-            team_id: ID del equipo
-            db: Sesión de base de datos
-            start_date: Fecha de inicio para la búsqueda (opcional)
-            
-        Returns:
-            Lista de programaciones disponibles
-        """
         return ProgrammingUtils.get_available_programmings_for_team(team_id, db, start_date=start_date)
     
     def get_service_config(self) -> Dict[str, Any]:
-        """
-        Obtiene la configuración del servicio.
-        
-        Returns:
-            Diccionario con la configuración del servicio
-        """
-        from app.modules.programming.services.config import ServiceConfig
+        from app.modules.automation.services.config import ServiceConfig
         service_type = self.__class__.__name__.replace('TaskService', '').upper()
         
-        # Mapear nombres de clase a tipos de servicio
         service_type_mapping = {
             'WEIGHING': 'WEIGHING',
             'FABRICATION': 'FABRICACION',
@@ -177,17 +84,6 @@ class BaseTaskService(ABC):
             }
     
     def calculate_minutes_from_performance_and_quantity(self, performance: float, quantity: int, time: float = None) -> int:
-        """
-        Calcula minutos basándose en performance y cantidad.
-        
-        Args:
-            performance: Rendimiento en horas
-            quantity: Cantidad de la orden
-            time: Tiempo base en minutos (alternativa a performance)
-            
-        Returns:
-            Minutos calculados
-        """
         if quantity is None:
             return 0
         
@@ -197,18 +93,15 @@ class BaseTaskService(ABC):
                 # Minutos totales = quantity * (1 / performance) * 60
                 try:
                     if performance == 0:
-                        # Evitar división por cero
                         return 0
                     minutes = quantity * (1.0 / performance) * 60
                     return math.ceil(minutes)
                 except Exception:
-                    # En caso de cualquier problema con los valores, fallback seguro
                     return 0
         elif time is not None:
             # Usar time directamente como minutos
             return math.ceil(time)
         else:
-            # Valor por defecto
             return 30
     
     def create_preparation_task(self, programming_id: str, programming_tasks: List, db: Session) -> Dict[str, Any]:
@@ -220,16 +113,6 @@ class BaseTaskService(ABC):
         return self.schedule_rule.verify_programming_time_limit(programmings, task_minutes, db, order_data, activity_details)
     
     def create_tasks_for_orders(self, extracted_orders: List[Dict], db: Session) -> Dict[str, Any]:
-        """
-        Función principal que maneja todo el proceso de creación de tareas.
-        
-        Args:
-            extracted_orders: Lista de órdenes extraídas
-            db: Sesión de base de datos
-        
-        Returns:
-            Resultado del proceso con información de las tareas creadas
-        """
         try:
             # Obtener actividades con minutos calculados
             activities_data = self.get_activities_for_orders(extracted_orders, db)
@@ -295,10 +178,9 @@ class BaseTaskService(ABC):
                     })
                     continue
                 
-                # Intentar programar la tarea
                 task_created = False
                 attempts = 0
-                max_attempts = 100 # Evitar bucles infinitos
+                max_attempts = 100
                 
                 while not task_created and attempts < max_attempts:
                     attempts += 1
@@ -329,7 +211,6 @@ class BaseTaskService(ABC):
                                 "status": p.status,
                                 "team_id": str(p.team_id)
                             })
-                            # No incrementamos current_prog_idx, usamos la nueva programación
                         else:
                             failed_orders.append({
                                 "order_data": order_data,
@@ -352,9 +233,6 @@ class BaseTaskService(ABC):
                         })
                         task_created = True
                     else:
-                        # Si falló por límite de tiempo, pasar a la siguiente programación
-                        # Si falló por otra razón, tal vez deberíamos abortar? 
-                        # Asumimos que es por espacio/tiempo y probamos la siguiente.
                         current_prog_idx += 1
                 
                 if not task_created and attempts >= max_attempts:

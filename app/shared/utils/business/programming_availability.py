@@ -175,7 +175,7 @@ def check_programming_availability(db: Session, programming: Programming) -> boo
                     max_allowed_minutes = STANDARD_START_MINUTES + duration_minutes + tolerance_minutes
                 
                 # Calculate current total time using the utility function
-                from app.modules.programming.services.utils.programming_utils import ProgrammingUtils
+                from app.modules.automation.services.utils.programming_utils import ProgrammingUtils
                 current_end_minutes = ProgrammingUtils.calculate_current_programming_time(
                     programming_tasks, programming.date
                 )
@@ -426,7 +426,7 @@ def get_programming_availability(db: Session, programming_id: str, task_duration
             "team_name": str
         }
     """
-    from app.modules.programming.services.utils.programming_utils import ProgrammingUtils
+    from app.modules.automation.services.utils.programming_utils import ProgrammingUtils
     from app.shared.utils.core.logging import get_logger
     
     logger = get_logger(__name__)

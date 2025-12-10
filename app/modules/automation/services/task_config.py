@@ -9,7 +9,7 @@ from app.shared.core.enums import (
     ManufacturingActivities, 
     WeighingActivities
 )
-from app.modules.programming.services.factory import TaskServiceFactory
+from app.modules.automation.services.factory import TaskServiceFactory
 
 class TaskConfiguration:
     class WorkingHours(BaseModel):

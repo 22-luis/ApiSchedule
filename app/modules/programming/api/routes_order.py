@@ -11,11 +11,11 @@ from app.modules.programming.models.state import OrderStatus
 from app.shared.utils.business.data_cleaning import clean_order_data
 from datetime import datetime
 from sqlalchemy import or_, and_
-from app.modules.programming.services.task_config import (
+from app.modules.automation.services.task_config import (
     extract_created_orders_data, 
     get_orders_summary
 )
-from app.modules.programming.services.factory import TaskServiceFactory
+from app.modules.automation.services.factory import TaskServiceFactory
 from app.modules.automation.services.auto import create_tasks_for_lotes
 from app.shared.utils.business.order_status_service import OrderStatusService
 from app.modules.programming.models.programming import ProgrammingTask
@@ -345,7 +345,7 @@ def extract_orders_data(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))
 ):
-    from app.modules.programming.services.task_config import extract_created_orders_data, get_orders_summary
+    from app.modules.automation.services.task_config import extract_created_orders_data, get_orders_summary
 
     query = db.query(order_model.Order)
 

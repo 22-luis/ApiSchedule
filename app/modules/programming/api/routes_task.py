@@ -13,7 +13,7 @@ from app.modules.programming.models.programming import Programming, ProgrammingT
 from app.modules.programming.models.task_status_log import TaskStatusLog
 from app.modules.programming.schemas.task import TaskCreate, TaskUpdate, TaskOut
 from app.shared.utils.core.dependencies import get_current_user, require_roles
-from app.modules.programming.services.replicate_pesado import replicate_task_to_pesado_if_needed
+from app.modules.automation.services.replicate_pesado import replicate_task_to_pesado_if_needed
 from app.shared.utils.business.order_status_service import OrderStatusService
 from app.shared.utils.business.programming_availability import update_programming_availability_by_task, restore_programmings_availability
 from app.shared.core.enums import TaskStatus, TaskType

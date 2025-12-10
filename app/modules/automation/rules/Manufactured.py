@@ -2,10 +2,10 @@ from typing import Dict, Any, Optional
 from sqlalchemy.orm import Session
 from datetime import date
 
-from app.modules.programming.services.utils.team_selection_service import TeamSelectionService
-from app.modules.programming.services.utils.capacity_verification_service import CapacityVerificationService
+from app.modules.automation.services.utils.team_selection_service import TeamSelectionService
+from app.modules.automation.services.utils.capacity_verification_service import CapacityVerificationService
 from app.shared.core.enums import ManufacturingActivities
-from app.modules.programming.services.config import ServiceType, ServiceConfig
+from app.modules.automation.services.config import ServiceType, ServiceConfig
 
 class ManufacturedRule:
     

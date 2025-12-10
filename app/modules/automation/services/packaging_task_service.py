@@ -9,9 +9,9 @@ from datetime import date, time, datetime
 import logging
 import math
 
-from app.modules.programming.services.base_task_service import BaseTaskService
-from app.modules.programming.services.config import ServiceType, ServiceConfig
-from app.modules.programming.rules.packaging import PackagingRule
+from app.modules.automation.services.base_task_service import BaseTaskService
+from app.modules.automation.services.config import ServiceType, ServiceConfig
+from app.modules.automation.rules.packaging import PackagingRule
 
 
 class PackagingTaskService(BaseTaskService):
