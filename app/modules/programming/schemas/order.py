@@ -53,6 +53,10 @@ class OrderOut(BaseModel):
 class OrderStatusUpdate(BaseModel):
     status: OrderStatus
 
+class OrderDeliver(BaseModel):
+    delivered_quantity: float
+    submitted_observations: Optional[str] = None
+
 # Esquema para respuesta paginada
 class OrderPageOut(BaseModel):
     orders: list[OrderOut]

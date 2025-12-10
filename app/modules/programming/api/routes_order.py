@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Body, BackgroundTasks
 from sqlalchemy.orm import Session
-from app.modules.programming.schemas.order import OrderCreate, OrderOut, OrderStatusUpdate, OrderPageOut, OrderWarehouseUpdate, OrderWarehouseOut
+from app.modules.programming.schemas.order import OrderCreate, OrderOut, OrderStatusUpdate, OrderPageOut, OrderWarehouseUpdate, OrderWarehouseOut, OrderDeliver
 from app.modules.programming.models import order as order_model
 from app.shared.db.session import get_db
 from typing import List, Union, Optional
@@ -462,13 +462,43 @@ def receive_order(
         "status_message": status_message
     }
 
-    
+@router.post("/{order_id}/deliver")
+def deliver_order(
+    order_id: int,
+    delivery_data: OrderDeliver,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
+):
+    db_order = db.query(order_model.Order).filter(order_model.Order.lote == order_id).first()
+    if not db_order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    delivered_quantity = delivery_data.delivered_quantity
+    submitted_observations = delivery_data.submitted_observations
+
     # Actualizar campos de entrega
     db_order.submitted_user = current_user.username
     db_order.submitted_date = date.today()
     db_order.submitted_observations = submitted_observations
+    
+    # Update quantities
+    # received_quantity tracks total delivered so far
+    current_received = db_order.received_quantity if db_order.received_quantity is not None else 0
+    new_received_total = current_received + delivered_quantity
     db_order.received_quantity = new_received_total
-    db_order.missing_quantity = new_missing_quantity  # Puede ser negativo para indicar exceso
+    
+    # Calculate new missing quantity
+    # missing_quantity = quantity - received_quantity
+    # If quantity is 100 and we received 40, missing is 60.
+    # If we deliver 40 more, new_received is 80, missing becomes 20.
+    if db_order.quantity is not None:
+        new_missing_quantity = db_order.quantity - new_received_total
+        db_order.missing_quantity = new_missing_quantity
+    else:
+        # Fallback if quantity is somehow None, though schema prevents it usually
+        new_missing_quantity = -new_received_total
+        db_order.missing_quantity = new_missing_quantity
+
     
     # Cambiar estado a delivered (independientemente de la cantidad)
     # El estado solo cambiará a completed cuando se reciba en almacén
