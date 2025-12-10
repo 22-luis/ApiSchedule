@@ -134,10 +134,8 @@ class OrderFlowService:
                 new_available = current_available - quantity_to_consume
                 matched_order.fabricated_quantity = max(0.0, new_available)
                 
-                # Update status if exhausted
-                if matched_order.fabricated_quantity <= 0:
-                    matched_order.status = OrderStatus.packaged
-                    logger.info(f"Manufactured order {matched_order.lote} exhausted. Status changed to 'packaged'.")
+                # Status update logic removed to prevent premature "packaged" status.
+                # Status will be updated by OrderStatusService when packaging tasks are completed.
                 
                 db.add(matched_order)
                 db.flush()
