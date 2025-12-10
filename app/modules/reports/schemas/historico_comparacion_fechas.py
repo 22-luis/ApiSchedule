@@ -17,3 +17,4 @@ class HistoricoComparacionFechasOut(BaseModel):
         from_attributes = True
 
 
+
