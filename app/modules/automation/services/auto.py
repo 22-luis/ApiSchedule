@@ -2,18 +2,14 @@ from typing import List
 from datetime import datetime
 from app.shared.db.session import SessionLocal
 from app.shared.utils.core.logging import get_logger
-from app.modules.programming.services.task_config import extract_created_orders_data
-from app.modules.programming.services.factory import TaskServiceFactory
+from app.modules.automation.services.task_config import extract_created_orders_data
+from app.modules.automation.services.factory import TaskServiceFactory
 from app.modules.programming.models import order as order_model
 
 logger = get_logger("services.auto")
 
 
 def create_tasks_for_lotes(lotes: List[int], username: str):
-    """
-    Worker that creates weighing, fabrication and packaging tasks for the given lotes.
-    Creates its own DB session so it is safe to run as a background task.
-    """
     db = SessionLocal()
     try:
         logger.info(f"Auto service started for lotes={lotes} by user={username}")
@@ -23,7 +19,7 @@ def create_tasks_for_lotes(lotes: List[int], username: str):
             return
 
         # Import OrderFlowService for bin 8 orders
-        from app.modules.programming.services.order_flow_service import OrderFlowService
+        from app.modules.automation.services.order_flow_service import OrderFlowService
 
         # Separate orders by type
         bin_8_orders = [o for o in orders if o.bin == 8]
@@ -41,14 +37,6 @@ def create_tasks_for_lotes(lotes: List[int], username: str):
                 db, 
                 fabrication_orders_in_batch=other_orders  # órdenes bin 10/100 del mismo archivo
             )
-            
-        # Combine for task creation
-        # Note: OrderFlowService returns only the orders that were successfully processed/matched.
-        # If an order was skipped (e.g. no fabrication code), it won't be in processed_bin_8.
-        # We should probably include them in extraction but they won't have the swapped lote, 
-        # so they might fail task creation or create tasks with own lote (which might be intended fallback).
-        # However, the requirement implies strict dependency. 
-        # Let's assume we proceed with whatever OrderFlowService returns + other orders.
         
         orders_to_extract = other_orders + processed_bin_8
 
@@ -71,7 +59,6 @@ def create_tasks_for_lotes(lotes: List[int], username: str):
         fabrication_service = TaskServiceFactory.create_fabrication_service()
         packaging_service = TaskServiceFactory.create_packaging_service()
 
-        # We'll run each service only for the orders that actually have activities for that service.
         try:
             summary = {
                 "weighing": None,
@@ -136,7 +123,6 @@ def create_tasks_for_lotes(lotes: List[int], username: str):
 
             logger.info(f"Auto service finished for lotes={lotes}")
 
-            # Return a consolidated summary (useful when running inline)
             return {
                 "lotes": lotes,
                 "created_orders_count": len(orders),

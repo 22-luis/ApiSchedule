@@ -5,7 +5,7 @@ from datetime import date, time, timedelta, datetime
 from app.modules.programming.models.programming import Programming, ProgrammingStatus, ProgrammingTask
 from app.modules.core.models.team import Team
 from app.shared.utils.business.order_status_service import OrderStatusService
-from app.modules.programming.services.utils.programming_utils import ProgrammingUtils
+from app.modules.automation.services.utils.programming_utils import ProgrammingUtils
 from app.modules.programming.models.task import Task
 from app.shared.utils.core.logging import get_logger
 from app.shared.utils.business.programming_availability import get_programming_availability, get_team_rule, STANDARD_DURATION_MINUTES

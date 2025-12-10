@@ -1,9 +1,9 @@
 from typing import Dict, Any, Optional
 from sqlalchemy.orm import Session
 
-from app.modules.programming.services.utils.team_selection_service import TeamSelectionService
+from app.modules.automation.services.utils.team_selection_service import TeamSelectionService
 from app.shared.core.enums import PackagingActivities
-from app.modules.programming.services.config import ServiceType, ServiceConfig
+from app.modules.automation.services.config import ServiceType, ServiceConfig
 
 class PackagingRule:
     def filter_activities(self, activities_data: Dict[str, Any]) -> Dict[str, Any]:

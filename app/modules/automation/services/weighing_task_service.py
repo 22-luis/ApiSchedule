@@ -8,9 +8,9 @@ from sqlalchemy.orm import Session
 from datetime import time
 import math
 
-from app.modules.programming.services.base_task_service import BaseTaskService
-from app.modules.programming.services.config import ServiceType, ServiceConfig
-from app.modules.programming.rules.weighning import WeighingRule
+from app.modules.automation.services.base_task_service import BaseTaskService
+from app.modules.automation.services.config import ServiceType, ServiceConfig
+from app.modules.automation.rules.weighning import WeighingRule
 
 
 class WeighingTaskService(BaseTaskService):

@@ -4,11 +4,11 @@ Facilita la creación de servicios según el tipo requerido.
 """
 
 from typing import Optional
-from app.modules.programming.services.config import ServiceType
-from app.modules.programming.services.weighing_task_service import WeighingTaskService
-from app.modules.programming.services.fabrication_task_service import FabricationTaskService
-from app.modules.programming.services.packaging_task_service import PackagingTaskService
-from app.modules.programming.services.base_task_service import BaseTaskService
+from app.modules.automation.services.config import ServiceType
+from app.modules.automation.services.weighing_task_service import WeighingTaskService
+from app.modules.automation.services.fabrication_task_service import FabricationTaskService
+from app.modules.automation.services.packaging_task_service import PackagingTaskService
+from app.modules.automation.services.base_task_service import BaseTaskService
 
 
 class TaskServiceFactory:
@@ -89,7 +89,7 @@ class TaskServiceFactory:
         Returns:
             Información del servicio
         """
-        from app.modules.programming.services.config import ServiceConfig
+        from app.modules.automation.services.config import ServiceConfig
         
         config = ServiceConfig.get_config(service_type)
         return {
