@@ -17,7 +17,7 @@ class OrderFlowService:
         orders: List[order_model.Order], 
         db: Session,
         fabrication_orders_in_batch: List[order_model.Order] = None
-    ) -> List[order_model.Order]:
+    ) -> Dict[str, List]:
         """
         Process Bin 8 (Packaging) orders:
         1. Find associated manufactured order OR pending fabrication order.
@@ -29,8 +29,12 @@ class OrderFlowService:
             orders: List of bin 8 (packaging) orders to process
             db: Database session
             fabrication_orders_in_batch: Optional list of bin 10/100 orders being uploaded in same batch
+            
+        Returns:
+            Dict with 'processed' (successfully linked orders) and 'failed' (orders without fabrication lot)
         """
         processed_orders = []
+        failed_orders = []
         
         # Track which fabrication orders have been reserved (both from DB and batch)
         reserved_fabrication_lotes = set()
@@ -41,11 +45,26 @@ class OrderFlowService:
 
             logger.info(f"Processing Bin 8 order {order.lote} ({order.code})...")
             
+            # CHECK IF ORDER ALREADY HAS MANUALLY ASSIGNED FABRICATION LOT
+            if hasattr(order, '_usar_lote_fabricacion') and order._usar_lote_fabricacion:
+                logger.info(
+                    f"Order {order.lote} has manually assigned fabrication lot {order._usar_lote_fabricacion}. "
+                    f"Skipping automatic matching."
+                )
+                # Order is already prepared for task creation with manual lot
+                processed_orders.append(order)
+                continue
+            
             # 1. Find fabrication code
             fabrication_code = FabricationCodeFinder.find_fabrication_code(order.code, db)
             
             if not fabrication_code:
-                logger.warning(f"Could not find fabrication code for order {order.lote} ({order.code}). Skipping.")
+                logger.warning(f"Could not find fabrication code for order {order.lote} ({order.code}). Marking as failed.")
+                failed_orders.append({
+                    "order": order,
+                    "fabrication_code": None,
+                    "reason": "Código de fabricación no encontrado"
+                })
                 continue
 
             logger.info(f"Order {order.lote} ({order.code}) -> fabrication_code: {fabrication_code}")
@@ -113,12 +132,17 @@ class OrderFlowService:
                     match_source = "pending_db"
                     logger.info(f"Found pending fabrication order {pending_fab_order.lote} in database.")
 
-            # Si no encontramos nada, skip
+            # Si no encontramos nada, añadir a failed con información para selección manual
             if not matched_order:
                 logger.warning(
                     f"No available fabrication order found for {order.code} "
-                    f"(fabrication_code: {fabrication_code}, Req: {order.quantity}). Skipping."
+                    f"(fabrication_code: {fabrication_code}, Req: {order.quantity}). Marking as failed for manual selection."
                 )
+                failed_orders.append({
+                    "order": order,
+                    "fabrication_code": fabrication_code,
+                    "reason": "No se encontró lote de fabricación disponible"
+                })
                 continue
 
             # Reservar el lote encontrado
@@ -164,4 +188,7 @@ class OrderFlowService:
             processed_orders.append(order)
 
         db.commit()
-        return processed_orders
+        return {
+            "processed": processed_orders,
+            "failed": failed_orders
+        }

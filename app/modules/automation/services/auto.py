@@ -32,11 +32,14 @@ def create_tasks_for_lotes(lotes: List[int], username: str):
         # Process Bin 8 orders - pass fabrication orders from same batch for linking
         processed_bin_8 = []
         if bin_8_orders:
-            processed_bin_8 = OrderFlowService.process_bin_8_orders(
+            bin_8_result = OrderFlowService.process_bin_8_orders(
                 bin_8_orders, 
                 db, 
                 fabrication_orders_in_batch=other_orders  # órdenes bin 10/100 del mismo archivo
             )
+            processed_bin_8 = bin_8_result["processed"]
+            # Note: bin_8_result["failed"] contains orders that need manual lot selection
+            # These will need to be handled separately in the API layer
         
         orders_to_extract = other_orders + processed_bin_8
 
@@ -121,6 +124,64 @@ def create_tasks_for_lotes(lotes: List[int], username: str):
                 logger.warning(f"Packaging: No orders to process (packaging_codes={packaging_codes})")
             summary["packaging"] = packaging_tasks_result or {"tasks_created": 0}
 
+            # --- Create notification for all programmings that received tasks ---
+            try:
+                programming_info = []
+                
+                # Collect programming info from all services
+                for service_name, result in [("weighing", weighing_tasks_result), 
+                                             ("fabrication", fabrication_tasks_result), 
+                                             ("packaging", packaging_tasks_result)]:
+                    if result and result.get("created_tasks"):
+                        for task_info in result["created_tasks"]:
+                            selected_prog = task_info.get("selected_programming")
+                            if selected_prog:
+                                programming_info.append({
+                                    "programming_id": str(selected_prog.get("id")),
+                                    "team_name": selected_prog.get("team_name"),
+                                    "programming_date": selected_prog.get("date"),
+                                    "service": service_name
+                                })
+                
+                # Aggregate by programming_id to count tasks per programming
+                from collections import defaultdict
+                prog_map = defaultdict(lambda: {"task_count": 0, "team_name": None, "programming_date": None})
+                
+                for info in programming_info:
+                    prog_id = info["programming_id"]
+                    prog_map[prog_id]["task_count"] += 1
+                    prog_map[prog_id]["team_name"] = info["team_name"]
+                    prog_map[prog_id]["programming_date"] = info["programming_date"]
+                
+                # Convert to list format for storage
+                programming_list = [
+                    {
+                        "programming_id": prog_id,
+                        "team_name": data["team_name"],
+                        "programming_date": data["programming_date"],
+                        "task_count": data["task_count"]
+                    }
+                    for prog_id, data in prog_map.items()
+                ]
+                
+                # Only create notification if tasks were actually created
+                if programming_list:
+                    from app.modules.programming.models.task_creation_notification import TaskCreationNotification
+                    
+                    notification = TaskCreationNotification(
+                        created_by=username,
+                        programming_info=programming_list,
+                        order_count=len(orders)
+                    )
+                    db.add(notification)
+                    db.commit()
+                    logger.info(f"Created notification for {len(programming_list)} programmings")
+                
+            except Exception as e:
+                logger.error(f"Error creating notification: {e}")
+                # Don't fail the whole process if notification fails
+                pass
+
             logger.info(f"Auto service finished for lotes={lotes}")
 
             return {
@@ -137,3 +198,4 @@ def create_tasks_for_lotes(lotes: List[int], username: str):
                 pass
     finally:
         db.close()
+

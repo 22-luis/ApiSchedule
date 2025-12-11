@@ -7,6 +7,9 @@ from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
 from datetime import time
 import math
+import logging
+
+logger = logging.getLogger(__name__)
 
 from app.modules.automation.services.base_task_service import BaseTaskService
 from app.modules.automation.services.config import ServiceType, ServiceConfig
@@ -209,6 +212,43 @@ class WeighingTaskService(BaseTaskService):
                 activity_with_minutes = lote_activities[0]
                 task_minutes = activity_with_minutes.get("minutes_calculation", {}).get("calculated_minutes", 0)
                 activity_details = activity_with_minutes.get("activity_data", {})
+
+                # --- DUPLICATE CHECK START ---
+                from app.modules.programming.models.task import Task
+                from app.modules.programming.models.order import Order
+                from app.modules.programming.models.state import OrderStatus
+                from app.modules.programming.models.programming import ProgrammingTask
+                
+                activity_type = activity_details.get("type")
+                target_lote = order_data.get("lote")
+                
+                if target_lote and activity_type:
+                    existing_task = db.query(Task).filter(
+                        Task.lote == str(target_lote),
+                        Task.type == activity_type
+                    ).first()
+                    
+                    if existing_task:
+                         # Treat as success to preserve existing data
+                         pt = db.query(ProgrammingTask).filter(ProgrammingTask.task_id == existing_task.id).first()
+                         
+                         # Log retrieval of existing task
+                         logger.info(f"Existing task found for order {target_lote} type {activity_type}. SKIPPING CREATION.")
+
+                         created_tasks.append({
+                            "order_data": order_data,
+                            "selected_programming": {
+                                "id": str(pt.programming_id) if pt else None,
+                                "date": str(pt.start_time.date()) if pt and pt.start_time else None
+                            },
+                            "order_task": {
+                                "task_id": str(existing_task.id),
+                                "programming_id": str(pt.programming_id) if pt else None,
+                                "status": "existing"
+                            }
+                         })
+                         continue
+                # --- DUPLICATE CHECK END ---
                 
                 if task_minutes <= 0:
                     failed_orders.append({

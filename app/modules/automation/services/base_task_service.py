@@ -168,6 +168,43 @@ class BaseTaskService(ABC):
                     })
                     continue
                 
+                # --- DUPLICATE CHECK START ---
+                # Check if a task for this batch and activity type (role) already exists.
+                # "batch" in order_data corresponds to the 'lote'
+                # "role" in activity corresponds to the type of task (e.g., 'weighing', 'fabrication')
+                # We need to query ProgrammingTask
+                
+                from app.modules.programming.models.programming import ProgrammingTask
+                
+                # Determine the 'type' to check based on the service class or activity info
+                # This is a bit tricky since 'type' in Task model is sometimes specific (e.g., 'M1') 
+                # but we want to prevent *any* task of this *category* (e.g., 'weighing') for this lote.
+                # However, the user said "same lote and activity".
+                # For safety, let's check if there is ANY task for this lote with the same 'type' 
+                # that we are about to assign.
+                
+                # activity_details contains the specific activity info, including 'type' if available
+                activity_type_to_create = activity.get("activity_data", {}).get("type")
+                target_lote = order_data.get("lote")
+                
+                if activity_type_to_create and target_lote:
+                    existing_task = db.query(ProgrammingTask).filter(
+                        ProgrammingTask.batch == str(target_lote),
+                        ProgrammingTask.type == activity_type_to_create
+                    ).first()
+                    
+                    if existing_task:
+                         print(f"Skipping task creation for lote {target_lote} and type {activity_type_to_create}: Task already exists.")
+                         # We consider it "processed" but don't create a new one. 
+                         # Maybe we should add it to a "skipped" list or just log it?
+                         # For now, let's just skip it silently or with a log.
+                         failed_orders.append({
+                            "order_data": order_data,
+                            "reason": f"Ya existe una tarea para el lote {target_lote} con tipo {activity_type_to_create}"
+                        })
+                         continue
+                # --- DUPLICATE CHECK END ---
+                
                 task_minutes = activity.get("minutes_calculation", {}).get("calculated_minutes", 0)
                 activity_details = activity.get("activity_data", {})
                 
