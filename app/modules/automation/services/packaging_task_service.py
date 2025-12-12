@@ -228,12 +228,35 @@ class PackagingTaskService(BaseTaskService):
                          
                          # Log retrieval of existing task
                          logger.info(f"Existing task found for order {target_lote} type {activity_type}. SKIPPING CREATION.")
+                         
+                         # Update order status to 'programmed' even if task already exists
+                         try:
+                             from app.modules.programming.services.order_status_service import OrderStatusService
+                             OrderStatusService.update_order_status_for_task_creation(db, existing_task)
+                             logger.info(f"Updated order status for existing task lote={target_lote}")
+                         except Exception as e:
+                             logger.error(f"Error updating order status for existing task: {e}")
+
+                         # Get team name for the notification
+                         team_name = None
+                         programming_date = None
+                         if pt:
+                             from app.modules.programming.models.programming import Programming
+                             from app.modules.core.models.team import Team
+                             
+                             prog = db.query(Programming).filter(Programming.id == pt.programming_id).first()
+                             if prog:
+                                 programming_date = str(prog.date)
+                                 tm = db.query(Team).filter(Team.id == prog.team_id).first()
+                                 if tm:
+                                     team_name = tm.name
 
                          created_tasks.append({
                             "order_data": order_data,
                             "selected_programming": {
                                 "id": str(pt.programming_id) if pt else None,
-                                "date": str(pt.start_time.date()) if pt and pt.start_time else None
+                                "date": programming_date or (str(pt.start_time.date()) if pt and pt.start_time else None),
+                                "team_name": team_name
                             },
                             "order_task": {
                                 "task_id": str(existing_task.id),

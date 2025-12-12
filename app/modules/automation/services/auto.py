@@ -129,19 +129,60 @@ def create_tasks_for_lotes(lotes: List[int], username: str):
                 programming_info = []
                 
                 # Collect programming info from all services
+                with open("debug_notification.txt", "w") as f:
+                    f.write(f"Start processing. Orders: {len(orders)}\n")
+                    
                 for service_name, result in [("weighing", weighing_tasks_result), 
                                              ("fabrication", fabrication_tasks_result), 
                                              ("packaging", packaging_tasks_result)]:
+                    
+                    with open("debug_notification.txt", "a") as f:
+                        f.write(f"Service: {service_name}\n")
+                        f.write(f"Result keys: {result.keys() if result else 'None'}\n")
+                        if result and result.get("created_tasks"):
+                            f.write(f"Created tasks count: {len(result['created_tasks'])}\n")
+                            f.write(f"Sample task: {str(result['created_tasks'][0])}\n")
+                        else:
+                            f.write("No created tasks found.\n")
+
                     if result and result.get("created_tasks"):
+                        logger.info(f"Notification processing: Service {service_name} created {len(result['created_tasks'])} tasks")
                         for task_info in result["created_tasks"]:
                             selected_prog = task_info.get("selected_programming")
                             if selected_prog:
-                                programming_info.append({
-                                    "programming_id": str(selected_prog.get("id")),
-                                    "team_name": selected_prog.get("team_name"),
-                                    "programming_date": selected_prog.get("date"),
-                                    "service": service_name
-                                })
+                                prog_id = str(selected_prog.get("id"))
+                                team_name = selected_prog.get("team_name")
+                                prog_date = selected_prog.get("date")
+                                
+                                # Fallback: Fetch team name from DB if missing
+                                if not team_name and prog_id:
+                                    try:
+                                        from app.modules.programming.models.programming import Programming
+                                        from app.modules.core.models.team import Team
+                                        
+                                        logger.warning(f"Missing team_name for programming {prog_id} in {service_name}. Fetching from DB.")
+                                        prog_obj = db.query(Programming).filter(Programming.id == prog_id).first()
+                                        if prog_obj:
+                                            # Update date if missing
+                                            if not prog_date:
+                                                prog_date = str(prog_obj.date)
+                                                
+                                            team_obj = db.query(Team).filter(Team.id == prog_obj.team_id).first()
+                                            if team_obj:
+                                                team_name = team_obj.name
+                                                logger.info(f"Resolved team_name '{team_name}' for programming {prog_id}")
+                                    except Exception as e:
+                                        logger.error(f"Error resolving team name for {prog_id}: {e}")
+                                
+                                if prog_id:
+                                    programming_info.append({
+                                        "programming_id": prog_id,
+                                        "team_name": team_name or "Equipo Desconocido",
+                                        "programming_date": prog_date,
+                                        "service": service_name
+                                    })
+                    else:
+                        logger.info(f"Notification processing: Service {service_name} created 0 tasks or result was empty")
                 
                 # Aggregate by programming_id to count tasks per programming
                 from collections import defaultdict
@@ -150,14 +191,20 @@ def create_tasks_for_lotes(lotes: List[int], username: str):
                 for info in programming_info:
                     prog_id = info["programming_id"]
                     prog_map[prog_id]["task_count"] += 1
-                    prog_map[prog_id]["team_name"] = info["team_name"]
-                    prog_map[prog_id]["programming_date"] = info["programming_date"]
+                    # Prefer non-null team names
+                    if info["team_name"] and info["team_name"] != "Equipo Desconocido":
+                        prog_map[prog_id]["team_name"] = info["team_name"]
+                    elif not prog_map[prog_id]["team_name"]:
+                         prog_map[prog_id]["team_name"] = info["team_name"]
+                         
+                    if info["programming_date"]:
+                        prog_map[prog_id]["programming_date"] = info["programming_date"]
                 
                 # Convert to list format for storage
                 programming_list = [
                     {
                         "programming_id": prog_id,
-                        "team_name": data["team_name"],
+                        "team_name": data["team_name"] or "Equipo Desconocido",
                         "programming_date": data["programming_date"],
                         "task_count": data["task_count"]
                     }
@@ -175,10 +222,14 @@ def create_tasks_for_lotes(lotes: List[int], username: str):
                     )
                     db.add(notification)
                     db.commit()
-                    logger.info(f"Created notification for {len(programming_list)} programmings")
+                    logger.info(f"Created notification for {len(programming_list)} programmings: {programming_list}")
+                else:
+                    logger.info("No notification created because programming_list is empty")
                 
             except Exception as e:
                 logger.error(f"Error creating notification: {e}")
+                import traceback
+                logger.error(traceback.format_exc())
                 # Don't fail the whole process if notification fails
                 pass
 
