@@ -34,6 +34,18 @@ class PackagingRule(BaseAutomationRule):
             [PackagingActivities.EMP_MEZCLA.value]
         ]
 
+    def response(self, team_id, name, type, reason, rule):
+        return {
+            "success": True,
+            "selected_team": {
+                "id": str(team_id),
+                "name": name,
+                "type": type
+            },
+            "reason": reason,
+            "rule_applied": rule
+        }
+
     def get_most_suitable_team(self, db: Session, order_data: Dict = None, activity_type: Optional[str] = None) -> Dict[str, Any]:
     
         code = order_data.get("code", "") if order_data else ""
@@ -55,16 +67,13 @@ class PackagingRule(BaseAutomationRule):
         if activity_type == "M3":
             molino_team = fab_teams_by_type.get("molino")
             if molino_team:
-                return {
-                    "success": True,
-                    "selected_team": {
-                        "id": str(molino_team.id),
-                        "name": molino_team.name,
-                        "type": "molino"
-                    },
-                    "reason": "Actividad M3 (Bolsa). Asignado a MOLINO (Regla Global).",
-                    "rule_applied": "molino_m3_global"
-                }
+                return self.response(
+                    molino_team.id,
+                    molino_team.name,
+                    "molino",
+                    "Actividad M3 (Bolsa). Asignado a MOLINO (Regla Global).",
+                    "molino_m3_global"
+                )
 
         # REGLA 1: M4 (Empaque Semi Automático) -> EMPAQUE 2 (Líder)
         if activity_type == "M4":
@@ -72,16 +81,13 @@ class PackagingRule(BaseAutomationRule):
             # TODO: Check capacity for overflow to FAB 3 or MAQUINA 1
             # Assuming Empaque 2 is available for now as primary loop
             if empaque2_team:
-                return {
-                    "success": True,
-                    "selected_team": {
-                        "id": str(empaque2_team.id),
-                        "name": empaque2_team.name,
-                        "type": "empaque2"
-                    },
-                    "reason": "Actividad M4 (Semi Automático). Asignado a EMPAQUE 2.",
-                    "rule_applied": "empaque2_m4"
-                }
+                return self.response(
+                    empaque2_team.id,
+                    empaque2_team.name,
+                    "empaque2",
+                    "Actividad M4 (Semi Automático). Asignado a EMPAQUE 2.",
+                    "empaque2_m4"
+                )
             
             # Desborde M4 -> FABRICADO 3 o MAQUINA 1
             # Prioridad Desborde: MAQUINA 1 (Microlotes Semis) o FAB 3?
@@ -90,29 +96,23 @@ class PackagingRule(BaseAutomationRule):
             # Simplificación: Intentar MAQUINA 1 luego FABRICADO 3
             maquina1_team = teams_by_type.get("maquina1")
             if maquina1_team:
-                 return {
-                    "success": True,
-                    "selected_team": {
-                        "id": str(maquina1_team.id),
-                        "name": maquina1_team.name,
-                        "type": "maquina1"
-                    },
-                    "reason": "Actividad M4 (Desborde). Asignado a MAQUINA 1.",
-                    "rule_applied": "maquina1_m4_overflow"
-                }
+                 return self.response(
+                    maquina1_team.id,
+                    maquina1_team.name,
+                    "maquina1",
+                    "Actividad M4 (Desborde). Asignado a MAQUINA 1.",
+                    "maquina1_m4_overflow"
+                )
             
             fabricado3_team = fab_teams_by_type.get("fabricado3")
             if fabricado3_team:
-                 return {
-                    "success": True,
-                    "selected_team": {
-                        "id": str(fabricado3_team.id),
-                        "name": fabricado3_team.name,
-                        "type": "fabricado3"
-                    },
-                    "reason": "Actividad M4 (Desborde). Asignado a FABRICADO 3.",
-                    "rule_applied": "fabricado3_m4_overflow"
-                }
+                 return self.response(
+                    fabricado3_team.id,
+                    fabricado3_team.name,
+                    "fabricado3",
+                    "Actividad M4 (Desborde). Asignado a FABRICADO 3.",
+                    "fabricado3_m4_overflow"
+                )
         
         # REGLA 2: M5 (Empaque Automático)
         if activity_type == "M5":
@@ -120,46 +120,37 @@ class PackagingRule(BaseAutomationRule):
             if code == "F1852":
                 maquina2_team = teams_by_type.get("maquina2")
                 if maquina2_team:
-                    return {
-                        "success": True,
-                        "selected_team": {
-                            "id": str(maquina2_team.id),
-                            "name": maquina2_team.name,
-                            "type": "maquina2"
-                        },
-                        "reason": "Actividad M5 (F1852). Asignado a MAQUINA 2.",
-                        "rule_applied": "maquina2_m5_f1852"
-                    }
+                    return self.response(
+                        maquina2_team.id,
+                        maquina2_team.name,
+                        "maquina2",
+                        "Actividad M5 (F1852). Asignado a MAQUINA 2.",
+                        "maquina2_m5_f1852"
+                    )
             
             # Especialista MAQUINA 1 (Desborde/Apoyo)
             # Pero MAQUINA 2 es el "Líder Absoluto" y "Asignación primaria para el grueso de M5".
             # Intentar MAQUINA 2 primero para el grueso
             maquina2_team = teams_by_type.get("maquina2")
             if maquina2_team:
-                return {
-                    "success": True,
-                    "selected_team": {
-                        "id": str(maquina2_team.id),
-                        "name": maquina2_team.name,
-                        "type": "maquina2"
-                    },
-                    "reason": "Actividad M5 (Empaque Automático). Asignado a MAQUINA 2 (Líder).",
-                    "rule_applied": "maquina2_m5_leader"
-                }
+                return self.response(
+                    maquina2_team.id,
+                    maquina2_team.name,
+                    "maquina2",
+                    "Actividad M5 (Empaque Automático). Asignado a MAQUINA 2 (Líder).",
+                    "maquina2_m5_leader"
+                )
             
             # Desborde a MAQUINA 1
             maquina1_team = teams_by_type.get("maquina1")
             if maquina1_team:
-                return {
-                    "success": True,
-                    "selected_team": {
-                        "id": str(maquina1_team.id),
-                        "name": maquina1_team.name,
-                        "type": "maquina1"
-                    },
-                    "reason": "Actividad M5 (Desborde). Asignado a MAQUINA 1.",
-                    "rule_applied": "maquina1_m5_overflow"
-                }
+                return self.response(
+                    maquina1_team.id,
+                    maquina1_team.name,
+                    "maquina1",
+                    "Actividad M5 (Desborde). Asignado a MAQUINA 1.",
+                    "maquina1_m5_overflow"
+                )
 
         # REGLA 3: M2 (Microlotes)
         if activity_type == "M2":
@@ -167,16 +158,13 @@ class PackagingRule(BaseAutomationRule):
             if code.startswith("AX") or code.startswith("PMX"):
                 empaque3_team = teams_by_type.get("empaque3")
                 if empaque3_team:
-                     return {
-                        "success": True,
-                        "selected_team": {
-                            "id": str(empaque3_team.id),
-                            "name": empaque3_team.name,
-                            "type": "empaque3"
-                        },
-                        "reason": f"Actividad M2 (Serie {code[:2]}). Asignado a EMPAQUE 3.",
-                        "rule_applied": "empaque3_m2_specialist"
-                    }
+                     return self.response(
+                        empaque3_team.id,
+                        empaque3_team.name,
+                        "empaque3",
+                        f"Actividad M2 (Serie {code[:2]}). Asignado a EMPAQUE 3.",
+                        "empaque3_m2_specialist"
+                    )
             
             # MAQUINA 1: Absorbe AX... y F...
             # Si AX falló en Empaque 3 (o si consideramos MQ1 como alternativo),
@@ -184,89 +172,71 @@ class PackagingRule(BaseAutomationRule):
             if code.startswith("F") or code.startswith("AX"):
                 maquina1_team = teams_by_type.get("maquina1")
                 if maquina1_team:
-                      return {
-                        "success": True,
-                        "selected_team": {
-                            "id": str(maquina1_team.id),
-                            "name": maquina1_team.name,
-                            "type": "maquina1"
-                        },
-                        "reason": f"Actividad M2 (Serie {code[:2]}). Asignado a MAQUINA 1.",
-                        "rule_applied": "maquina1_m2_specialist"
-                    }
+                      return self.response(
+                        maquina1_team.id,
+                        maquina1_team.name,
+                        "maquina1",
+                        f"Actividad M2 (Serie {code[:2]}). Asignado a MAQUINA 1.",
+                        "maquina1_m2_specialist"
+                    )
 
             # EMPAQUE 1: Líder Absoluto M2 (Default)
             empaque1_team = teams_by_type.get("empaque1")
             if empaque1_team:
-                return {
-                    "success": True,
-                    "selected_team": {
-                        "id": str(empaque1_team.id),
-                        "name": empaque1_team.name,
-                        "type": "empaque1"
-                    },
-                    "reason": "Actividad M2 (Microlotes). Asignado a EMPAQUE 1 (Líder).",
-                    "rule_applied": "empaque1_m2_leader"
-                }
+                return self.response(
+                    empaque1_team.id,
+                    empaque1_team.name,
+                    "empaque1",
+                    "Actividad M2 (Microlotes). Asignado a EMPAQUE 1 (Líder).",
+                    "empaque1_m2_leader"
+                )
 
             # EMPAQUE 3: Soporte Desborde
             empaque3_team = teams_by_type.get("empaque3")
             if empaque3_team:
-                return {
-                    "success": True,
-                    "selected_team": {
-                        "id": str(empaque3_team.id),
-                        "name": empaque3_team.name,
-                        "type": "empaque3"
-                    },
-                    "reason": "Actividad M2 (Desborde). Asignado a EMPAQUE 3.",
-                    "rule_applied": "empaque3_m2_overflow"
-                }
+                return self.response(
+                    empaque3_team.id,
+                    empaque3_team.name,
+                    "empaque3",
+                    "Actividad M2 (Desborde). Asignado a EMPAQUE 3.",
+                    "empaque3_m2_overflow"
+                )
 
         # REGLA 4: M15 -> EMPAQUE 3 (Soporte M15 bajo volumen)
         if activity_type == "M15":
             empaque3_team = teams_by_type.get("empaque3")
             if empaque3_team:
-                return {
-                    "success": True,
-                    "selected_team": {
-                        "id": str(empaque3_team.id),
-                        "name": empaque3_team.name,
-                        "type": "empaque3"
-                    },
-                    "reason": "Actividad M15. Asignado a EMPAQUE 3.",
-                    "rule_applied": "empaque3_m15"
-                }
+                return self.response(
+                    empaque3_team.id,
+                    empaque3_team.name,
+                    "empaque3",
+                    "Actividad M15. Asignado a EMPAQUE 3.",
+                    "empaque3_m15"
+                )
 
         # FALLBACKS
         
         # Priority Fallback: EMPAQUE 1 -> EMPAQUE 3 -> MAQUINA 1
         empaque1_team = teams_by_type.get("empaque1")
         if empaque1_team:
-            return {
-                "success": True,
-                "selected_team": {
-                    "id": str(empaque1_team.id),
-                    "name": empaque1_team.name,
-                    "type": "empaque1"
-                },
-                "reason": "Fallback: Asignado a EMPAQUE 1 por defecto.",
-                "rule_applied": "fallback_empaque1"
-            }
+            return self.response(
+                empaque1_team.id,
+                empaque1_team.name,
+                "empaque1",
+                "Fallback: Asignado a EMPAQUE 1 por defecto.",
+                "fallback_empaque1"
+            )
         
         # Último fallback: cualquier equipo disponible
         for team_type, team in teams_by_type.items():
             if team:
-                return {
-                    "success": True,
-                    "selected_team": {
-                        "id": str(team.id),
-                        "name": team.name,
-                        "type": team_type
-                    },
-                    "reason": f"Fallback: Asignado a {team.name} por defecto.",
-                    "rule_applied": f"fallback_{team_type}"
-                }
+                return self.response(
+                    team.id,
+                    team.name,
+                    team_type,
+                    f"Fallback: Asignado a {team.name} por defecto.",
+                    f"fallback_{team_type}"
+                )
         
         return {
             "success": False,
