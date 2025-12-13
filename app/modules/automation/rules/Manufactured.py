@@ -1,4 +1,4 @@
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Set, List
 from sqlalchemy.orm import Session
 from datetime import date
 
@@ -6,134 +6,38 @@ from app.modules.automation.services.utils.team_selection_service import TeamSel
 from app.modules.automation.services.utils.capacity_verification_service import CapacityVerificationService
 from app.shared.core.enums import ManufacturingActivities
 from app.modules.automation.services.config import ServiceType, ServiceConfig
+from app.modules.automation.rules.base_rule import BaseAutomationRule
 
-class ManufacturedRule:
+class ManufacturedRule(BaseAutomationRule):
     
-    def filter_activities(self, activities_data: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Filtra las actividades para obtener solo las relacionadas con fabricación.
-        
-        Args:
-            activities_data: Diccionario con todas las actividades organizadas por código
-            
-        Returns:
-            Diccionario con solo las actividades de fabricación organizadas por código
-        """
-        fabrication_activities_by_code = {}
-        
-        activities_by_code = activities_data.get("activities_by_code", {})
-        # Actividades que deben ser consideradas como empaque y por tanto excluidas
-        # Actividades que deben ser consideradas como empaque y por tanto excluidas
-        # Solo excluimos M1 que es Empaque puro sin componente de fabricación asignado
-        packaging_types = {"M1"}
+    @property
+    def service_type(self) -> ServiceType:
+        return ServiceType.FABRICATION
 
-        for code, code_data in activities_by_code.items():
-            activities = code_data.get("activities", [])
-            fabrication_activities = []
-            
-            # Buscar actividades relacionadas con fabricación usando configuración centralizada
-            fabrication_keywords = ServiceConfig.get_activity_keywords(ServiceType.FABRICATION)
-            
-            for activity in activities:
-                # Excluir actividades que son de empaque
-                activity_type = activity.get("type")
-                # Actividades que deben ser consideradas como empaque y por tanto excluidas
-                if activity_type == "M1":
-                    continue
+    @property
+    def activity_list_key(self) -> str:
+        return "fabrication_activities"
 
-                # Excluir actividades de pesado explícitamente
-                if activity_type == "M7":
-                    continue
+    @property
+    def excluded_types(self) -> Set[str]:
+        return {"M1", "M7"}
 
-                activity_name = activity.get("activity", "").upper()
-
-                # Incluir sólo si coincide con palabras clave de fabricación
-                if any(keyword in activity_name for keyword in fabrication_keywords):
-                    fabrication_activities.append(activity)
-            
-            if fabrication_activities:
-                fabrication_activities_by_code[code] = {
-                    "code": code,
-                    "fabrication_activities": fabrication_activities,
-                    "total_fabrication_activities": len(fabrication_activities),
-                    "found": True
-                }
-        
-        return {
-            "fabrication_activities_by_code": fabrication_activities_by_code,
-            "total_codes_with_fabrication": len(fabrication_activities_by_code),
-            "codes_with_fabrication": list(fabrication_activities_by_code.keys())
-        }
-
-    def get_activity_for_order(self, order_data: Dict, activities_data: Dict) -> Optional[Dict[str, Any]]:
-        """
-        Obtiene la actividad de fabricación específica para una orden.
-        
-        Args:
-            order_data: Datos de la orden (lote, quantity, code)
-            activities_data: Datos de actividades de fabricación con minutos calculados
-            
-        Returns:
-            Actividad de fabricación específica para la orden o None si no se encuentra
-        """
-        order_code = order_data.get('code')
-        if not order_code:
-            return None
-        
-        code_data = activities_data.get("fabrication_activities_by_code", {}).get(order_code)
-        
-        if not code_data or not code_data.get("fabrication_activities"):
-            return None
-            
-        fabrication_activities = code_data["fabrication_activities"]
-
-        # Prioridad 1: Actividades de molienda
-        molienda_keywords = [
-            ManufacturingActivities.MOL_PASTA.value.upper(),
-            ManufacturingActivities.MOL_POLVO.value.upper()
+    @property
+    def priority_keywords_groups(self) -> List[List[str]]:
+        return [
+            [
+                ManufacturingActivities.MOL_PASTA.value,
+                ManufacturingActivities.MOL_POLVO.value
+            ],
+            [
+                ManufacturingActivities.MEZ_MAQUINA.value,
+                ManufacturingActivities.MEZ_POLVO.value,
+                ManufacturingActivities.MEZ_LIQUIDA.value
+            ],
+            [ManufacturingActivities.FABRICACION.value]
         ]
-        for activity in fabrication_activities:
-            activity_name = activity.get("activity", "").upper()
-            if any(keyword in activity_name for keyword in molienda_keywords):
-                return activity
-                
-        # Prioridad 2: Actividades de mezcla
-        mezcla_keywords = [
-            ManufacturingActivities.MEZ_MAQUINA.value.upper(),
-            ManufacturingActivities.MEZ_POLVO.value.upper(),
-            ManufacturingActivities.MEZ_LIQUIDA.value.upper()
-        ]
-        for activity in fabrication_activities:
-            activity_name = activity.get("activity", "").upper()
-            if any(keyword in activity_name for keyword in mezcla_keywords):
-                return activity
-                
-        # Prioridad 3: Actividades de fabricación general
-        fabricacion_keywords = [ManufacturingActivities.FABRICACION.value.upper()]
-        for activity in fabrication_activities:
-            activity_name = activity.get("activity", "").upper()
-            if any(keyword in activity_name for keyword in fabricacion_keywords):
-                return activity
-        
-        # Si no se encuentra ninguna actividad específica, usar la primera disponible
-        if fabrication_activities:
-            return fabrication_activities[0]
-        
-        return None
 
     def get_most_suitable_team(self, db: Session, order_data: Dict, activity_type: Optional[str] = None, programming_date: date = None) -> Dict[str, Any]:
-        """
-        Determina el equipo de fabricación más adecuado según las nuevas reglas de negocio.
-        
-        Args:
-            db: Sesión de base de datos
-            order_data: Datos de la orden (lote, quantity, code)
-            activity_type: Tipo de actividad
-            programming_date: Fecha de programación
-            
-        Returns:
-            Diccionario con el equipo seleccionado y la razón
-        """
         code = order_data.get("code", "")
         quantity = order_data.get("quantity", 0)
         

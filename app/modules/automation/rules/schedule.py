@@ -18,7 +18,6 @@ class ScheduleRule:
         self.time_limit = time_limit
 
     def get_team_duration(self, team_name: str) -> Optional[int]:
-        """Obtiene la duración para un equipo específico."""
         team_rule = get_team_rule(team_name)
         if team_rule and "duration" in team_rule:
             return team_rule["duration"]
@@ -28,19 +27,6 @@ class ScheduleRule:
     def verify_programming_time_limit(self, programmings: List[Dict], task_minutes: int, db: Session, 
                                     order_data: Optional[Dict] = None, 
                                     activity_details: Optional[Dict] = None) -> Dict[str, Any]:
-        """
-        Verifica límite de tiempo para programaciones.
-        
-        Args:
-            programmings: Lista de programaciones
-            task_minutes: Minutos de la tarea
-            db: Sesión de base de datos
-            order_data: Datos de la orden (opcional)
-            activity_details: Detalles de la actividad (opcional)
-            
-        Returns:
-            Resultado de la verificación
-        """
         current_date = date.today()
 
         def safe_date_from_iso(d: Any) -> date:

@@ -1,81 +1,41 @@
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Set, List
 from sqlalchemy.orm import Session
 
 from app.modules.automation.services.utils.team_selection_service import TeamSelectionService
 from app.shared.core.enums import PackagingActivities
 from app.modules.automation.services.config import ServiceType, ServiceConfig
+from app.modules.automation.rules.base_rule import BaseAutomationRule
 
-class PackagingRule:
-    def filter_activities(self, activities_data: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Filtra las actividades para obtener solo las relacionadas con empaque.
-        
-        Args:
-            activities_data: Diccionario con todas las actividades organizadas por código
-            
-        Returns:
-            Diccionario con solo las actividades de empaque organizadas por código
-        """
-        packaging_activities_by_code = {}
-        
-        activities_by_code = activities_data.get("activities_by_code", {})
-        # Actividades que pertenecen a fabricación y deben excluirse de empaque
-        manufacturing_types = {"M9", "M10", "M11", "M12", "M13", "M15"}
+class PackagingRule(BaseAutomationRule):
+    
+    @property
+    def service_type(self) -> ServiceType:
+        return ServiceType.PACKAGING
 
-        for code, code_data in activities_by_code.items():
-            activities = code_data.get("activities", [])
-            packaging_activities = []
-            
-            for activity in activities:
-                # Excluir actividades que son de fabricación
-                if activity.get("type") in manufacturing_types:
-                    continue
+    @property
+    def activity_list_key(self) -> str:
+        return "packaging_activities"
 
-                activity_name = activity.get("activity", "").upper()
+    @property
+    def excluded_types(self) -> Set[str]:
+        return {"M9", "M10", "M11", "M12", "M13", "M15"}
 
-                # Buscar actividades relacionadas con empaque usando configuración centralizada
-                packaging_keywords = ServiceConfig.get_activity_keywords(ServiceType.PACKAGING)
-                
-                # Tipos de empaque válidos
-                packaging_types = {"M1", "M2", "M3", "M4", "M5"}
-                activity_type = activity.get("type")
+    @property
+    def allowed_types(self) -> Set[str]:
+        return {"M1", "M2", "M3", "M4", "M5"}
 
-                if (activity_type in packaging_types) or any(keyword in activity_name for keyword in packaging_keywords):
-                    packaging_activities.append(activity)
-            
-            if packaging_activities:
-                packaging_activities_by_code[code] = {
-                    "code": code,
-                    "packaging_activities": packaging_activities,
-                    "total_packaging_activities": len(packaging_activities),
-                    "found": True
-                }
-        
-        return {
-            "packaging_activities_by_code": packaging_activities_by_code,
-            "total_codes_with_packaging": len(packaging_activities_by_code),
-            "codes_with_packaging": list(packaging_activities_by_code.keys())
-        }
+    @property
+    def priority_keywords_groups(self) -> List[List[str]]:
+        return [
+            [PackagingActivities.EMP_GRUPO.value],
+            [PackagingActivities.EMP_MANUAL.value],
+            [PackagingActivities.EMP_SEMI.value],
+            [PackagingActivities.EMP_AUTO.value],
+            [PackagingActivities.EMP_MEZCLA.value]
+        ]
 
     def get_most_suitable_team(self, db: Session, order_data: Dict = None, activity_type: Optional[str] = None) -> Dict[str, Any]:
-        """
-        Determina el equipo de empaque más adecuado según las nuevas reglas de negocio.
-        
-        Nuevas Reglas:
-        - EMPAQUE 1: Líder M2.
-        - EMPAQUE 2: Líder M4 (Semi Auto).
-        - EMPAQUE 3: Lotes M2 Bajo Volumen (Series AX, PMX) y M15.
-        - MAQUINA 1: Desborde M5, M2 Series AX/F, M4 desborde.
-        - MAQUINA 2: Líder M5 (F1852).
-        
-        Args:
-            db: Sesión de base de datos
-            order_data: Datos de la orden (code, quantity)
-            activity_type: Tipo de actividad (M1, M2, M3, M4, M5, M15)
-            
-        Returns:
-            Diccionario con el equipo seleccionado y la razón
-        """
+    
         code = order_data.get("code", "") if order_data else ""
         quantity = order_data.get("quantity", 0) if order_data else 0
         
@@ -325,76 +285,6 @@ class PackagingRule:
             Diccionario con información de todos los equipos de empaque
         """
         return TeamSelectionService.get_packaging_teams(db)
-
-    def get_activity_for_order(self, order_data: Dict, activities_data: Dict) -> Optional[Dict[str, Any]]:
-        """
-        Obtiene la actividad de empaque específica para una orden.
-        
-        Args:
-            order_data: Datos de la orden (lote, quantity, code)
-            activities_data: Datos de actividades de empaque con minutos calculados
-            
-        Returns:
-            Actividad de empaque específica para la orden o None si no se encuentra
-        """
-        order_code = order_data.get('code')
-        if not order_code:
-            return None
-        
-        # Buscar las actividades para el código de esta orden
-        code_data = activities_data.get("packaging_activities_by_code", {}).get(order_code)
-        
-        if not code_data or not code_data.get("packaging_activities"):
-            return None
-        
-        # Buscar la actividad más específica según prioridad
-        packaging_activities = code_data["packaging_activities"]
-        
-        # Prioridad 1: Empaque manual grupo
-        grupo_activities = [PackagingActivities.EMP_GRUPO.value]
-        
-        for activity in packaging_activities:
-            activity_name = activity.get("activity", "").upper()
-            if any(grupo_activity.upper() in activity_name for grupo_activity in grupo_activities):
-                return activity
-        
-        # Prioridad 2: Empaque manual
-        manual_activities = [PackagingActivities.EMP_MANUAL.value]
-        
-        for activity in packaging_activities:
-            activity_name = activity.get("activity", "").upper()
-            if any(manual_activity.upper() in activity_name for manual_activity in manual_activities):
-                return activity
-        
-        # Prioridad 3: Empaque máquina semi-automática
-        semi_activities = [PackagingActivities.EMP_SEMI.value]
-        
-        for activity in packaging_activities:
-            activity_name = activity.get("activity", "").upper()
-            if any(semi_activity.upper() in activity_name for semi_activity in semi_activities):
-                return activity
-        
-        # Prioridad 4: Empaque máquina automática
-        auto_activities = [PackagingActivities.EMP_AUTO.value]
-        
-        for activity in packaging_activities:
-            activity_name = activity.get("activity", "").upper()
-            if any(auto_activity.upper() in activity_name for auto_activity in auto_activities):
-                return activity
-        
-        # Prioridad 5: Empaque manual con mezcla
-        mezcla_activities = [PackagingActivities.EMP_MEZCLA.value]
-        
-        for activity in packaging_activities:
-            activity_name = activity.get("activity", "").upper()
-            if any(mezcla_activity.upper() in activity_name for mezcla_activity in mezcla_activities):
-                return activity
-        
-        # Si no se encuentra ninguna actividad específica, usar la primera disponible
-        if packaging_activities:
-            return packaging_activities[0]
-        
-        return None
 
     def get_specific_team_for_activity(self, activity_name: str, activity_description: str, teams_data: Dict, order_data: Dict = None) -> Dict[str, Any]:
         """
