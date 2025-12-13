@@ -37,6 +37,18 @@ class ManufacturedRule(BaseAutomationRule):
             [ManufacturingActivities.FABRICACION.value]
         ]
 
+    def response(self, name, type, reason, rule):
+        return {
+            "success": True,
+            "selected_team": {
+                "id": str(self),
+                "name": name,
+                "type": type
+            },
+            "reason": reason,
+            "rule_applied": rule
+        }
+
     def get_most_suitable_team(self, db: Session, order_data: Dict, activity_type: Optional[str] = None, programming_date: date = None) -> Dict[str, Any]:
         code = order_data.get("code", "")
         quantity = order_data.get("quantity", 0)
@@ -65,16 +77,11 @@ class ManufacturedRule(BaseAutomationRule):
         if (code.startswith("BX") or code.startswith("BE")) and quantity < 13:
             fabricado3_team = teams_by_type.get("fabricado3")
             if fabricado3_team:
-                return {
-                    "success": True,
-                    "selected_team": {
-                        "id": str(fabricado3_team.id),
-                        "name": fabricado3_team.name,
-                        "type": "fabricado3"
-                    },
-                    "reason": f"Código {code[:2]} con cantidad < 13. Asignado a FABRICADO 3.",
-                    "rule_applied": "fabricado3_bx_be_lt_13"
-                }
+                return response(fabricado3_team.id,
+                                fabricado3_team.name,
+                                f"fabricado3","Código {code[:2]} con cantidad < 13. Asignado a FABRICADO 3.",
+                                "fabricado3_bx_be_lt_13" )
+
 
         # REGLA: Códigos BX con Cantidad > 13 -> FABRICADO 1
         if code.startswith("BX") and quantity > 13:
@@ -122,21 +129,6 @@ class ManufacturedRule(BaseAutomationRule):
                     },
                     "reason": "Actividad M13 (Líquidos). Asignado a FABRICADO 3.",
                     "rule_applied": "fabricado3_m13"
-                }
-        
-        # M10 (Equilibrio) -> FABRICADO 1 (Especialista Único)
-        if activity_type == "M10":
-             fabricado1_team = teams_by_type.get("fabricado1")
-             if fabricado1_team:
-                return {
-                    "success": True,
-                    "selected_team": {
-                        "id": str(fabricado1_team.id),
-                        "name": fabricado1_team.name,
-                        "type": "fabricado1"
-                    },
-                    "reason": "Actividad M10 (Equilibrio). Asignado a FABRICADO 1.",
-                    "rule_applied": "fabricado1_m10"
                 }
 
         # M12 (Gran Volumen)
@@ -291,7 +283,7 @@ class ManufacturedRule(BaseAutomationRule):
         # "1. FABRICADO 1 ... M10 (Equilibrio)"
         # Asumiremos que si no está en las reglas nuevas, mantenemos lógica existente o fallback.
         # REGLA MOLINO: M9 (Pulverización) y M3 (Bolsa) -> MOLINO
-        if activity_type in ["M9", "M3"]:
+        if activity_type in ["M10", "M9", "M3"]:
             molino_team = teams_by_type.get("molino")
             if molino_team:
                 return {
