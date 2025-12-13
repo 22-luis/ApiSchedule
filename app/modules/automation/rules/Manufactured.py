@@ -37,11 +37,11 @@ class ManufacturedRule(BaseAutomationRule):
             [ManufacturingActivities.FABRICACION.value]
         ]
 
-    def response(self, name, type, reason, rule):
+    def response(self, team_id, name, type, reason, rule):
         return {
             "success": True,
             "selected_team": {
-                "id": str(self),
+                "id": str(team_id),
                 "name": name,
                 "type": type
             },
@@ -77,11 +77,13 @@ class ManufacturedRule(BaseAutomationRule):
         if (code.startswith("BX") or code.startswith("BE")) and quantity < 13:
             fabricado3_team = teams_by_type.get("fabricado3")
             if fabricado3_team:
-                return response(fabricado3_team.id,
-                                fabricado3_team.name,
-                                f"fabricado3","Código {code[:2]} con cantidad < 13. Asignado a FABRICADO 3.",
-                                "fabricado3_bx_be_lt_13" )
-
+                return self.response(
+                    fabricado3_team.id,
+                    fabricado3_team.name,
+                    "fabricado3",
+                    f"Código {code[:2]} con cantidad < 13. Asignado a FABRICADO 3.",
+                    "fabricado3_bx_be_lt_13"
+                )
 
         # REGLA: Códigos BX con Cantidad > 13 -> FABRICADO 1
         if code.startswith("BX") and quantity > 13:
@@ -91,28 +93,22 @@ class ManufacturedRule(BaseAutomationRule):
                 if check_fab1_capacity(fabricado1_team):
                      fabricado2_team = teams_by_type.get("fabricado2")
                      if fabricado2_team:
-                        return {
-                            "success": True,
-                            "selected_team": {
-                                "id": str(fabricado2_team.id),
-                                "name": fabricado2_team.name,
-                                "type": "fabricado2"
-                            },
-                            "reason": f"Código BX > 13. FABRICADO 1 saturado, asignado a FABRICADO 2.",
-                            "rule_applied": "fabricado2_bx_gt_13_overflow"
-                        }
+                        return self.response(
+                            fabricado2_team.id,
+                            fabricado2_team.name,
+                            "fabricado2",
+                            f"Código BX > 13. FABRICADO 1 saturado, asignado a FABRICADO 2.",
+                            "fabricado2_bx_gt_13_overflow"
+                        )
                 
                 # Si tiene capacidad
-                return {
-                    "success": True,
-                    "selected_team": {
-                        "id": str(fabricado1_team.id),
-                        "name": fabricado1_team.name,
-                        "type": "fabricado1"
-                    },
-                    "reason": f"Código BX con cantidad > 13. Asignado a FABRICADO 1.",
-                    "rule_applied": "fabricado1_bx_gt_13"
-                }
+                return self.response(
+                    fabricado1_team.id,
+                    fabricado1_team.name,
+                    "fabricado1",
+                    f"Código BX con cantidad > 13. Asignado a FABRICADO 1.",
+                    "fabricado1_bx_gt_13"
+                )
 
         # --- REGLAS POR TIPO DE ACTIVIDAD (TYPE) ---
 
@@ -120,16 +116,13 @@ class ManufacturedRule(BaseAutomationRule):
         if activity_type == "M13":
             fabricado3_team = teams_by_type.get("fabricado3")
             if fabricado3_team:
-                return {
-                    "success": True,
-                    "selected_team": {
-                        "id": str(fabricado3_team.id),
-                        "name": fabricado3_team.name,
-                        "type": "fabricado3"
-                    },
-                    "reason": "Actividad M13 (Líquidos). Asignado a FABRICADO 3.",
-                    "rule_applied": "fabricado3_m13"
-                }
+                return self.response(
+                    fabricado3_team.id,
+                    fabricado3_team.name,
+                    "fabricado3",
+                    "Actividad M13 (Líquidos). Asignado a FABRICADO 3.",
+                    "fabricado3_m13"
+                )
 
         # M12 (Gran Volumen)
         if activity_type == "M12":
@@ -140,29 +133,23 @@ class ManufacturedRule(BaseAutomationRule):
                 # Desborde a FABRICADO 2
                 fabricado2_team = teams_by_type.get("fabricado2")
                 if fabricado2_team:
-                    return {
-                        "success": True,
-                        "selected_team": {
-                            "id": str(fabricado2_team.id),
-                            "name": fabricado2_team.name,
-                            "type": "fabricado2"
-                        },
-                        "reason": "Actividad M12. FABRICADO 1 saturado, desborde a FABRICADO 2.",
-                        "rule_applied": "fabricado2_m12_overflow"
-                    }
+                    return self.response(
+                        fabricado2_team.id,
+                        fabricado2_team.name,
+                        "fabricado2",
+                        "Actividad M12. FABRICADO 1 saturado, desborde a FABRICADO 2.",
+                        "fabricado2_m12_overflow"
+                    )
             
             # Si hay capacidad en FAB 1 o FAB 2 no existe
             if fabricado1_team:
-                 return {
-                    "success": True,
-                    "selected_team": {
-                        "id": str(fabricado1_team.id),
-                        "name": fabricado1_team.name,
-                        "type": "fabricado1"
-                    },
-                    "reason": "Actividad M12 (Gran Volumen). Asignado a FABRICADO 1.",
-                    "rule_applied": "fabricado1_m12"
-                }
+                 return self.response(
+                    fabricado1_team.id,
+                    fabricado1_team.name,
+                    "fabricado1",
+                    "Actividad M12 (Gran Volumen). Asignado a FABRICADO 1.",
+                    "fabricado1_m12"
+                )
 
         # M11 / M15 (Mezcla Manual / Aderezos)
         if activity_type in ["M11", "M15"]:
@@ -172,28 +159,22 @@ class ManufacturedRule(BaseAutomationRule):
                 # Desborde a FABRICADO 2
                 fabricado2_team = teams_by_type.get("fabricado2")
                 if fabricado2_team:
-                    return {
-                        "success": True,
-                        "selected_team": {
-                            "id": str(fabricado2_team.id),
-                            "name": fabricado2_team.name,
-                            "type": "fabricado2"
-                        },
-                        "reason": f"Actividad {activity_type}. FABRICADO 1 saturado, desborde a FABRICADO 2.",
-                        "rule_applied": "fabricado2_m11_m15_overflow"
-                    }
+                    return self.response(
+                        fabricado2_team.id,
+                        fabricado2_team.name,
+                        "fabricado2",
+                        f"Actividad {activity_type}. FABRICADO 1 saturado, desborde a FABRICADO 2.",
+                        "fabricado2_m11_m15_overflow"
+                    )
             
             if fabricado1_team:
-                 return {
-                    "success": True,
-                    "selected_team": {
-                        "id": str(fabricado1_team.id),
-                        "name": fabricado1_team.name,
-                        "type": "fabricado1"
-                    },
-                    "reason": f"Actividad {activity_type}. Asignado a FABRICADO 1.",
-                    "rule_applied": "fabricado1_m11_m15"
-                }
+                 return self.response(
+                    fabricado1_team.id,
+                    fabricado1_team.name,
+                    "fabricado1",
+                    f"Actividad {activity_type}. Asignado a FABRICADO 1.",
+                    "fabricado1_m11_m15"
+                )
 
         # M5 (Empaque Automático) - Reglas de Especialista
         if activity_type == "M5":
@@ -201,161 +182,119 @@ class ManufacturedRule(BaseAutomationRule):
             if code == "PTX1042" or code == "FX185-4":
                 fabricado2_team = teams_by_type.get("fabricado2")
                 if fabricado2_team:
-                    return {
-                        "success": True,
-                        "selected_team": {
-                            "id": str(fabricado2_team.id),
-                            "name": fabricado2_team.name,
-                            "type": "fabricado2"
-                        },
-                        "reason": f"Código {code} (Especialista M5). Asignado a FABRICADO 2.",
-                        "rule_applied": "fabricado2_m5_specialist"
-                    }
+                    return self.response(
+                        fabricado2_team.id,
+                        fabricado2_team.name,
+                        "fabricado2",
+                        f"Código {code} (Especialista M5). Asignado a FABRICADO 2.",
+                        "fabricado2_m5_specialist"
+                    )
             
             # Series FX- (excepto la de arriba) -> FABRICADO 1
             if code.startswith("FX"):
                 fabricado1_team = teams_by_type.get("fabricado1")
                 if fabricado1_team:
-                    return {
-                        "success": True,
-                        "selected_team": {
-                            "id": str(fabricado1_team.id),
-                            "name": fabricado1_team.name,
-                            "type": "fabricado1"
-                        },
-                        "reason": f"Serie FX (Especialista M5). Asignado a FABRICADO 1.",
-                        "rule_applied": "fabricado1_m5_fx"
-                    }
-
-        # M2 (Microlotes/Manual) -> FABRICADO 3 (REMOVED - Now Molino)
-        # if activity_type == "M2": ... (Removed logic)
+                    return self.response(
+                        fabricado1_team.id,
+                        fabricado1_team.name,
+                        "fabricado1",
+                        f"Serie FX (Especialista M5). Asignado a FABRICADO 1.",
+                        "fabricado1_m5_fx"
+                    )
 
         # M4 (Empaque Semi Aut.) -> FABRICADO 3 (Soporte/Desborde de EMPAQUE 2, asumimos que viene aquí si no es empaque)
-        # Nota: El usuario menciona M4 en FABRICADO 3: "Soporte/Desborde de EMPAQUE 2".
         if activity_type == "M4":
              fabricado3_team = teams_by_type.get("fabricado3")
              if fabricado3_team:
-                return {
-                    "success": True,
-                    "selected_team": {
-                        "id": str(fabricado3_team.id),
-                        "name": fabricado3_team.name,
-                        "type": "fabricado3"
-                    },
-                    "reason": "Actividad M4. Asignado a FABRICADO 3.",
-                    "rule_applied": "fabricado3_m4"
-                }
+                return self.response(
+                    fabricado3_team.id,
+                    fabricado3_team.name,
+                    "fabricado3",
+                    "Actividad M4. Asignado a FABRICADO 3.",
+                    "fabricado3_m4"
+                )
 
         # M7 (Máximo Volumen) - Regla Complementaria
-        # "Absorbe volumen bajo de M7" en FABRICADO 3
-        # "Maneja desborde de M7" en FABRICADO 1
-        # Interpretación: Cantidad baja -> FAB 3, Cantidad alta -> FAB 1
         if activity_type == "M7":
             if quantity < 13: # Usamos el mismo umbral de "bajo volumen" que en otras reglas
                  fabricado3_team = teams_by_type.get("fabricado3")
                  if fabricado3_team:
-                    return {
-                        "success": True,
-                        "selected_team": {
-                            "id": str(fabricado3_team.id),
-                            "name": fabricado3_team.name,
-                            "type": "fabricado3"
-                        },
-                        "reason": "Actividad M7 (< 13). Asignado a FABRICADO 3.",
-                        "rule_applied": "fabricado3_m7_low"
-                    }
+                    return self.response(
+                        fabricado3_team.id,
+                        fabricado3_team.name,
+                        "fabricado3",
+                        "Actividad M7 (< 13). Asignado a FABRICADO 3.",
+                        "fabricado3_m7_low"
+                    )
             else:
                  fabricado1_team = teams_by_type.get("fabricado1")
                  if fabricado1_team:
-                    return {
-                        "success": True,
-                        "selected_team": {
-                            "id": str(fabricado1_team.id),
-                            "name": fabricado1_team.name,
-                            "type": "fabricado1"
-                        },
-                        "reason": "Actividad M7 (> 13). Asignado a FABRICADO 1.",
-                        "rule_applied": "fabricado1_m7_high"
-                    }
+                    return self.response(
+                        fabricado1_team.id,
+                        fabricado1_team.name,
+                        "fabricado1",
+                        "Actividad M7 (> 13). Asignado a FABRICADO 1.",
+                        "fabricado1_m7_high"
+                    )
 
         # M9 (Molienda) -> MOLINO (Mantener regla anterior si aplica, usuario no especificó cambio para M9 pero M10 cambio a FAB1)
-        # El usuario NO mencionó MOLINO explícitamente en el nuevo prompt, pero M9 suele ser molienda.
-        # "1. FABRICADO 1 ... M10 (Equilibrio)"
-        # Asumiremos que si no está en las reglas nuevas, mantenemos lógica existente o fallback.
-        # REGLA MOLINO: M9 (Pulverización) y M3 (Bolsa) -> MOLINO
         if activity_type in ["M10", "M9", "M3"]:
             molino_team = teams_by_type.get("molino")
             if molino_team:
-                return {
-                    "success": True,
-                    "selected_team": {
-                        "id": str(molino_team.id),
-                        "name": molino_team.name,
-                        "type": "molino"
-                    },
-                    "reason": f"Actividad {activity_type} (Molino/Bolsa). Asignado a MOLINO.",
-                    "rule_applied": "molino_m9_m3"
-                }
+                return self.response(
+                    molino_team.id,
+                    molino_team.name,
+                    "molino",
+                    f"Actividad {activity_type} (Molino/Bolsa). Asignado a MOLINO.",
+                    "molino_m9_m3"
+                )
         
         # REGLA MOLINO: M2 (Microlotes) -> MOLINO (Absorción Familia)
-        # Nota: Previamente M2 iba a FAB 3, ahora PROMPT dice MOLINO.
         if activity_type == "M2":
              molino_team = teams_by_type.get("molino")
              if molino_team:
-                return {
-                    "success": True,
-                    "selected_team": {
-                        "id": str(molino_team.id),
-                        "name": molino_team.name,
-                        "type": "molino"
-                    },
-                    "reason": "Actividad M2 (Microlotes Familia). Asignado a MOLINO.",
-                    "rule_applied": "molino_m2"
-                }
+                return self.response(
+                    molino_team.id,
+                    molino_team.name,
+                    "molino",
+                    "Actividad M2 (Microlotes Familia). Asignado a MOLINO.",
+                    "molino_m2"
+                )
 
         # FALLBACKS
         
         # Fallback 1: FABRICADO 1
         fabricado1_team = teams_by_type.get("fabricado1")
         if fabricado1_team:
-             return {
-                "success": True,
-                "selected_team": {
-                    "id": str(fabricado1_team.id),
-                    "name": fabricado1_team.name,
-                    "type": "fabricado1"
-                },
-                "reason": "Fallback: Asignado a FABRICADO 1 por defecto.",
-                "rule_applied": "fallback_fabricado1"
-            }
+             return self.response(
+                fabricado1_team.id,
+                fabricado1_team.name,
+                "fabricado1",
+                "Fallback: Asignado a FABRICADO 1 por defecto.",
+                "fallback_fabricado1"
+            )
             
         # Fallback 2: FABRICADO 2
         fabricado2_team = teams_by_type.get("fabricado2")
         if fabricado2_team:
-             return {
-                "success": True,
-                "selected_team": {
-                    "id": str(fabricado2_team.id),
-                    "name": fabricado2_team.name,
-                    "type": "fabricado2"
-                },
-                "reason": "Fallback: Asignado a FABRICADO 2 por defecto.",
-                "rule_applied": "fallback_fabricado2"
-            }
+             return self.response(
+                fabricado2_team.id,
+                fabricado2_team.name,
+                "fabricado2",
+                "Fallback: Asignado a FABRICADO 2 por defecto.",
+                "fallback_fabricado2"
+            )
 
         # Fallback 3: FABRICADO 3
         fabricado3_team = teams_by_type.get("fabricado3")
         if fabricado3_team:
-             return {
-                "success": True,
-                "selected_team": {
-                    "id": str(fabricado3_team.id),
-                    "name": fabricado3_team.name,
-                    "type": "fabricado3"
-                },
-                "reason": "Fallback: Asignado a FABRICADO 3 por defecto.",
-                "rule_applied": "fallback_fabricado3"
-            }
+             return self.response(
+                fabricado3_team.id,
+                fabricado3_team.name,
+                "fabricado3",
+                "Fallback: Asignado a FABRICADO 3 por defecto.",
+                "fallback_fabricado3"
+            )
 
         return {
             "success": False,
