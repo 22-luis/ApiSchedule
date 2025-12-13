@@ -34,17 +34,7 @@ class PackagingRule(BaseAutomationRule):
             [PackagingActivities.EMP_MEZCLA.value]
         ]
 
-    def response(self, team_id, name, type, reason, rule):
-        return {
-            "success": True,
-            "selected_team": {
-                "id": str(team_id),
-                "name": name,
-                "type": type
-            },
-            "reason": reason,
-            "rule_applied": rule
-        }
+
 
     def get_most_suitable_team(self, db: Session, order_data: Dict = None, activity_type: Optional[str] = None) -> Dict[str, Any]:
     
@@ -245,31 +235,12 @@ class PackagingRule(BaseAutomationRule):
         }
 
     def get_packaging_teams(self, db: Session) -> Dict[str, Any]:
-        """
-        Obtiene todos los equipos de empaque.
-        
-        Args:
-            db: Sesión de base de datos
-            
-        Returns:
-            Diccionario con información de todos los equipos de empaque
-        """
         return TeamSelectionService.get_packaging_teams(db)
 
+    # Obtiene el equipo específico para una actividad de empaque según las reglas de negocio.
+    # Esta función ahora delega a get_most_suitable_team con el tipo de actividad.
     def get_specific_team_for_activity(self, activity_name: str, activity_description: str, teams_data: Dict, order_data: Dict = None) -> Dict[str, Any]:
-        """
-        Obtiene el equipo específico para una actividad de empaque según las reglas de negocio.
-        Esta función ahora delega a get_most_suitable_team con el tipo de actividad.
-        
-        Args:
-            activity_name: Nombre de la actividad
-            activity_description: Descripción de la actividad
-            teams_data: Datos de equipos obtenidos de get_most_suitable_team
-            order_data: Datos de la orden (code, quantity)
-            
-        Returns:
-            Diccionario con el equipo seleccionado y la razón
-        """
+
         # Extraer el tipo de actividad del nombre o descripción
         activity_type = None
         if "M1" in activity_name or "M1" in activity_description:
@@ -290,7 +261,6 @@ class PackagingRule(BaseAutomationRule):
             )
         
         # Usar la nueva lógica basada en el flujograma
-        # Necesitamos acceso a la sesión de base de datos, que no tenemos aquí
         # Por ahora, retornamos usando el servicio antiguo
         return TeamSelectionService.get_specific_packaging_team_for_activity(
             activity_name, activity_description, teams_data

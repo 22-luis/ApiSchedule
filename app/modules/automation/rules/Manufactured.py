@@ -37,17 +37,7 @@ class ManufacturedRule(BaseAutomationRule):
             [ManufacturingActivities.FABRICACION.value]
         ]
 
-    def response(self, team_id, name, type, reason, rule):
-        return {
-            "success": True,
-            "selected_team": {
-                "id": str(team_id),
-                "name": name,
-                "type": type
-            },
-            "reason": reason,
-            "rule_applied": rule
-        }
+
 
     def get_most_suitable_team(self, db: Session, order_data: Dict, activity_type: Optional[str] = None, programming_date: date = None) -> Dict[str, Any]:
         code = order_data.get("code", "")

@@ -7,41 +7,26 @@ class BaseAutomationRule(ABC):
     @property
     @abstractmethod
     def service_type(self) -> ServiceType:
-        """Tipo de servicio para buscar keywords en la configuración."""
         pass
 
     @property
     @abstractmethod
     def activity_list_key(self) -> str:
-        """Clave para la lista de actividades en el diccionario de resultados (ej. 'packaging_activities')."""
         pass
 
     @property
     def excluded_types(self) -> Set[str]:
-        """Conjunto de tipos de actividad a excluir (ej. {'M9', 'M10'})."""
         return set()
 
     @property
     def allowed_types(self) -> Set[str]:
-        """Conjunto de tipos de actividad permitidos explícitamente (ej. {'M1', 'M2'}). Si está vacío, no se filtra por whitelist."""
         return set()
 
     @property
     def priority_keywords_groups(self) -> List[List[str]]:
-        """
-        Lista de grupos de keywords ordenados por prioridad.
-        Ejemplo:
-        [
-            ["GRUPO", "MANUAL"],  # Prioridad 1
-            ["SEMI"],             # Prioridad 2
-        ]
-        """
         return []
 
     def filter_activities(self, activities_data: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Filtra las actividades relevantes para este servicio.
-        """
         filtered_activities_by_code = {}
         
         activities_by_code = activities_data.get("activities_by_code", {})
@@ -99,9 +84,6 @@ class BaseAutomationRule(ABC):
         }
 
     def get_activity_for_order(self, order_data: Dict, activities_data: Dict) -> Optional[Dict[str, Any]]:
-        """
-        Obtiene la actividad específica para una orden basada en prioridades.
-        """
         order_code = order_data.get('code')
         if not order_code:
             return None
@@ -131,3 +113,15 @@ class BaseAutomationRule(ABC):
             return activities_list[0]
         
         return None
+
+    def response(self, team_id, name, type, reason, rule):
+        return {
+            "success": True,
+            "selected_team": {
+                "id": str(team_id),
+                "name": name,
+                "type": type
+            },
+            "reason": reason,
+            "rule_applied": rule
+        }
