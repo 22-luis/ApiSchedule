@@ -1,6 +1,3 @@
-"""
-Utility functions for managing programming availability based on task end times and team types.
-"""
 from datetime import datetime, time, timedelta, date as date_class
 from sqlalchemy.orm import Session
 from app.modules.programming.models.programming import Programming, ProgrammingTask
@@ -10,10 +7,6 @@ from typing import Optional
 
 
 def get_team_type(team: Team) -> str:
-    """
-    Returns the team type based on the name (substring, not exact).
-    Example: 'fabricado 1', 'molino 2', 'pesado principal'...
-    """
     name = (team.name or '').lower()
     if "fabricado" in name:
         return "fabricado"
@@ -25,20 +18,17 @@ def get_team_type(team: Team) -> str:
 
 
 def get_cutoff_time_for_team(team: Team, date_obj: datetime.date = None) -> time:
-    """
-    Returns the cutoff time for a team based on its type and the day of the week.
-    - Saturdays: 11:10 for all teams
-    - Monday-Friday:
-        - Pesado teams: 17:40
-        - Other teams: 14:40
-    """
-    # If date is provided and it's Saturday (weekday 5), return 11:10
+    # If date is provided and it's Saturday (weekday 5), return 12:30
     if date_obj and date_obj.weekday() == 5:
-        return time(11, 10)
+        return time(12, 30)
         
     team_type = get_team_type(team)
-    if team_type == "pesado":
-        return time(17, 40)  # 17:40 for pesado teams
+    team_name = (team.name or '').lower()
+    
+    if "fabricado 3" in team_name:
+        return time(15, 40)
+    elif team_type == "pesado":
+        return time(14, 40)  # Pesado now follows standard time (was 17:40)
     else:
         return time(14, 40)  # 14:40 for other teams
 
@@ -55,7 +45,7 @@ TEAM_RULES = {
         "duration": STANDARD_DURATION_MINUTES
     },
     "Pesado": {
-        "duration": None  # Sin límite de duración estándar
+        "duration": STANDARD_DURATION_MINUTES
     },
     "Fabricado 1": {
         "duration": STANDARD_DURATION_MINUTES
@@ -64,7 +54,7 @@ TEAM_RULES = {
         "duration": STANDARD_DURATION_MINUTES
     },
     "Fabricado 3": {
-        "duration": STANDARD_DURATION_MINUTES
+        "duration": 520  # 7:00 AM to 15:40 PM = 520 minutes
     },
     "Empaque 1": {
         "duration": STANDARD_DURATION_MINUTES
@@ -120,14 +110,6 @@ def get_team_rule(team_name: str) -> Optional[dict]:
 
 
 def check_programming_availability(db: Session, programming: Programming) -> bool:
-    """
-    Checks if a programming should be marked as unavailable based on:
-    1. Date has passed (programming.date < current date)
-    2. Programmable hours are filled (total scheduled time >= max allowed)
-    3. Last task's end time exceeds cutoff time
-    
-    Returns True if the programming should be available, False if it should be unavailable.
-    """
     # Check 1: Date has passed
     current_date = date_class.today()
     if programming.date < current_date:
@@ -162,9 +144,9 @@ def check_programming_availability(db: Session, programming: Programming) -> boo
             is_saturday = programming.date.weekday() == 5
             
             if is_saturday:
-                # Para sábados: 7:30 AM - 11:10 AM
+                # Para sábados: 7:30 AM - 12:30 PM
                 saturday_start = 450  # 7:30 AM
-                day_duration = 220  # 11:10 AM - 7:30 AM = 220 minutos
+                day_duration = 300  # 12:30 PM - 7:30 AM = 300 minutos
                 max_allowed_minutes = saturday_start + day_duration + tolerance_minutes
             else:
                 # Para días de semana
@@ -217,15 +199,6 @@ def check_programming_availability(db: Session, programming: Programming) -> boo
 
 
 def update_programming_availability(db: Session, programming: Programming) -> bool:
-    """
-    Updates the programming status based on date, programmable hours, and cutoff time.
-    
-    Bidirectional behavior:
-    - If all checks pass → Programming becomes "available"
-    - If any check fails → Programming becomes "unavailable"
-    
-    Returns True if the status was changed, False if it remained the same.
-    """
     should_be_available = check_programming_availability(db, programming)
     
     if should_be_available and programming.status == ProgrammingStatus.unavailable:
@@ -241,10 +214,6 @@ def update_programming_availability(db: Session, programming: Programming) -> bo
 
 
 def update_programming_availability_by_task(db: Session, task_id: str) -> None:
-    """
-    Updates the availability of all programmings that contain a specific task.
-    This is useful when a task is created, updated, or deleted.
-    """
     # Find all programmings that contain this task
     programming_tasks = (
         db.query(ProgrammingTask)
@@ -259,11 +228,6 @@ def update_programming_availability_by_task(db: Session, task_id: str) -> None:
 
 
 def update_all_programmings_availability_for_date(db: Session, target_date: datetime.date) -> dict:
-    """
-    Updates the availability of all programmings for a specific date.
-    
-    Returns a dictionary with the results of the operation.
-    """
     programmings = db.query(Programming).filter(Programming.date == target_date).all()
     
     results = {
@@ -287,12 +251,6 @@ def update_all_programmings_availability_for_date(db: Session, target_date: date
 
 
 def cleanup_past_programmings(db: Session) -> dict:
-    """
-    Marks all programmings with dates in the past as unavailable.
-    This function can be called manually or via a scheduled job.
-    
-    Returns a dictionary with the results of the operation.
-    """
     current_date = date_class.today()
     
     # Query all programmings with past dates that are still marked as available
@@ -319,23 +277,6 @@ def cleanup_past_programmings(db: Session) -> dict:
 
 
 def restore_programmings_availability(db: Session) -> dict:
-    """
-    Revisa todas las programaciones con fecha actual o futura y las marca como 'available'
-    si el tiempo programado no excede el límite permitido.
-    
-    Esta función es útil para "liberar" programaciones que fueron marcadas como 'unavailable'
-    pero que ahora tienen espacio disponible (por ejemplo, si se eliminaron tareas).
-    
-    Returns:
-        Diccionario con los resultados de la operación:
-        {
-            "total_programmings": int,
-            "restored_to_available": int,
-            "marked_unavailable": int,
-            "already_correct": int,
-            "details": [...]
-        }
-    """
     from app.shared.utils.core.logging import get_logger
     logger = get_logger(__name__)
     
@@ -408,24 +349,6 @@ def restore_programmings_availability(db: Session) -> dict:
 
 
 def get_programming_availability(db: Session, programming_id: str, task_duration: float) -> dict:
-    """
-    Calcula el tiempo ya ocupado en una programación específica y determina si hay suficiente tiempo disponible para una nueva tarea.
-    
-    Args:
-        db: Sesión de base de datos
-        programming_id: ID de la programación
-        task_duration: Duración de la tarea en minutos
-        
-    Returns:
-        Diccionario con detalles de disponibilidad:
-        {
-            "available": bool,
-            "current_end_minutes": int,
-            "final_minutes": int,
-            "max_allowed_minutes": float,
-            "team_name": str
-        }
-    """
     from app.modules.automation.services.utils.programming_utils import ProgrammingUtils
     from app.shared.utils.core.logging import get_logger
     
@@ -471,9 +394,9 @@ def get_programming_availability(db: Session, programming_id: str, task_duration
     
     if is_saturday:
         STANDARD_START_MINUTES = 450  # 7:30 AM
-        # Para sábados, la duración es fija hasta las 11:10 (670 min)
-        # 11:10 = 670 minutos. Duración = 670 - 450 = 220 minutos
-        day_duration = 220
+        # Para sábados, la duración es fija hasta las 12:30 (750 min)
+        # 12:30 = 750 minutos. Duración = 750 - 450 = 300 minutos
+        day_duration = 300
         max_allowed_minutes = STANDARD_START_MINUTES + day_duration + tolerance_minutes
     else:
         STANDARD_START_MINUTES = 420  # 7:00 AM

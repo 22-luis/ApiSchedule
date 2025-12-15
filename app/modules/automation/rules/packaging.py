@@ -59,37 +59,23 @@ class PackagingRule(BaseAutomationRule):
         teams_by_type = packaging_teams.get("teams_by_type", {})
         fab_teams_by_type = fabrication_teams.get("teams_by_type", {})
         
-        self._log_debug(f"Available Packaging Teams Keys: {list(teams_by_type.keys())}")
+        # --- B. REGLAS PRINCIPALES (POR TIPO Y VOLUMEN) ---
 
-        # --- REGLAS ESPECIALES HISTÓRICAS ---
-        # Si M3 (Bolsa) sigue yendo a Molino, lo conservamos.
-        if activity_type == "M3":
-            molino_team = fab_teams_by_type.get("molino")
-            if molino_team:
-                return self.response(
-                    molino_team.id,
-                    molino_team.name,
-                    "molino",
-                    "Actividad M3 (Bolsa). Asignado a MOLINO.",
-                    "molino_m3_global"
-                )
-
-        # --- NUEVAS REGLAS DE FILTRADO ---
-
-        # 1. Filtro M1: Si es M1 -> EMPAQUE 4.
+        # 1. M1 (Empaque Manual/Especial) -> FABRICADO 3
         if activity_type == "M1":
-            empaque4_team = teams_by_type.get("empaque4")
-            if empaque4_team:
+            fabricado3_team = fab_teams_by_type.get("fabricado3")
+            if fabricado3_team:
                 return self.response(
-                    empaque4_team.id,
-                    empaque4_team.name,
-                    "empaque4",
-                    "Actividad M1 -> Asignado a EMPAQUE 4.",
-                    "m1_empaque4"
+                    fabricado3_team.id,
+                    fabricado3_team.name,
+                    "fabricado3",
+                    "Actividad M1 -> Asignado a FABRICADO 3.",
+                    "m1_fabricado3"
                 )
 
-        # 2. Filtro M5 (Industrial): Si es M5 y > 1000 -> MAQUINA 1 (o 2 por desborde).
+        # 2. M5 (Empaque Industrial)
         if activity_type == "M5":
+            # Cantidad > 1000 -> MAQUINA 1 (o MAQUINA 2)
             if quantity > 1000:
                 maquina1_team = teams_by_type.get("maquina1")
                 if maquina1_team:
@@ -110,52 +96,48 @@ class PackagingRule(BaseAutomationRule):
                         "Actividad M5 (>1000 Desborde) -> Asignado a MAQUINA 2.",
                         "m5_high_maquina2_overflow"
                     )
-            # Si es M5 <= 1000, cae al RESTO -> EMPAQUE 1
-
-        # 3. Filtro Volumen Alto (M4/M2): Si la cantidad > 800 -> EMPAQUE 2.
-        if activity_type in ["M4", "M2"]:
-            if quantity > 800:
-                empaque2_team = teams_by_type.get("empaque2")
-                if empaque2_team:
-                    return self.response(
-                        empaque2_team.id,
-                        empaque2_team.name,
-                        "empaque2",
-                        f"Actividad {activity_type} (>800) -> Asignado a EMPAQUE 2.",
-                        f"{activity_type.lower()}_high_empaque2"
+            
+            # Cantidad <= 300 -> EMPAQUE 1 (o EMPAQUE 3)
+            # Priorizamos Empaque 1, si no existe o algo, Empaque 3.
+            if quantity <= 300:
+                 empaque1_team = teams_by_type.get("empaque1")
+                 if empaque1_team:
+                      return self.response(
+                        empaque1_team.id,
+                        empaque1_team.name,
+                        "empaque1",
+                        "Actividad M5 (<=300) -> Asignado a EMPAQUE 1.",
+                        "m5_low_empaque1"
                     )
-
-        # 4. Filtro Volumen Medio (M2): Si es M2 y está entre 200 y 800 -> EMPAQUE 3.
-        if activity_type == "M2":
-            if 200 <= quantity <= 800:
-                self._log_debug("Matching M2 Medium Volume Rule (200-800)")
-                empaque3_team = teams_by_type.get("empaque3")
-                
-                # Robust search if key missing but team exists
-                if not empaque3_team:
-                    for t in teams_by_type.values():
-                        if "EMPAQUE 3" in t.name.upper():
-                            empaque3_team = t
-                            break
-                
-                if empaque3_team:
-                    self._log_debug(f"Assigned to {empaque3_team.name}")
-                    return self.response(
+                 # Overflow a Empaque 3
+                 empaque3_team = teams_by_type.get("empaque3") or self._find_team_by_name(teams_by_type, "EMPAQUE 3")
+                 if empaque3_team:
+                      return self.response(
                         empaque3_team.id,
                         empaque3_team.name,
                         "empaque3",
-                        "Actividad M2 (200-800) -> Asignado a EMPAQUE 3.",
-                        "m2_med_empaque3"
+                        "Actividad M5 (<=300) -> Asignado a EMPAQUE 3.",
+                        "m5_low_empaque3"
                     )
-                else:
-                    self._log_debug("Empaque 3 team NOT FOUND.")
 
-        # 5. Resto: Todo lo demás (lotes pequeños, M13, M12, M5 pequeños) -> EMPAQUE 1.
-        # Esto incluye M2 < 200, M4 <= 800, M5 <= 1000, M12, M13, M15, etc.
+        # 3. M4 / M2 (Volumen Alto): Si Cantidad > 800 -> EMPAQUE 2
+        if activity_type in ["M4", "M2"] and quantity > 800:
+            empaque2_team = teams_by_type.get("empaque2")
+            if empaque2_team:
+                return self.response(
+                    empaque2_team.id,
+                    empaque2_team.name,
+                    "empaque2",
+                    f"Actividad {activity_type} (>800) -> Asignado a EMPAQUE 2.",
+                    f"{activity_type.lower()}_high_empaque2"
+                )
+
+        # --- C. REGLA "RESTO" (POR DEFECTO) ---
+        # Lotes pequeños, M2 < 200, M4 <= 800, M5 (300-1000), M12, M13, M15 -> EMPAQUE 1
+        
         empaque1_team = teams_by_type.get("empaque1")
         if empaque1_team:
-            self._log_debug("Assigned to Empaque 1 (Resto)")
-            return self.response(
+             return self.response(
                 empaque1_team.id,
                 empaque1_team.name,
                 "empaque1",
@@ -163,24 +145,42 @@ class PackagingRule(BaseAutomationRule):
                 "rest_empaque1"
             )
 
-        # FALLBACKS si los equipos destino no existen
-        self._log_debug("Fallback triggered")
-        for fallback_team_type in ["empaque3", "maquina1"]:
-            fallback_team = teams_by_type.get(fallback_team_type)
-            if fallback_team:
-                 return self.response(
-                    fallback_team.id,
-                    fallback_team.name,
-                    fallback_team_type,
-                    f"Fallback General ({activity_type}) -> Asignado a {fallback_team.name}.",
-                    f"fallback_{fallback_team_type}"
-                )
+        # --- D. FALLBACK ---
+        # Si los equipos principales no existen, intenta: EMPAQUE 3 > MAQUINA 1.
         
+        # Fallback 1: EMPAQUE 3
+        empaque3_team = teams_by_type.get("empaque3") or self._find_team_by_name(teams_by_type, "EMPAQUE 3")
+        if empaque3_team:
+             return self.response(
+                empaque3_team.id,
+                empaque3_team.name,
+                "empaque3",
+                "Fallback: Asignado a EMPAQUE 3.",
+                "fallback_empaque3"
+            )
+            
+        # Fallback 2: MAQUINA 1
+        maquina1_team = teams_by_type.get("maquina1")
+        if maquina1_team:
+             return self.response(
+                maquina1_team.id,
+                maquina1_team.name,
+                "maquina1",
+                "Fallback: Asignado a MAQUINA 1.",
+                "fallback_maquina1"
+            )
+
         return {
             "success": False,
             "reason": "No se encontró ningún equipo de empaque disponible para la regla aplicada.",
             "rule_applied": "no_teams_available"
         }
+
+    def _find_team_by_name(self, teams_dict, name_part):
+        for t in teams_dict.values():
+            if name_part in t.name.upper():
+                return t
+        return None
 
     def get_packaging_teams(self, db: Session) -> Dict[str, Any]:
         return TeamSelectionService.get_packaging_teams(db)

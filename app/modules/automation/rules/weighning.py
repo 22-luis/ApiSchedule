@@ -20,6 +20,16 @@ class WeighingRule(BaseAutomationRule):
         return [["PESADO"]]
 
     def get_most_suitable_team(self, db: Session, order_data: Dict = None, activity_type: Optional[str] = None) -> Dict[str, Any]:
+        quantity = order_data.get("quantity", 0) if order_data else 0
+
+        # REGLA: Si la cantidad a fabricar es 5 o menos se programa la tarea en pesado
+        if quantity > 5:
+            return {
+                "success": False,
+                "reason": f"Cantidad ({quantity}) > 5. Regla de Pesado: Solo se programan tareas con cantidad <= 5.",
+                "rule_applied": "pesado_qty_limit_exceeded"
+            }
+
         team_info = TeamSelectionService.get_weighing_team(db)
         
         if team_info.get("success"):
