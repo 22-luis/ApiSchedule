@@ -76,14 +76,14 @@ class PackagingRule(BaseAutomationRule):
         # 2. M5 (Empaque Industrial)
         if activity_type == "M5":
             # Cantidad > 1000 -> MAQUINA 1 (o MAQUINA 2)
-            if quantity > 1000:
+            if quantity >= 600:
                 maquina1_team = teams_by_type.get("maquina1")
                 if maquina1_team:
                     return self.response(
                         maquina1_team.id,
                         maquina1_team.name,
                         "maquina1",
-                        "Actividad M5 (>1000) -> Asignado a MAQUINA 1.",
+                        "Actividad M5 (>600) -> Asignado a MAQUINA 1.",
                         "m5_high_maquina1"
                     )
                 # Desborde a MAQUINA 2
@@ -93,7 +93,7 @@ class PackagingRule(BaseAutomationRule):
                         maquina2_team.id,
                         maquina2_team.name,
                         "maquina2",
-                        "Actividad M5 (>1000 Desborde) -> Asignado a MAQUINA 2.",
+                        "Actividad M5 (>=600 Desborde) -> Asignado a MAQUINA 2.",
                         "m5_high_maquina2_overflow"
                     )
             
@@ -121,15 +121,15 @@ class PackagingRule(BaseAutomationRule):
                     )
 
         # 3. M4 / M2 (Volumen Alto): Si Cantidad > 800 -> EMPAQUE 2
-        if activity_type in ["M4", "M2"] and quantity > 800:
+        if activity_type in ["M4", "M2"] and quantity < 800:
             empaque2_team = teams_by_type.get("empaque2")
             if empaque2_team:
                 return self.response(
                     empaque2_team.id,
                     empaque2_team.name,
                     "empaque2",
-                    f"Actividad {activity_type} (>800) -> Asignado a EMPAQUE 2.",
-                    f"{activity_type.lower()}_high_empaque2"
+                    f"Actividad {activity_type} (<800) -> Asignado a EMPAQUE 2.",
+                    f"{activity_type.lower()}_low_empaque2"
                 )
 
         # --- C. REGLA "RESTO" (POR DEFECTO) ---
