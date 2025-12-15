@@ -5,7 +5,7 @@ Hereda de BaseTaskService para reutilizar funcionalidad común.
 
 from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
-from datetime import date, time, datetime
+from datetime import date, time, datetime, timedelta
 import logging
 import math
 
@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 from app.modules.automation.services.base_task_service import BaseTaskService
 from app.modules.automation.services.config import ServiceType, ServiceConfig
 from app.modules.automation.rules.Manufactured import ManufacturedRule
+from app.modules.automation.services.utils.auto_create_programming import create_programming_if_not_exists
 
 
 class FabricationTaskService(BaseTaskService):
@@ -261,30 +262,24 @@ class FabricationTaskService(BaseTaskService):
                          })
                          continue
                 # --- DUPLICATE CHECK END ---
-                team_selection = self.get_most_suitable_team(db, order_data, activity_type)
+                # --- CANDIDATE SELECTION & OVERFLOW LOGIC ---
+                candidates = self.manufactured_rule.get_candidate_teams(db, order_data, activity_type)
                 
-                if not team_selection.get("success"):
+                if not candidates:
                     failed_orders.append({
                         "order_data": order_data,
-                        "reason": f"No se pudo asignar equipo para actividad: {activity_name}"
+                        "reason": f"No se encontraron equipos candidatos para: {activity_name}"
                     })
                     continue
                 
-                selected_team = team_selection.get("selected_team")
-                team_id = selected_team.get("id")
-                
                 # Determinar la fecha de inicio para la búsqueda de programación
                 start_date_candidate = weighing_end_dates.get(lote)
-                # Usar la fecha del pesado solo si es futura; en otro caso preferir hoy
                 if start_date_candidate and isinstance(start_date_candidate, date) and start_date_candidate > date.today():
                     start_date = start_date_candidate
                 else:
                     start_date = date.today()
                 logger.debug(f"Fabrication: lote={lote} start_date_candidate={start_date_candidate} -> start_date_used={start_date}")
 
-                # Obtener programaciones disponibles para el equipo seleccionado
-                available_programmings = self.get_available_programmings_for_team(team_id, db, start_date=start_date)
-                
                 # Calcular minutos de la tarea
                 task_minutes = activity_with_minutes.get("minutes_calculation", {}).get("calculated_minutes", 0)
                 activity_details = activity_with_minutes.get("activity_data", {})
@@ -295,95 +290,64 @@ class FabricationTaskService(BaseTaskService):
                         "reason": "Los minutos calculados no son válidos"
                     })
                     continue
-                
-                # Bucle para intentar programar, creando nuevos días si es necesario
-                task_created = False
-                attempts = 0
-                max_attempts = 7  # Intentar hasta una semana hacia adelante
-                last_fail_reason = "Desconocido"
-                
-                while not task_created and attempts < max_attempts:
-                    # Verificar si tenemos programaciones disponibles
-                    if not available_programmings:
-                        logger.info(f"No programmings found for team {selected_team.get('name')}. Attempting to create one.")
-                        # Si no hay ninguna, crear para start_date
-                        creation_result = create_programming_if_not_exists(db, team_id, start_date)
-                        if creation_result.get("success") and creation_result.get("programming"):
-                             p = creation_result.get("programming")
-                             available_programmings.append({
-                                "id": str(p.id),
-                                "date": p.date.isoformat() if isinstance(p.date, date) else p.date,
-                                "status": p.status,
-                                "team_id": str(p.team_id)
-                             })
-                             logger.info(f"Successfully created programming for team {selected_team.get('name')} on {start_date}")
-                        else:
-                            last_fail_reason = f"No se pudo crear programación inicial: {creation_result.get('message')}"
-                            # Si falla la inicial, probablemente no podamos hacer nada más
-                            break
-                    
-                    # Verificar la lista actual de programaciones
-                    time_verification = self.verify_programming_time_limit(
-                        available_programmings, task_minutes, db, order_data, activity_details
-                    )
-                    
-                    if time_verification.get("success") and time_verification.get("order_task_created"):
-                        created_tasks.append({
-                            "order_data": order_data,
-                            "selected_programming": time_verification.get("selected_programming"),
-                            "order_task": time_verification.get("order_task_created"),
-                            "team_selection": team_selection
-                        })
-                        task_created = True
-                    else:
-                        # Si falló, verificar si fue por falta de programación disponible
-                        last_fail_reason = time_verification.get("message", "Error desconocido")
-                        
-                        # Estrategia: Buscar la última fecha en las programaciones disponibles y crear para el día siguiente
-                        # Convertir fechas a objetos date para encontrar la máxima
-                        found_dates = []
-                        for p in available_programmings:
-                            d_val = p.get("date")
-                            if isinstance(d_val, str):
-                                try:
-                                    d_val = date.fromisoformat(d_val)
-                                except:
-                                    continue
-                            if isinstance(d_val, date):
-                                found_dates.append(d_val)
-                        
-                        if found_dates:
-                            last_date = max(found_dates)
-                        else:
-                            last_date = start_date
 
-                        next_date = last_date + timedelta(days=1)
-                        # Saltar domingo
-                        if next_date.weekday() == 6:
-                            next_date += timedelta(days=1)
-                        
-                        logger.info(f"Capacity full for {last_date}. Trying to create schedule for next day: {next_date}")
-                        
-                        creation_result = create_programming_if_not_exists(db, team_id, next_date)
-                        if creation_result.get("success") and creation_result.get("programming"):
-                             p = creation_result.get("programming")
-                             available_programmings.append({
-                                "id": str(p.id),
-                                "date": p.date.isoformat() if isinstance(p.date, date) else p.date,
-                                "status": p.status,
-                                "team_id": str(p.team_id)
-                             })
-                        else:
-                            last_fail_reason = f"No se pudo extender la programación a {next_date}: {creation_result.get('message')}"
-                            # Si no podemos crear más días, detenemos el intento
-                            break
+                task_created = False
+                days_checked = 0
+                max_days = 7
+                current_date = start_date
+                last_fail_reason = "Desconocido"
+
+                while not task_created and days_checked < max_days:
                     
-                    attempts += 1
+                    # Try candidates in order for the current date
+                    for candidate in candidates:
+                         team_id = candidate.get("id")
+                         team_name = candidate.get("name")
+                         
+                         # Ensure programming exists for this team on current_date
+                         creation_result = create_programming_if_not_exists(db, team_id, current_date)
+                         if not creation_result.get("success"):
+                             continue
+                             
+                         prog = creation_result.get("programming")
+                         
+                         # Check capacity
+                         prog_list = [{
+                            "id": str(prog.id),
+                            "date": prog.date.isoformat() if isinstance(prog.date, date) else prog.date,
+                            "status": prog.status,
+                            "team_id": str(prog.team_id)
+                         }]
+                         
+                         time_verification = self.verify_programming_time_limit(
+                             prog_list, task_minutes, db, order_data, activity_details
+                         )
+                         
+                         if time_verification.get("success") and time_verification.get("order_task_created"):
+                              created_tasks.append({
+                                  "order_data": order_data,
+                                  "selected_programming": time_verification.get("selected_programming"),
+                                  "order_task": time_verification.get("order_task_created"),
+                                  "team_selection": {"selected_team": candidate}
+                              })
+                              logger.info(f"Task created for order {lote} in team {team_name} on {current_date}")
+                              task_created = True
+                              break # Break candidate loop
+                    
+                    if task_created:
+                         break # Break date loop
+                    
+                    # Move to next valid day
+                    last_fail_reason = f"Full capacity on {current_date} for all candidates."
+                    current_date += timedelta(days=1)
+                    if current_date.weekday() == 6: # Skip Sunday
+                         current_date += timedelta(days=1)
+                    days_checked += 1
                 
                 if not task_created:
                     failed_orders.append({
                         "order_data": order_data,
-                        "reason": last_fail_reason
+                        "reason": f"No se pudo programar después de verificar {max_days} días. Último error: {last_fail_reason}"
                     })
             
             return {

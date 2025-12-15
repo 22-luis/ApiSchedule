@@ -30,8 +30,8 @@ class WeighingTaskService(BaseTaskService):
     def filter_activities(self, activities_data: Dict[str, Any]) -> Dict[str, Any]:
         return self.weighing_rule.filter_activities(activities_data)
     
-    def get_most_suitable_team(self, db: Session) -> Dict[str, Any]:
-        return self.weighing_rule.get_most_suitable_team(db)
+    def get_most_suitable_team(self, db: Session, order_data: Dict = None, activity_type: Optional[str] = None) -> Dict[str, Any]:
+        return self.weighing_rule.get_most_suitable_team(db, order_data=order_data, activity_type=activity_type)
     
     def get_activity_for_order(self, order_data: Dict, activities_data: Dict) -> Optional[Dict]:
         return self.weighing_rule.get_activity_for_order(order_data, activities_data)

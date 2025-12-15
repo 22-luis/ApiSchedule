@@ -5,7 +5,7 @@ Hereda de BaseTaskService para reutilizar funcionalidad común.
 
 from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
-from datetime import date, time, datetime
+from datetime import date, time, datetime, timedelta
 import logging
 import math
 
@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 from app.modules.automation.services.base_task_service import BaseTaskService
 from app.modules.automation.services.config import ServiceType, ServiceConfig
 from app.modules.automation.rules.packaging import PackagingRule
+from app.modules.automation.services.utils.auto_create_programming import create_programming_if_not_exists
 
 
 class PackagingTaskService(BaseTaskService):
@@ -30,8 +31,8 @@ class PackagingTaskService(BaseTaskService):
     def filter_activities(self, activities_data: Dict[str, Any]) -> Dict[str, Any]:
         return self.packaging_rule.filter_activities(activities_data)
     
-    def get_most_suitable_team(self, db: Session) -> Dict[str, Any]:
-        return self.packaging_rule.get_most_suitable_team(db)
+    def get_most_suitable_team(self, db: Session, order_data: Dict = None, activity_type: Optional[str] = None) -> Dict[str, Any]:
+        return self.packaging_rule.get_most_suitable_team(db, order_data=order_data, activity_type=activity_type)
     
     def get_activity_for_order(self, order_data: Dict, activities_data: Dict) -> Optional[Dict]:
         return self.packaging_rule.get_activity_for_order(order_data, activities_data)
@@ -157,6 +158,7 @@ class PackagingTaskService(BaseTaskService):
         Función principal que maneja todo el proceso de creación de tareas de empaque.
         """
         try:
+            logger = logging.getLogger(__name__)
 
 
             fabrication_end_dates = {}
@@ -280,22 +282,13 @@ class PackagingTaskService(BaseTaskService):
                     failed_orders.append({"order_data": order_data, "reason": "Minutos calculados no válidos."})
                     continue
 
-                # CORREGIDO: Usar get_most_suitable_team con order_data y activity_type
-                # para aplicar las nuevas reglas basadas en cantidad
-                team_selection = self.packaging_rule.get_most_suitable_team(
-                    db,
-                    order_data=order_data,
-                    activity_type=activity_type
-                )
-
-                if not team_selection.get("success"):
-                    # TeamSelectionService returns 'reason' (and sometimes 'message'), use either
-                    failed_orders.append({"order_data": order_data, "reason": team_selection.get("reason") or team_selection.get("message")})
+                # --- CANDIDATE SELECTION & OVERFLOW LOGIC ---
+                candidates = self.packaging_rule.get_candidate_teams(db, order_data, activity_type)
+                
+                if not candidates:
+                    failed_orders.append({"order_data": order_data, "reason": "No se encontraron equipos candidatos."})
                     continue
 
-                # TeamSelectionService returns the chosen team under the key 'selected_team'
-                selected_team = team_selection.get("selected_team") or team_selection.get("team") or {}
-                team_id = selected_team.get("id")
                 start_date_candidate = fabrication_end_dates.get(lote)
                 if start_date_candidate and isinstance(start_date_candidate, date) and start_date_candidate > date.today():
                     start_date = start_date_candidate
@@ -303,24 +296,56 @@ class PackagingTaskService(BaseTaskService):
                     start_date = date.today()
                 logger.debug(f"Packaging: lote={lote} start_date_candidate={start_date_candidate} -> start_date_used={start_date}")
 
-                available_programmings = self.get_available_programmings_for_team(team_id, db, start_date=start_date)
+                task_created = False
+                days_checked = 0
+                max_days = 7
+                current_date = start_date
+                last_fail_reason = "Desconocido"
 
-                if not available_programmings:
-                    failed_orders.append({"order_data": order_data, "reason": f"No hay programaciones disponibles para el equipo {team_id}."})
-                    continue
-
-                time_verification = self.verify_programming_time_limit(
-                    available_programmings, task_minutes, db, order_data, activity_details
-                )
-
-                if time_verification.get("success"):
-                    created_tasks.append({
-                        "order_data": order_data,
-                        "selected_programming": time_verification.get("selected_programming"),
-                        "order_task": time_verification.get("order_task_created")
-                    })
-                else:
-                    failed_orders.append({"order_data": order_data, "reason": time_verification.get("message")})
+                while not task_created and days_checked < max_days:
+                    
+                    for candidate in candidates:
+                         team_id = candidate.get("id")
+                         team_name = candidate.get("name")
+                         
+                         creation_result = create_programming_if_not_exists(db, team_id, current_date)
+                         if not creation_result.get("success"):
+                             continue
+                             
+                         prog = creation_result.get("programming")
+                         
+                         prog_list = [{
+                            "id": str(prog.id),
+                            "date": prog.date.isoformat() if isinstance(prog.date, date) else prog.date,
+                            "status": prog.status,
+                            "team_id": str(prog.team_id)
+                         }]
+                         
+                         time_verification = self.verify_programming_time_limit(
+                             prog_list, task_minutes, db, order_data, activity_details
+                         )
+                         
+                         if time_verification.get("success") and time_verification.get("order_task_created"):
+                              created_tasks.append({
+                                  "order_data": order_data,
+                                  "selected_programming": time_verification.get("selected_programming"),
+                                  "order_task": time_verification.get("order_task_created")
+                              })
+                              logger.info(f"Task created for order {lote} in team {team_name} on {current_date}")
+                              task_created = True
+                              break 
+                    
+                    if task_created:
+                         break 
+                    
+                    last_fail_reason = f"Full capacity on {current_date}."
+                    current_date += timedelta(days=1)
+                    if current_date.weekday() == 6: 
+                         current_date += timedelta(days=1)
+                    days_checked += 1
+                
+                if not task_created:
+                    failed_orders.append({"order_data": order_data, "reason": f"No se pudo programar despues de {max_days} dias. {last_fail_reason}"})
 
             return {
                 "success": True,

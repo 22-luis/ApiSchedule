@@ -281,3 +281,107 @@ class ManufacturedRule(BaseAutomationRule):
             "reason": "No se encontró ningún equipo de fabricación disponible.",
             "rule_applied": "no_teams_available"
         }
+
+    def get_candidate_teams(self, db: Session, order_data: Dict, activity_type: Optional[str] = None) -> List[Dict[str, Any]]:
+        """
+        Devuelve una lista de equipos candidatos en orden de prioridad para la asignación.
+        El servicio debe iterar sobre esta lista y verificar disponibilidad/capacidad.
+        """
+        candidates = []
+        code = order_data.get("code", "")
+        quantity = order_data.get("quantity", 0)
+        
+        # Obtener todos los equipos
+        teams_data = TeamSelectionService.get_fabrication_teams(db)
+        teams_by_type = teams_data.get("teams_by_type", {})
+        
+        # Helper para agregar candidato de forma estandarizada
+        def add_candidate(team, rule_name, reason):
+            if team:
+                candidates.append({
+                    "id": team.id,
+                    "name": team.name,
+                    "priority_rule": rule_name,
+                    "reason": reason,
+                    "team_obj": team # Útil si el servicio necesita el objeto completo
+                })
+
+        # --- 1. REGLA ESPECIAL: Cantidad <= 5 -> PESADO ---
+        if quantity <= 5:
+            weighing_team_info = TeamSelectionService.get_weighing_team(db)
+            if weighing_team_info.get("success"):
+                weighing_team = weighing_team_info.get("most_suitable_team")
+                # Construir el objeto candidato manualmente para pesado ya que viene de otro helper
+                candidates.append({
+                    "id": weighing_team["id"],
+                    "name": weighing_team["name"],
+                    "priority_rule": "fabrication_qty_le_5_pesado",
+                    "reason": f"Cantidad ({quantity}) <= 5. Asignado a PESADO."
+                })
+                return candidates # Retornar inmediatamente, regla exclusiva
+
+        # --- 2. REGLAS POR CÓDIGO Y CANTIDAD ---
+        
+        # BX/BE < 13 -> FABRICADO 3
+        if (code.startswith("BX") or code.startswith("BE")) and quantity < 13:
+            add_candidate(teams_by_type.get("fabricado3"), "fabricado3_bx_be_lt_13", f"Código {code[:2]} < 13")
+            return candidates
+
+        # BX > 13 -> FABRICADO 1, luego FABRICADO 2
+        if code.startswith("BX") and quantity > 13:
+            add_candidate(teams_by_type.get("fabricado1"), "fabricado1_bx_gt_13", f"Código BX > 13 (Prioridad 1)")
+            add_candidate(teams_by_type.get("fabricado2"), "fabricado2_bx_gt_13_overflow", f"Código BX > 13 (Prioridad 2 - Desborde)")
+            return candidates
+
+        # --- 3. REGLAS POR TIPO DE ACTIVIDAD ---
+
+        # Líquidos -> FABRICADO 3
+        description = order_data.get("description", "").upper()
+        unit = order_data.get("unit", "").upper()
+        liquid_keywords = ["JARABE", "ESEM", "ESENCIA", "DESINFECTANTE SOLUCION", "LIQUIDO"]
+        is_liquid = any(k in description for k in liquid_keywords) or unit in ["GL", "LT"]
+
+        if activity_type == "M13" or is_liquid:
+            add_candidate(teams_by_type.get("fabricado3"), "fabricado3_liquids", "Actividad M13 o Líquido")
+            return candidates
+
+        # M12 (Gran Volumen) -> FABRICADO 1, luego FABRICADO 2
+        if activity_type == "M12":
+            add_candidate(teams_by_type.get("fabricado1"), "fabricado1_m12", "Actividad M12 (Prioridad 1)")
+            add_candidate(teams_by_type.get("fabricado2"), "fabricado2_m12_overflow", "Actividad M12 (Prioridad 2 - Desborde)")
+            return candidates
+
+        # M11 / M15 -> FABRICADO 1, luego FABRICADO 2
+        if activity_type in ["M11", "M15"]:
+            add_candidate(teams_by_type.get("fabricado1"), "fabricado1_m11_m15", f"Actividad {activity_type} (Prioridad 1)")
+            add_candidate(teams_by_type.get("fabricado2"), "fabricado2_m11_m15_overflow", f"Actividad {activity_type} (Prioridad 2 - Desborde)")
+            return candidates
+
+        # M5 (Empaque Automático) - Especialistas
+        if activity_type == "M5":
+            if code == "PTX1042" or code == "FX185-4":
+                add_candidate(teams_by_type.get("fabricado2"), "fabricado2_m5_specialist", f"Código {code} (Especialista M5)")
+                return candidates # Específico
+            
+            if code.startswith("FX"):
+                add_candidate(teams_by_type.get("fabricado1"), "fabricado1_m5_fx", "Serie FX (Especialista M5)")
+                return candidates # Específico
+
+        # M4 (Empaque Semi Aut.) -> MAQUINA 1, luego MAQUINA 2
+        if activity_type == "M4":
+            add_candidate(teams_by_type.get("maquina1"), "maquina1_m4", "Actividad M4 (Prioridad 1)")
+            add_candidate(teams_by_type.get("maquina2"), "maquina2_m4", "Actividad M4 (Prioridad 2)")
+            return candidates
+
+        # M9 / M10 (Molino) -> MOLINO
+        if activity_type in ["M10", "M9"]:
+            add_candidate(teams_by_type.get("molino"), "molino_m9_m10", f"Actividad {activity_type}")
+            return candidates
+
+        # --- 4. FALLBACK GENERAL ---
+        # Si no coincidió ninguna regla específica, devolvemos orden estándar: Fab1 -> Fab2 -> Fab3
+        add_candidate(teams_by_type.get("fabricado1"), "fallback_fabricado1", "Fallback General (Prioridad 1)")
+        add_candidate(teams_by_type.get("fabricado2"), "fallback_fabricado2", "Fallback General (Prioridad 2)")
+        add_candidate(teams_by_type.get("fabricado3"), "fallback_fabricado3", "Fallback General (Prioridad 3)")
+        
+        return candidates

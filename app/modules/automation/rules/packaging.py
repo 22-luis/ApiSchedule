@@ -213,3 +213,64 @@ class PackagingRule(BaseAutomationRule):
         return TeamSelectionService.get_specific_packaging_team_for_activity(
             activity_name, activity_description, teams_data
         )
+
+    def get_candidate_teams(self, db: Session, order_data: Dict, activity_type: Optional[str] = None) -> List[Dict[str, Any]]:
+        """
+        Devuelve una lista de equipos candidatos en orden de prioridad para la asignación de empaque.
+        """
+        candidates = []
+        code = order_data.get("code", "") if order_data else ""
+        quantity = order_data.get("quantity", 0) if order_data else 0
+        
+        # Obtener todos los equipos disponibles
+        packaging_teams = TeamSelectionService.get_packaging_teams(db)
+        fabrication_teams = TeamSelectionService.get_fabrication_teams(db)
+        
+        teams_by_type = packaging_teams.get("teams_by_type", {})
+        fab_teams_by_type = fabrication_teams.get("teams_by_type", {})
+        
+        def add_candidate(team, rule_name, reason):
+            if team:
+                candidates.append({
+                    "id": team.id,
+                    "name": team.name,
+                    "priority_rule": rule_name,
+                    "reason": reason,
+                    "team_obj": team
+                })
+
+        # --- REGLAS PRINCIPALES ---
+
+        # 1. M1 -> FABRICADO 3
+        if activity_type == "M1":
+            add_candidate(fab_teams_by_type.get("fabricado3"), "m1_fabricado3", "Actividad M1")
+            return candidates
+
+        # 2. M5
+        if activity_type == "M5":
+            if quantity >= 600:
+                add_candidate(teams_by_type.get("maquina1"), "m5_high_maquina1", "Actividad M5 >= 600 (Prioridad 1)")
+                add_candidate(teams_by_type.get("maquina2"), "m5_high_maquina2_overflow", "Actividad M5 >= 600 (Prioridad 2 - Desborde)")
+                return candidates
+            
+            if quantity <= 300:
+                add_candidate(teams_by_type.get("empaque1"), "m5_low_empaque1", "Actividad M5 <= 300 (Prioridad 1)")
+                add_candidate(teams_by_type.get("empaque3") or self._find_team_by_name(teams_by_type, "EMPAQUE 3"), "m5_low_empaque3", "Actividad M5 <= 300 (Prioridad 2 - Desborde)")
+                return candidates
+
+        # 3. M4 / M2 (< 800) -> EMPAQUE 2
+        if activity_type in ["M4", "M2"] and quantity < 800:
+            add_candidate(teams_by_type.get("empaque2"), f"{activity_type.lower()}_low_empaque2", f"Actividad {activity_type} < 800")
+            # Podríamos agregar desborde a Empaque 1 si Empaque 2 se llena?
+            # Regla original no lo menciona explícitamente, pero el usuario quiere desbordes.
+            # Agregamos Empaque 1 como backup lógico.
+            add_candidate(teams_by_type.get("empaque1"), "overflow_empaque1", "Desborde a Empaque 1")
+            return candidates
+
+        # --- RESTO / DEFAULT ---
+        # "Resto" -> Empaque 1. Agregamos desbordes a Empaque 3 y Maquina 1 como fallbacks.
+        add_candidate(teams_by_type.get("empaque1"), "rest_empaque1", "Resto/Default (Prioridad 1)")
+        add_candidate(teams_by_type.get("empaque3") or self._find_team_by_name(teams_by_type, "EMPAQUE 3"), "fallback_empaque3", "Resto/Default (Prioridad 2 - Desborde)")
+        add_candidate(teams_by_type.get("maquina1"), "fallback_maquina1", "Resto/Default (Prioridad 3 - Desborde)")
+        
+        return candidates
