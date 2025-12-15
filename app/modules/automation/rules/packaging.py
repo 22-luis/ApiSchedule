@@ -1,5 +1,6 @@
 from typing import Dict, Any, Optional, Set, List
 from sqlalchemy.orm import Session
+import datetime
 
 from app.modules.automation.services.utils.team_selection_service import TeamSelectionService
 from app.shared.core.enums import PackagingActivities
@@ -18,11 +19,13 @@ class PackagingRule(BaseAutomationRule):
 
     @property
     def excluded_types(self) -> Set[str]:
-        return {"M9", "M10", "M11", "M12", "M13", "M15"}
+        # Excluimos M9, M10, M11. 
+        # M12, M13, M15 se agregaron a permitidos segun requerimiento "Resto".
+        return {"M9", "M10", "M11"}
 
     @property
     def allowed_types(self) -> Set[str]:
-        return {"M1", "M2", "M3", "M4", "M5"}
+        return {"M1", "M2", "M3", "M4", "M5", "M12", "M13", "M15"}
 
     @property
     def priority_keywords_groups(self) -> List[List[str]]:
@@ -34,13 +37,21 @@ class PackagingRule(BaseAutomationRule):
             [PackagingActivities.EMP_MEZCLA.value]
         ]
 
-
+    def _log_debug(self, message: str):
+        try:
+            with open("debug_rules.log", "a") as f:
+                timestamp = datetime.datetime.now().isoformat()
+                f.write(f"[{timestamp}] {message}\n")
+        except:
+            pass
 
     def get_most_suitable_team(self, db: Session, order_data: Dict = None, activity_type: Optional[str] = None) -> Dict[str, Any]:
     
         code = order_data.get("code", "") if order_data else ""
         quantity = order_data.get("quantity", 0) if order_data else 0
         
+        self._log_debug(f"Input: Type={activity_type}, Qty={quantity}, Code={code}")
+
         # Obtener todos los equipos disponibles
         packaging_teams = TeamSelectionService.get_packaging_teams(db)
         fabrication_teams = TeamSelectionService.get_fabrication_teams(db)
@@ -48,12 +59,10 @@ class PackagingRule(BaseAutomationRule):
         teams_by_type = packaging_teams.get("teams_by_type", {})
         fab_teams_by_type = fabrication_teams.get("teams_by_type", {})
         
-        # REGLA MOLINO: M9, M3, M2 (Family) -> Delegate to Manufactured rule check or handle here if passed?
-        # The prompt for Packaging mentions Empaque 1-3, Maquina 1-2.
-        # But Filter was updated to allow M3, M2, etc. in Manufactured.
-        # If this method is called, it means we are checking Packaging rules specifically.
-        # However, M3 (Bolsa) was explicitly assigned to Molino in the previous prompt step.
-        # We should keep consistency. If M3 arrives here, send to Molino.
+        self._log_debug(f"Available Packaging Teams Keys: {list(teams_by_type.keys())}")
+
+        # --- REGLAS ESPECIALES HISTÓRICAS ---
+        # Si M3 (Bolsa) sigue yendo a Molino, lo conservamos.
         if activity_type == "M3":
             molino_team = fab_teams_by_type.get("molino")
             if molino_team:
@@ -61,176 +70,115 @@ class PackagingRule(BaseAutomationRule):
                     molino_team.id,
                     molino_team.name,
                     "molino",
-                    "Actividad M3 (Bolsa). Asignado a MOLINO (Regla Global).",
+                    "Actividad M3 (Bolsa). Asignado a MOLINO.",
                     "molino_m3_global"
                 )
 
-        # REGLA 1: M4 (Empaque Semi Automático) -> EMPAQUE 2 (Líder)
-        if activity_type == "M4":
-            empaque2_team = teams_by_type.get("empaque2")
-            # TODO: Check capacity for overflow to FAB 3 or MAQUINA 1
-            # Assuming Empaque 2 is available for now as primary loop
-            if empaque2_team:
+        # --- NUEVAS REGLAS DE FILTRADO ---
+
+        # 1. Filtro M1: Si es M1 -> EMPAQUE 4.
+        if activity_type == "M1":
+            empaque4_team = teams_by_type.get("empaque4")
+            if empaque4_team:
                 return self.response(
-                    empaque2_team.id,
-                    empaque2_team.name,
-                    "empaque2",
-                    "Actividad M4 (Semi Automático). Asignado a EMPAQUE 2.",
-                    "empaque2_m4"
+                    empaque4_team.id,
+                    empaque4_team.name,
+                    "empaque4",
+                    "Actividad M1 -> Asignado a EMPAQUE 4.",
+                    "m1_empaque4"
                 )
-            
-            # Desborde M4 -> FABRICADO 3 o MAQUINA 1
-            # Prioridad Desborde: MAQUINA 1 (Microlotes Semis) o FAB 3?
-            # "Los desbordes de M4 se envían a FABRICADO 3 o MAQUINA 1 (si es un microlote M4)"
-            # Asumiremos MAQUINA 1 si microlote (digamos < 100?), sino FAB 3?
-            # Simplificación: Intentar MAQUINA 1 luego FABRICADO 3
-            maquina1_team = teams_by_type.get("maquina1")
-            if maquina1_team:
-                 return self.response(
-                    maquina1_team.id,
-                    maquina1_team.name,
-                    "maquina1",
-                    "Actividad M4 (Desborde). Asignado a MAQUINA 1.",
-                    "maquina1_m4_overflow"
-                )
-            
-            fabricado3_team = fab_teams_by_type.get("fabricado3")
-            if fabricado3_team:
-                 return self.response(
-                    fabricado3_team.id,
-                    fabricado3_team.name,
-                    "fabricado3",
-                    "Actividad M4 (Desborde). Asignado a FABRICADO 3.",
-                    "fabricado3_m4_overflow"
-                )
-        
-        # REGLA 2: M5 (Empaque Automático)
+
+        # 2. Filtro M5 (Industrial): Si es M5 y > 1000 -> MAQUINA 1 (o 2 por desborde).
         if activity_type == "M5":
-            # Especialista MAQUINA 2: F1852
-            if code == "F1852":
+            if quantity > 1000:
+                maquina1_team = teams_by_type.get("maquina1")
+                if maquina1_team:
+                    return self.response(
+                        maquina1_team.id,
+                        maquina1_team.name,
+                        "maquina1",
+                        "Actividad M5 (>1000) -> Asignado a MAQUINA 1.",
+                        "m5_high_maquina1"
+                    )
+                # Desborde a MAQUINA 2
                 maquina2_team = teams_by_type.get("maquina2")
                 if maquina2_team:
                     return self.response(
                         maquina2_team.id,
                         maquina2_team.name,
                         "maquina2",
-                        "Actividad M5 (F1852). Asignado a MAQUINA 2.",
-                        "maquina2_m5_f1852"
+                        "Actividad M5 (>1000 Desborde) -> Asignado a MAQUINA 2.",
+                        "m5_high_maquina2_overflow"
                     )
-            
-            # Especialista MAQUINA 1 (Desborde/Apoyo)
-            # Pero MAQUINA 2 es el "Líder Absoluto" y "Asignación primaria para el grueso de M5".
-            # Intentar MAQUINA 2 primero para el grueso
-            maquina2_team = teams_by_type.get("maquina2")
-            if maquina2_team:
-                return self.response(
-                    maquina2_team.id,
-                    maquina2_team.name,
-                    "maquina2",
-                    "Actividad M5 (Empaque Automático). Asignado a MAQUINA 2 (Líder).",
-                    "maquina2_m5_leader"
-                )
-            
-            # Desborde a MAQUINA 1
-            maquina1_team = teams_by_type.get("maquina1")
-            if maquina1_team:
-                return self.response(
-                    maquina1_team.id,
-                    maquina1_team.name,
-                    "maquina1",
-                    "Actividad M5 (Desborde). Asignado a MAQUINA 1.",
-                    "maquina1_m5_overflow"
-                )
+            # Si es M5 <= 1000, cae al RESTO -> EMPAQUE 1
 
-        # REGLA 3: M2 (Microlotes)
+        # 3. Filtro Volumen Alto (M4/M2): Si la cantidad > 800 -> EMPAQUE 2.
+        if activity_type in ["M4", "M2"]:
+            if quantity > 800:
+                empaque2_team = teams_by_type.get("empaque2")
+                if empaque2_team:
+                    return self.response(
+                        empaque2_team.id,
+                        empaque2_team.name,
+                        "empaque2",
+                        f"Actividad {activity_type} (>800) -> Asignado a EMPAQUE 2.",
+                        f"{activity_type.lower()}_high_empaque2"
+                    )
+
+        # 4. Filtro Volumen Medio (M2): Si es M2 y está entre 200 y 800 -> EMPAQUE 3.
         if activity_type == "M2":
-            # EMPAQUE 3: Especialista AX..., PMX...
-            if code.startswith("AX") or code.startswith("PMX"):
+            if 200 <= quantity <= 800:
+                self._log_debug("Matching M2 Medium Volume Rule (200-800)")
                 empaque3_team = teams_by_type.get("empaque3")
+                
+                # Robust search if key missing but team exists
+                if not empaque3_team:
+                    for t in teams_by_type.values():
+                        if "EMPAQUE 3" in t.name.upper():
+                            empaque3_team = t
+                            break
+                
                 if empaque3_team:
-                     return self.response(
+                    self._log_debug(f"Assigned to {empaque3_team.name}")
+                    return self.response(
                         empaque3_team.id,
                         empaque3_team.name,
                         "empaque3",
-                        f"Actividad M2 (Serie {code[:2]}). Asignado a EMPAQUE 3.",
-                        "empaque3_m2_specialist"
+                        "Actividad M2 (200-800) -> Asignado a EMPAQUE 3.",
+                        "m2_med_empaque3"
                     )
-            
-            # MAQUINA 1: Absorbe AX... y F...
-            # Si AX falló en Empaque 3 (o si consideramos MQ1 como alternativo),
-            # Y también series F...
-            if code.startswith("F") or code.startswith("AX"):
-                maquina1_team = teams_by_type.get("maquina1")
-                if maquina1_team:
-                      return self.response(
-                        maquina1_team.id,
-                        maquina1_team.name,
-                        "maquina1",
-                        f"Actividad M2 (Serie {code[:2]}). Asignado a MAQUINA 1.",
-                        "maquina1_m2_specialist"
-                    )
+                else:
+                    self._log_debug("Empaque 3 team NOT FOUND.")
 
-            # EMPAQUE 1: Líder Absoluto M2 (Default)
-            empaque1_team = teams_by_type.get("empaque1")
-            if empaque1_team:
-                return self.response(
-                    empaque1_team.id,
-                    empaque1_team.name,
-                    "empaque1",
-                    "Actividad M2 (Microlotes). Asignado a EMPAQUE 1 (Líder).",
-                    "empaque1_m2_leader"
-                )
-
-            # EMPAQUE 3: Soporte Desborde
-            empaque3_team = teams_by_type.get("empaque3")
-            if empaque3_team:
-                return self.response(
-                    empaque3_team.id,
-                    empaque3_team.name,
-                    "empaque3",
-                    "Actividad M2 (Desborde). Asignado a EMPAQUE 3.",
-                    "empaque3_m2_overflow"
-                )
-
-        # REGLA 4: M15 -> EMPAQUE 3 (Soporte M15 bajo volumen)
-        if activity_type == "M15":
-            empaque3_team = teams_by_type.get("empaque3")
-            if empaque3_team:
-                return self.response(
-                    empaque3_team.id,
-                    empaque3_team.name,
-                    "empaque3",
-                    "Actividad M15. Asignado a EMPAQUE 3.",
-                    "empaque3_m15"
-                )
-
-        # FALLBACKS
-        
-        # Priority Fallback: EMPAQUE 1 -> EMPAQUE 3 -> MAQUINA 1
+        # 5. Resto: Todo lo demás (lotes pequeños, M13, M12, M5 pequeños) -> EMPAQUE 1.
+        # Esto incluye M2 < 200, M4 <= 800, M5 <= 1000, M12, M13, M15, etc.
         empaque1_team = teams_by_type.get("empaque1")
         if empaque1_team:
+            self._log_debug("Assigned to Empaque 1 (Resto)")
             return self.response(
                 empaque1_team.id,
                 empaque1_team.name,
                 "empaque1",
-                "Fallback: Asignado a EMPAQUE 1 por defecto.",
-                "fallback_empaque1"
+                f"Resto ({activity_type}, Q={quantity}) -> Asignado a EMPAQUE 1.",
+                "rest_empaque1"
             )
-        
-        # Último fallback: cualquier equipo disponible
-        for team_type, team in teams_by_type.items():
-            if team:
-                return self.response(
-                    team.id,
-                    team.name,
-                    team_type,
-                    f"Fallback: Asignado a {team.name} por defecto.",
-                    f"fallback_{team_type}"
+
+        # FALLBACKS si los equipos destino no existen
+        self._log_debug("Fallback triggered")
+        for fallback_team_type in ["empaque3", "maquina1"]:
+            fallback_team = teams_by_type.get(fallback_team_type)
+            if fallback_team:
+                 return self.response(
+                    fallback_team.id,
+                    fallback_team.name,
+                    fallback_team_type,
+                    f"Fallback General ({activity_type}) -> Asignado a {fallback_team.name}.",
+                    f"fallback_{fallback_team_type}"
                 )
         
         return {
             "success": False,
-            "reason": "No se encontró ningún equipo de empaque disponible.",
+            "reason": "No se encontró ningún equipo de empaque disponible para la regla aplicada.",
             "rule_applied": "no_teams_available"
         }
 

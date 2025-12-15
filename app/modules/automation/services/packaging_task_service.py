@@ -157,7 +157,7 @@ class PackagingTaskService(BaseTaskService):
         Función principal que maneja todo el proceso de creación de tareas de empaque.
         """
         try:
-            logger = logging.getLogger(__name__)
+
 
             fabrication_end_dates = {}
             if fabrication_results and fabrication_results.get("created_tasks"):
@@ -280,10 +280,12 @@ class PackagingTaskService(BaseTaskService):
                     failed_orders.append({"order_data": order_data, "reason": "Minutos calculados no válidos."})
                     continue
 
-                team_selection = self.get_specific_team_for_activity(
-                    activity_details.get("activity"),
-                    activity_details.get("description"),
-                    teams_data
+                # CORREGIDO: Usar get_most_suitable_team con order_data y activity_type
+                # para aplicar las nuevas reglas basadas en cantidad
+                team_selection = self.packaging_rule.get_most_suitable_team(
+                    db,
+                    order_data=order_data,
+                    activity_type=activity_type
                 )
 
                 if not team_selection.get("success"):

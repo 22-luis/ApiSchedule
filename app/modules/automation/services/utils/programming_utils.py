@@ -160,6 +160,43 @@ class ProgrammingUtils:
             
         programmings = query.order_by(Programming.date).all()
         
+        # --- AUTO-CREATE LOGIC START ---
+        # Si no hay programaciones o la primera está muy lejos (> 7 días), creamos una automáticamente
+        target_date = start_date if start_date else (date.today() + timedelta(days=1))
+        should_create = False
+        
+        if not programmings:
+            should_create = True
+            logger.info(f"No programmings found for team {team_id}. Auto-creating for {target_date}")
+        else:
+            # Chequear si la primera fecha está muy lejos
+            first_prog_date = programmings[0].date
+            days_diff = (first_prog_date - target_date).days
+            if days_diff > 7:
+                should_create = True
+                logger.info(f"First programming is {days_diff} days away ({first_prog_date}). Auto-creating for {target_date} to fill gap.")
+
+        if should_create:
+            try:
+                # Importación local para evitar ciclos si los hubiera, aunque están en el mismo módulo
+                from app.modules.automation.services.utils.auto_create_programming import create_programming_if_not_exists
+                
+                creation_result = create_programming_if_not_exists(db, team_id, target_date)
+                if creation_result.get("success") and creation_result.get("created"):
+                    logger.info(f"Auto-created programming check successful: {creation_result.get('message')}")
+                    # Re-ejecutar la query para incluir la nueva programacion
+                    # Re-instanciar query porque SQLAlchemy query objects son mutables pero mejor ir a lo seguro
+                    query = db.query(Programming).filter(
+                        Programming.team_id == team_id,
+                        Programming.status == ProgrammingStatus.available
+                    )
+                    if start_date:
+                        query = query.filter(Programming.date >= start_date)
+                    programmings = query.order_by(Programming.date).all()
+            except Exception as e:
+                logger.error(f"Failed to auto-create programming inside get_available_programmings_for_team: {e}")
+        # --- AUTO-CREATE LOGIC END ---
+        
         result = []
         for prog in programmings:
             # Se ha deshabilitado el chequeo estricto aquí (check_programming_availability) para permitir 

@@ -25,7 +25,6 @@ def create_tasks_for_lotes(lotes: List[int], username: str):
         bin_8_orders = [o for o in orders if o.bin == 8]
         
         # Only Bin 10 and 100 should have tasks auto-created (besides Bin 8)
-        # "Cualquier otro bin -> Cambia de estado a no programable" (implied: no tasks)
         programmable_bins = [10, 100]
         other_orders = [o for o in orders if o.bin in programmable_bins]
         
@@ -39,7 +38,6 @@ def create_tasks_for_lotes(lotes: List[int], username: str):
             )
             processed_bin_8 = bin_8_result["processed"]
             # Note: bin_8_result["failed"] contains orders that need manual lot selection
-            # These will need to be handled separately in the API layer
         
         orders_to_extract = other_orders + processed_bin_8
 
@@ -128,40 +126,28 @@ def create_tasks_for_lotes(lotes: List[int], username: str):
             try:
                 programming_info = []
                 
-                # Collect programming info from all services
-                with open("debug_notification.txt", "w") as f:
-                    f.write(f"Start processing. Orders: {len(orders)}\n")
-                    
                 for service_name, result in [("weighing", weighing_tasks_result), 
                                              ("fabrication", fabrication_tasks_result), 
                                              ("packaging", packaging_tasks_result)]:
                     
-                    with open("debug_notification.txt", "a") as f:
-                        f.write(f"Service: {service_name}\n")
-                        f.write(f"Result keys: {result.keys() if result else 'None'}\n")
-                        if result and result.get("created_tasks"):
-                            f.write(f"Created tasks count: {len(result['created_tasks'])}\n")
-                            f.write(f"Sample task: {str(result['created_tasks'][0])}\n")
-                        else:
-                            f.write("No created tasks found.\n")
-
                     if result and result.get("created_tasks"):
                         logger.info(f"Notification processing: Service {service_name} created {len(result['created_tasks'])} tasks")
                         for task_info in result["created_tasks"]:
                             selected_prog = task_info.get("selected_programming")
                             if selected_prog:
-                                prog_id = str(selected_prog.get("id"))
+                                prog_id = selected_prog.get("id")
                                 team_name = selected_prog.get("team_name")
                                 prog_date = selected_prog.get("date")
                                 
                                 # Fallback: Fetch team name from DB if missing
-                                if not team_name and prog_id:
+                                # FIXED: Check if prog_id is not None and not "None"
+                                if not team_name and prog_id and str(prog_id).lower() != "none":
                                     try:
                                         from app.modules.programming.models.programming import Programming
                                         from app.modules.core.models.team import Team
                                         
                                         logger.warning(f"Missing team_name for programming {prog_id} in {service_name}. Fetching from DB.")
-                                        prog_obj = db.query(Programming).filter(Programming.id == prog_id).first()
+                                        prog_obj = db.query(Programming).filter(Programming.id == str(prog_id)).first()
                                         if prog_obj:
                                             # Update date if missing
                                             if not prog_date:
@@ -174,9 +160,10 @@ def create_tasks_for_lotes(lotes: List[int], username: str):
                                     except Exception as e:
                                         logger.error(f"Error resolving team name for {prog_id}: {e}")
                                 
-                                if prog_id:
+                                # Include only if we have a valid ID (or at least track it)
+                                if prog_id and str(prog_id).lower() != "none":
                                     programming_info.append({
-                                        "programming_id": prog_id,
+                                        "programming_id": str(prog_id),
                                         "team_name": team_name or "Equipo Desconocido",
                                         "programming_date": prog_date,
                                         "service": service_name
@@ -249,4 +236,3 @@ def create_tasks_for_lotes(lotes: List[int], username: str):
                 pass
     finally:
         db.close()
-

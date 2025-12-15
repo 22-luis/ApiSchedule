@@ -1,0 +1,13 @@
+Start processing. Orders: 1
+Service: weighing
+Result keys: dict_keys(['success', 'message', 'tasks_created', 'total_orders', 'created_tasks', 'failed_orders', 'team_data', 'activities_data'])
+Created tasks count: 1
+Sample task: {'order_data': {'lote': 92847, 'quantity': 200.0, 'code': 'KX1364', 'order_id': 92847, 'description': 'SABOR MICHELADA   GL'}, 'selected_programming': {'id': None, 'date': None, 'team_name': None}, 'order_task': {'task_id': '8f8ae495-b304-431a-b11e-b98bed22030e', 'programming_id': None, 'status': 'existing'}}
+Service: fabrication
+Result keys: dict_keys(['success', 'message', 'tasks_created', 'total_orders', 'created_tasks', 'failed_orders', 'activities_data'])
+Created tasks count: 1
+Sample task: {'order_data': {'lote': 92847, 'quantity': 200.0, 'code': 'KX1364', 'order_id': 92847, 'description': 'SABOR MICHELADA   GL'}, 'selected_programming': {'id': 'b6b90e50-c6b9-48d2-9d02-2db11a9f15f6', 'date': '2025-12-15', 'team_name': 'FABRICADO 3'}, 'order_task': {'task_id': '1ebfa9b3-caba-41ce-8beb-11cfabf60ab3', 'programming_id': 'b6b90e50-c6b9-48d2-9d02-2db11a9f15f6', 'status': 'existing'}}
+Service: packaging
+Result keys: dict_keys(['success', 'message', 'tasks_created', 'total_orders', 'created_tasks', 'failed_orders'])
+Created tasks count: 1
+Sample task: {'order_data': {'lote': 92847, 'quantity': 200.0, 'code': 'KX1364', 'order_id': 92847, 'description': 'SABOR MICHELADA   GL'}, 'selected_programming': {'id': 'b6b90e50-c6b9-48d2-9d02-2db11a9f15f6', 'date': '2025-12-15', 'team_name': 'FABRICADO 3'}, 'order_task': {'task_id': '1ebfa9b3-caba-41ce-8beb-11cfabf60ab3', 'programming_id': 'b6b90e50-c6b9-48d2-9d02-2db11a9f15f6', 'status': 'existing'}}
