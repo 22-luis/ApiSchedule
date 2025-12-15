@@ -58,10 +58,15 @@ API REST para optimización de programación y asignación de tareas en producci
   - Empaque → Equipos de empaque según actividad
 - Optimización automática de recursos y balanceo de carga
 
+### Notificaciones de Creación
+- **Feedback inmediato**: Notificaciones visuales cuando se crean tareas automáticas
+- **Transparencia**: El usuario sabe exactamente qué tareas se han generado en segundo plano (Pesado, Fabricación)
+- **Acceso rápido**: Enlaces directos a las programaciones afectadas desde la notificación
+
 ### Replicación Automática de Tareas
 - **Pesado automático**: Al crear tareas de fabricación, se generan automáticamente tareas de pesado
 - **Cadena de producción**: Soporte para flujos de trabajo complejos
-- **Configuración flexible**: Reglas de replicación definidas en `app/modules/programming/rules/`
+- **Configuración flexible**: Reglas de replicación definidas en `app/modules/automation/rules/`
 
 ## 🏗️ Arquitectura Modular
 
@@ -80,12 +85,7 @@ app/
 │   │   ├── api/          # Endpoints de orders, tasks, programming
 │   │   ├── models/       # Order, Task, Programming, Preparation
 │   │   ├── schemas/      # Schemas de programación
-│   │   ├── services/     # Servicios de creación de tareas
-│   │   └── rules/        # Reglas de negocio automáticas
-│   │       ├── Manufactured.py  # Reglas de fabricación
-│   │       ├── weighning.py     # Reglas de pesado
-│   │       ├── packaging.py     # Reglas de empaque
-│   │       └── schedule.py      # Reglas de programación
+│   │   └── services/     # Servicios de creación de tareas
 │   │
 │   ├── timer/             # Cronometraje
 │   │   ├── api/          # Endpoints de timer y records
@@ -98,7 +98,13 @@ app/
 │   │   └── services/     # Generación de reportes
 │   │
 │   └── automation/        # Tareas automatizadas
-│       └── services/     # Servicios de automatización
+│       ├── services/     # Servicios de automatización
+│       └── rules/        # Reglas de negocio automáticas
+│           ├── base_rule.py    # Clase base para reglas
+│           ├── Manufactured.py # Reglas de fabricación
+│           ├── weighning.py    # Reglas de pesado
+│           ├── packaging.py    # Reglas de empaque
+│           └── schedule.py     # Reglas de programación
 │
 ├── shared/                # Recursos compartidos
 │   ├── core/             # Configuración y seguridad
