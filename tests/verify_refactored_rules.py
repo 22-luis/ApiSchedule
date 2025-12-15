@@ -69,7 +69,14 @@ def test_manufacturing_rules():
     rule = ManufacturedRule()
     db = MagicMock()
 
-    with patch('app.modules.automation.services.utils.team_selection_service.TeamSelectionService.get_fabrication_teams', return_value=mock_fab_teams):
+    with patch('app.modules.automation.services.utils.team_selection_service.TeamSelectionService.get_fabrication_teams', return_value=mock_fab_teams), \
+         patch('app.modules.automation.services.utils.team_selection_service.TeamSelectionService.get_weighing_team', return_value={"success": True, "most_suitable_team": {"id": "pesado_id", "name": "PESADO"}}):
+        
+        # 0. Qty <= 5 -> PESADO (New High Priority Rule)
+        res = rule.get_most_suitable_team(db, {"code": "BX123", "quantity": 3})
+        name = get_team_name(res)
+        print(f"Qty <= 5: {name} (Expected: PESADO)")
+        assert name == 'PESADO'
         
         # 1. BX < 13 -> Fabricado 3
         res = rule.get_most_suitable_team(db, {"code": "BX123", "quantity": 10})
@@ -145,16 +152,16 @@ def test_packaging_rules():
         print(f"M5 Qty 200: {name} (Expected: Empaque 1)")
         assert name == 'Empaque 1'
 
-        # 4. M4 > 800 -> Empaque 2
-        res = rule.get_most_suitable_team(db, {"code": "ANY", "quantity": 900}, activity_type="M4")
+        # 4. M4 < 800 -> Empaque 2
+        res = rule.get_most_suitable_team(db, {"code": "ANY", "quantity": 700}, activity_type="M4")
         name = get_team_name(res)
-        print(f"M4 Qty 900: {name} (Expected: Empaque 2)")
+        print(f"M4 Qty 700: {name} (Expected: Empaque 2)")
         assert name == 'Empaque 2'
         
-        # 5. Resto (M4 <= 800) -> Empaque 1
-        res = rule.get_most_suitable_team(db, {"code": "ANY", "quantity": 500}, activity_type="M4")
+        # 5. Resto (M4 >= 800) -> Empaque 1
+        res = rule.get_most_suitable_team(db, {"code": "ANY", "quantity": 900}, activity_type="M4")
         name = get_team_name(res)
-        print(f"M4 Qty 500: {name} (Expected: Empaque 1)")
+        print(f"M4 Qty 900: {name} (Expected: Empaque 1)")
         assert name == 'Empaque 1'
 
 
@@ -170,10 +177,10 @@ def test_weighing_rules():
         print(f"Qty 3: Success={res.get('success')} (Expected: True)")
         assert res.get('success') == True
         
-        # 2. Qty > 5 -> Excluded
+        # 2. Qty > 5 -> Included (Restriction Removed)
         res = rule.get_most_suitable_team(db, {"quantity": 10}, activity_type="M7")
-        print(f"Qty 10: Success={res.get('success')} (Reason: {res.get('reason')})")
-        assert res.get('success') == False
+        print(f"Qty 10: Success={res.get('success')} (Expected: True)")
+        assert res.get('success') == True
 
 
 if __name__ == "__main__":

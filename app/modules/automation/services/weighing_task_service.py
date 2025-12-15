@@ -155,37 +155,6 @@ class WeighingTaskService(BaseTaskService):
             # Obtener actividades con minutos calculados
             activities_with_minutes = self.get_weighing_activities_with_minutes(extracted_orders, db)
             
-            # Obtener equipo más idóneo
-            team_result = self.get_most_suitable_team(db)
-            
-            if not team_result.get("success"):
-                return {
-                    "success": False,
-                    "message": "No se pudo obtener equipo idóneo",
-                    "tasks_created": 0,
-                    "total_orders": len(extracted_orders)
-                }
-            
-            team_id = team_result.get("most_suitable_team", {}).get("id")
-            if not team_id:
-                return {
-                    "success": False,
-                    "message": "ID del equipo no válido",
-                    "tasks_created": 0,
-                    "total_orders": len(extracted_orders)
-                }
-            
-            # Obtener programaciones disponibles
-            available_programmings = self.get_available_programmings_for_team(team_id, db)
-            
-            if not available_programmings:
-                return {
-                    "success": False,
-                    "message": "No se encontraron programaciones disponibles",
-                    "tasks_created": 0,
-                    "total_orders": len(extracted_orders)
-                }
-            
             # Procesar cada orden
             created_tasks = []
             failed_orders = []
@@ -212,6 +181,7 @@ class WeighingTaskService(BaseTaskService):
                 activity_with_minutes = lote_activities[0]
                 task_minutes = activity_with_minutes.get("minutes_calculation", {}).get("calculated_minutes", 0)
                 activity_details = activity_with_minutes.get("activity_data", {})
+                activity_type = activity_details.get("type")
 
                 # --- DUPLICATE CHECK START ---
                 from app.modules.programming.models.task import Task
@@ -219,7 +189,6 @@ class WeighingTaskService(BaseTaskService):
                 from app.modules.programming.models.state import OrderStatus
                 from app.modules.programming.models.programming import ProgrammingTask
                 
-                activity_type = activity_details.get("type")
                 target_lote = order_data.get("lote")
                 
                 if target_lote and activity_type:
@@ -279,6 +248,29 @@ class WeighingTaskService(BaseTaskService):
                         "reason": "Los minutos calculados no son válidos"
                     })
                     continue
+
+                # OBTENER EQUIPO IDÓNEO POR ORDEN
+                team_result = self.get_most_suitable_team(db, order_data=order_data, activity_type=activity_type)
+                
+                if not team_result.get("success"):
+                     failed_orders.append({
+                        "order_data": order_data,
+                        "reason": team_result.get("reason", "No se pudo obtener equipo idóneo para esta orden")
+                    })
+                     continue
+
+                team_id = team_result.get("most_suitable_team", {}).get("id")
+                
+                # Obtener programaciones disponibles para este equipo
+                # Nota: Podríamos optimizar cacheando si es el mismo equipo, pero para seguridad y corrección lo traemos fresco
+                available_programmings = self.get_available_programmings_for_team(team_id, db)
+                
+                if not available_programmings:
+                     failed_orders.append({
+                        "order_data": order_data,
+                        "reason": "No se encontraron programaciones disponibles para el equipo seleccionado"
+                    })
+                     continue
                 
                 # Verificar límite de tiempo y crear tarea
                 time_verification = self.verify_programming_time_limit(

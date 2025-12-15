@@ -126,50 +126,56 @@ def create_tasks_for_lotes(lotes: List[int], username: str):
             try:
                 programming_info = []
                 
+                logger.info(f"Starting notification generation. Summary keys: {list(summary.keys())}")
+
                 for service_name, result in [("weighing", weighing_tasks_result), 
                                              ("fabrication", fabrication_tasks_result), 
                                              ("packaging", packaging_tasks_result)]:
                     
-                    if result and result.get("created_tasks"):
-                        logger.info(f"Notification processing: Service {service_name} created {len(result['created_tasks'])} tasks")
-                        for task_info in result["created_tasks"]:
-                            selected_prog = task_info.get("selected_programming")
-                            if selected_prog:
-                                prog_id = selected_prog.get("id")
-                                team_name = selected_prog.get("team_name")
-                                prog_date = selected_prog.get("date")
-                                
-                                # Fallback: Fetch team name from DB if missing
-                                # FIXED: Check if prog_id is not None and not "None"
-                                if not team_name and prog_id and str(prog_id).lower() != "none":
-                                    try:
-                                        from app.modules.programming.models.programming import Programming
-                                        from app.modules.core.models.team import Team
-                                        
-                                        logger.warning(f"Missing team_name for programming {prog_id} in {service_name}. Fetching from DB.")
-                                        prog_obj = db.query(Programming).filter(Programming.id == str(prog_id)).first()
-                                        if prog_obj:
-                                            # Update date if missing
-                                            if not prog_date:
-                                                prog_date = str(prog_obj.date)
-                                                
-                                            team_obj = db.query(Team).filter(Team.id == prog_obj.team_id).first()
-                                            if team_obj:
-                                                team_name = team_obj.name
-                                                logger.info(f"Resolved team_name '{team_name}' for programming {prog_id}")
-                                    except Exception as e:
-                                        logger.error(f"Error resolving team name for {prog_id}: {e}")
-                                
-                                # Include only if we have a valid ID (or at least track it)
-                                if prog_id and str(prog_id).lower() != "none":
-                                    programming_info.append({
-                                        "programming_id": str(prog_id),
-                                        "team_name": team_name or "Equipo Desconocido",
-                                        "programming_date": prog_date,
-                                        "service": service_name
-                                    })
+                    if result:
+                        logger.info(f"Service {service_name} result: success={result.get('success')}, tasks_created={result.get('tasks_created')}")
+                        if result.get("tasks_created", 0) > 0 and result.get("created_tasks"):
+                            logger.info(f"Notification processing: Service {service_name} created {len(result['created_tasks'])} tasks")
+                            for task_info in result["created_tasks"]:
+                                selected_prog = task_info.get("selected_programming")
+                                if selected_prog:
+                                    prog_id = selected_prog.get("id")
+                                    team_name = selected_prog.get("team_name")
+                                    prog_date = selected_prog.get("date")
+                                    
+                                    # Fallback: Fetch team name from DB if missing
+                                    # FIXED: Check if prog_id is not None and not "None"
+                                    if not team_name and prog_id and str(prog_id).lower() != "none":
+                                        try:
+                                            from app.modules.programming.models.programming import Programming
+                                            from app.modules.core.models.team import Team
+                                            
+                                            logger.warning(f"Missing team_name for programming {prog_id} in {service_name}. Fetching from DB.")
+                                            prog_obj = db.query(Programming).filter(Programming.id == str(prog_id)).first()
+                                            if prog_obj:
+                                                # Update date if missing
+                                                if not prog_date:
+                                                    prog_date = str(prog_obj.date)
+                                                    
+                                                team_obj = db.query(Team).filter(Team.id == prog_obj.team_id).first()
+                                                if team_obj:
+                                                    team_name = team_obj.name
+                                                    logger.info(f"Resolved team_name '{team_name}' for programming {prog_id}")
+                                        except Exception as e:
+                                            logger.error(f"Error resolving team name for {prog_id}: {e}")
+                                    
+                                    # Include only if we have a valid ID (or at least track it)
+                                    if prog_id and str(prog_id).lower() != "none":
+                                        programming_info.append({
+                                            "programming_id": str(prog_id),
+                                            "team_name": team_name or "Equipo Desconocido",
+                                            "programming_date": prog_date,
+                                            "service": service_name
+                                        })
+                        else:
+                             logger.info(f"Service {service_name} has no created tasks or tasks_created is 0")
                     else:
-                        logger.info(f"Notification processing: Service {service_name} created 0 tasks or result was empty")
+                        logger.info(f"Service {service_name} result is None or empty")
                 
                 # Aggregate by programming_id to count tasks per programming
                 from collections import defaultdict
@@ -212,6 +218,7 @@ def create_tasks_for_lotes(lotes: List[int], username: str):
                     logger.info(f"Created notification for {len(programming_list)} programmings: {programming_list}")
                 else:
                     logger.info("No notification created because programming_list is empty")
+
                 
             except Exception as e:
                 logger.error(f"Error creating notification: {e}")

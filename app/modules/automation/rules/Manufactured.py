@@ -57,6 +57,19 @@ class ManufacturedRule(BaseAutomationRule):
             )
             return capacity_info["is_at_limit"] or capacity_info["is_over_limit"]
 
+        # --- NEW PRIORITY RULE: Quantities <= 5 go to PESADO ---
+        if quantity <= 5:
+            weighing_team_info = TeamSelectionService.get_weighing_team(db)
+            if weighing_team_info.get("success"):
+                weighing_team = weighing_team_info.get("most_suitable_team")
+                return self.response(
+                    weighing_team["id"],
+                    weighing_team["name"],
+                    "pesado",
+                    f"Cantidad ({quantity}) <= 5. Asignado a PESADO.",
+                    "fabrication_qty_le_5_pesado"
+                )
+
         # --- A. REGLAS POR CÓDIGO Y CANTIDAD (PRIORIDAD ALTA) ---
         
         # REGLA: Códigos BX o BE con Cantidad < 13 -> FABRICADO 3
