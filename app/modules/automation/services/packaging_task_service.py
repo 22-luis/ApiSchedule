@@ -5,6 +5,7 @@ Hereda de BaseTaskService para reutilizar funcionalidad común.
 
 from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 from datetime import date, time, datetime, timedelta
 import logging
 import math
@@ -15,6 +16,7 @@ from app.modules.automation.services.base_task_service import BaseTaskService
 from app.modules.automation.services.config import ServiceType, ServiceConfig
 from app.modules.automation.rules.packaging import PackagingRule
 from app.modules.automation.services.utils.auto_create_programming import create_programming_if_not_exists
+from app.modules.automation.services.utils.sequencing import get_sequence_start_date
 
 
 class PackagingTaskService(BaseTaskService):
@@ -221,7 +223,7 @@ class PackagingTaskService(BaseTaskService):
                 if target_lote and activity_type:
                     existing_task = db.query(Task).filter(
                         Task.lote == str(target_lote),
-                        Task.type == activity_type
+                        (Task.type == activity_type) | (Task.activity == activity_name)
                     ).first()
                     
                     if existing_task:
@@ -289,12 +291,8 @@ class PackagingTaskService(BaseTaskService):
                     failed_orders.append({"order_data": order_data, "reason": "No se encontraron equipos candidatos."})
                     continue
 
-                start_date_candidate = fabrication_end_dates.get(lote)
-                if start_date_candidate and isinstance(start_date_candidate, date) and start_date_candidate > date.today():
-                    start_date = start_date_candidate
-                else:
-                    start_date = date.today()
-                logger.debug(f"Packaging: lote={lote} start_date_candidate={start_date_candidate} -> start_date_used={start_date}")
+                start_date = get_sequence_start_date(fabrication_end_dates.get(lote))
+                logger.debug(f"Packaging: lote={lote} dependency_date={fabrication_end_dates.get(lote)} -> start_date_used={start_date}")
 
                 task_created = False
                 days_checked = 0

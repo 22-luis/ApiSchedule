@@ -5,6 +5,7 @@ Hereda de BaseTaskService para reutilizar funcionalidad común.
 
 from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 from datetime import date, time, datetime, timedelta
 import logging
 import math
@@ -15,6 +16,7 @@ from app.modules.automation.services.base_task_service import BaseTaskService
 from app.modules.automation.services.config import ServiceType, ServiceConfig
 from app.modules.automation.rules.Manufactured import ManufacturedRule
 from app.modules.automation.services.utils.auto_create_programming import create_programming_if_not_exists
+from app.modules.automation.services.utils.sequencing import get_sequence_start_date
 
 
 class FabricationTaskService(BaseTaskService):
@@ -215,7 +217,7 @@ class FabricationTaskService(BaseTaskService):
                 if target_lote and activity_type:
                     existing_task = db.query(Task).filter(
                         Task.lote == str(target_lote),
-                        Task.type == activity_type
+                        (Task.type == activity_type) | (Task.activity == activity_name)
                     ).first()
                     
                     if existing_task:
@@ -273,12 +275,8 @@ class FabricationTaskService(BaseTaskService):
                     continue
                 
                 # Determinar la fecha de inicio para la búsqueda de programación
-                start_date_candidate = weighing_end_dates.get(lote)
-                if start_date_candidate and isinstance(start_date_candidate, date) and start_date_candidate > date.today():
-                    start_date = start_date_candidate
-                else:
-                    start_date = date.today()
-                logger.debug(f"Fabrication: lote={lote} start_date_candidate={start_date_candidate} -> start_date_used={start_date}")
+                start_date = get_sequence_start_date(weighing_end_dates.get(lote))
+                logger.debug(f"Fabrication: lote={lote} dependency_date={weighing_end_dates.get(lote)} -> start_date_used={start_date}")
 
                 # Calcular minutos de la tarea
                 task_minutes = activity_with_minutes.get("minutes_calculation", {}).get("calculated_minutes", 0)
