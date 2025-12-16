@@ -233,7 +233,7 @@ class PackagingTaskService(BaseTaskService):
                          
                          # Update order status to 'programmed' even if task already exists
                          try:
-                             from app.modules.programming.services.order_status_service import OrderStatusService
+                             from app.shared.utils.business.order_status_service import OrderStatusService
                              OrderStatusService.update_order_status_for_task_creation(db, existing_task)
                              logger.info(f"Updated order status for existing task lote={target_lote}")
                          except Exception as e:

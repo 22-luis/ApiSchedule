@@ -160,6 +160,7 @@ class WeighingTaskService(BaseTaskService):
             failed_orders = []
             
             weighing_activities_with_minutes = activities_with_minutes.get("weighing_activities_with_minutes", {}).get("weighing_activities_with_minutes_by_code", {})
+            team_result = {}
             
             for order_data in extracted_orders:
                 order_code = order_data.get('code')
@@ -206,7 +207,7 @@ class WeighingTaskService(BaseTaskService):
                          
                          # Update order status to 'programmed' even if task already exists
                          try:
-                             from app.modules.programming.services.order_status_service import OrderStatusService
+                             from app.shared.utils.business.order_status_service import OrderStatusService
                              OrderStatusService.update_order_status_for_task_creation(db, existing_task)
                              logger.info(f"Updated order status for existing task lote={target_lote}")
                          except Exception as e:
