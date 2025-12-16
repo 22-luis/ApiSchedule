@@ -35,9 +35,10 @@ class OrderFlowService:
         """
         processed_orders = []
         failed_orders = []
+        self_sufficient_orders = []
         
-        # Track which fabrication orders have been reserved (both from DB and batch)
-        reserved_fabrication_lotes = set()
+        # Track reserved quantities for fabrication orders (lote -> reserved_amount)
+        reserved_quantities: Dict[int, float] = {}
         
         for order in orders:
             if order.bin != 8:
@@ -67,6 +68,12 @@ class OrderFlowService:
                 })
                 continue
 
+            # CHECK FOR SELF-SUFFICIENT ORDERS (e.g. mixed liquids that package themselves)
+            if fabrication_code == order.code:
+                 logger.info(f"Order {order.lote} is self-sufficient (Code == FabricationCode: {fabrication_code}). Skipping matching logic.")
+                 self_sufficient_orders.append(order)
+                 continue
+
             logger.info(f"Order {order.lote} ({order.code}) -> fabrication_code: {fabrication_code}")
 
             # Priority:
@@ -79,30 +86,32 @@ class OrderFlowService:
 
             # PASO 1: Buscar en el batch del mismo archivo (órdenes que vienen juntas)
             if fabrication_orders_in_batch:
-                logger.info(f"Searching in batch for fabrication_code={fabrication_code}...")
-                logger.info(f"Batch has {len(fabrication_orders_in_batch)} fabrication orders")
+                logger.debug(f"Searching in batch for fabrication_code={fabrication_code}...")
                 for fab_order in fabrication_orders_in_batch:
-                    logger.info(f"  Checking batch order {fab_order.lote}: code={fab_order.code}, qty={fab_order.quantity}")
+                    current_reserved = reserved_quantities.get(fab_order.lote, 0.0)
+                    available_qty = fab_order.quantity - current_reserved
+                    
+                    logger.debug(f"  Checking batch order {fab_order.lote}: code={fab_order.code}, qty={fab_order.quantity}, reserved={current_reserved}, available={available_qty}")
+                    
                     if (fab_order.code == fabrication_code and 
-                        fab_order.lote not in reserved_fabrication_lotes and
-                        fab_order.quantity >= order.quantity):
+                        available_qty >= order.quantity):
                         matched_order = fab_order
                         match_source = "batch"
-                        logger.info(f"MATCHED: Found fabrication order {fab_order.lote} in same batch.")
+                        logger.info(f"MATCHED: Found fabrication order {fab_order.lote} in same batch (Available: {available_qty}).")
                         break
                     else:
                         # Log why it didn't match
                         reasons = []
                         if fab_order.code != fabrication_code:
                             reasons.append(f"code mismatch ({fab_order.code} != {fabrication_code})")
-                        if fab_order.lote in reserved_fabrication_lotes:
-                            reasons.append(f"lote {fab_order.lote} already reserved")
-                        if fab_order.quantity < order.quantity:
-                            reasons.append(f"insufficient quantity ({fab_order.quantity} < {order.quantity})")
-                        logger.info(f"    Not matched: {', '.join(reasons)}")
+                        if available_qty < order.quantity:
+                            reasons.append(f"insufficient quantity ({available_qty} < {order.quantity})")
+                        logger.debug(f"    Not matched: {', '.join(reasons)}")
 
             # PASO 2: Si no está en el batch, buscar orden YA FABRICADA en la BD
             if not matched_order:
+                # Nota: Manufactured orders usan 'fabricated_quantity' que se actualiza directamente en DB, 
+                # así que no necesitamos checkear reserved_quantities (o se asume que se commitea/flushea).
                 manufactured_order = db.query(order_model.Order).filter(
                     order_model.Order.code == fabrication_code,
                     order_model.Order.status == OrderStatus.manufactured,
@@ -119,18 +128,25 @@ class OrderFlowService:
 
             # PASO 3: Si no hay fabricada, buscar orden PENDIENTE en la BD
             if not matched_order:
-                pending_fab_order = db.query(order_model.Order).filter(
+                # Obtenemos candidatos de la BD
+                pending_candidates = db.query(order_model.Order).filter(
                     order_model.Order.code == fabrication_code,
                     order_model.Order.status.in_([OrderStatus.unprogrammed, OrderStatus.programmed]),
                     order_model.Order.bin.in_([10, 100]),  # Solo órdenes de fabricación
-                    order_model.Order.quantity >= order.quantity,
-                    order_model.Order.lote.notin_(reserved_fabrication_lotes) if reserved_fabrication_lotes else True
-                ).order_by(order_model.Order.lote.asc()).first()
+                    order_model.Order.quantity >= order.quantity # Filtro inicial optimista
+                ).order_by(order_model.Order.lote.asc()).limit(10).all() # Limitamos a 10 para no procesar demasiados
                 
-                if pending_fab_order:
-                    matched_order = pending_fab_order
-                    match_source = "pending_db"
-                    logger.info(f"Found pending fabrication order {pending_fab_order.lote} in database.")
+                for candidate in pending_candidates:
+                    current_reserved = reserved_quantities.get(candidate.lote, 0.0)
+                    available_qty = candidate.quantity - current_reserved
+                    
+                    if available_qty >= order.quantity:
+                        matched_order = candidate
+                        match_source = "pending_db"
+                        logger.info(f"Found pending fabrication order {candidate.lote} in database (Available: {available_qty}).")
+                        break
+                    else:
+                        logger.debug(f"Skipping pending candidate {candidate.lote}: insufficient available quantity ({available_qty} < {order.quantity})")
 
             # Si no encontramos nada, añadir a failed con información para selección manual
             if not matched_order:
@@ -141,13 +157,13 @@ class OrderFlowService:
                 failed_orders.append({
                     "order": order,
                     "fabrication_code": fabrication_code,
-                    "reason": "No se encontró lote de fabricación disponible"
+                    "reason": "No se encontró lote de fabricación disponible con cantidad suficiente"
                 })
                 continue
 
-            # Reservar el lote encontrado
-            reserved_fabrication_lotes.add(matched_order.lote)
-            logger.info(f"Reserved lote {matched_order.lote} for packaging order {order.lote}")
+            # Reservar la cantidad en el lote encontrado
+            reserved_quantities[matched_order.lote] = reserved_quantities.get(matched_order.lote, 0.0) + order.quantity
+            logger.info(f"Reserved {order.quantity} from lote {matched_order.lote} for packaging order {order.lote}. Total reserved: {reserved_quantities[matched_order.lote]}")
 
             # Procesar según el tipo de match
             if match_source == "manufactured_db":
@@ -190,5 +206,6 @@ class OrderFlowService:
         db.commit()
         return {
             "processed": processed_orders,
-            "failed": failed_orders
+            "failed": failed_orders,
+            "self_sufficient": self_sufficient_orders
         }

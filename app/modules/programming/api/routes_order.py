@@ -149,6 +149,12 @@ def create_orders(
         
         processed_bin8 = bin_8_result["processed"]
         failed_bin8_raw = bin_8_result["failed"]
+        # NEW: Self-sufficient orders (Bin 8 but treated as Bin 10 for task creation)
+        self_sufficient_bin8 = bin_8_result.get("self_sufficient", [])
+        
+        # Add self-sufficient orders to other_orders so they get processed by create_tasks_for_lotes
+        # This allows Weighing and Fabrication tasks to be created for them
+        other_orders.extend(self_sufficient_bin8)
         
         # Crear tareas solo para las órdenes procesadas exitosamente
         if processed_bin8:

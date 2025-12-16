@@ -37,9 +37,13 @@ def create_tasks_for_lotes(lotes: List[int], username: str):
                 fabrication_orders_in_batch=other_orders  # órdenes bin 10/100 del mismo archivo
             )
             processed_bin_8 = bin_8_result["processed"]
-            # Note: bin_8_result["failed"] contains orders that need manual lot selection
+            # NEW: Self-sufficient bin 8 orders (Code == FabCode) -> Process as standard orders (Weighing + Fab + Pack)
+            self_sufficient_bin_8 = bin_8_result.get("self_sufficient", [])
+            
+        else:
+             self_sufficient_bin_8 = []
         
-        orders_to_extract = other_orders + processed_bin_8
+        orders_to_extract = other_orders + processed_bin_8 + self_sufficient_bin_8
 
         # Prepare extracted orders used by services (list of dicts with lote, code, quantity)
         extracted_orders = extract_created_orders_data(orders_to_extract)
