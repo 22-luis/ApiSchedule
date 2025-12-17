@@ -36,7 +36,6 @@ class UserCreate(BaseModel):
 
     @validator('username')
     def validate_username(cls, v):
-        """Valida el formato del nombre de usuario"""
         if not re.match(r'^[a-zA-Z0-9_]+$', v):
             raise ValueError('El nombre de usuario solo puede contener letras, números y guiones bajos')
         
@@ -47,11 +46,9 @@ class UserCreate(BaseModel):
 
     @validator('password')
     def validate_password(cls, v):
-        """Valida la fortaleza de la contraseña"""
         if len(v) < 6:
             raise ValueError('La contraseña debe tener al menos 6 caracteres')
         
-        # Verificar contraseñas muy comunes
         common_passwords = [
             'password', '123456', 'qwerty', 'admin', 'letmein',
             'welcome', 'monkey', 'password123', 'admin123'
@@ -63,7 +60,6 @@ class UserCreate(BaseModel):
 
     @validator('teamIds')
     def validate_team_ids(cls, v):
-        """Valida que no haya IDs duplicados"""
         if v is not None:
             unique_ids = list(set(v))
             if len(unique_ids) != len(v):
@@ -131,7 +127,6 @@ class UserUpdate(BaseModel):
 
     @validator('username')
     def validate_username(cls, v):
-        """Valida el formato del nombre de usuario"""
         if not re.match(r'^[a-zA-Z0-9_]+$', v):
             raise ValueError('El nombre de usuario solo puede contener letras, números y guiones bajos')
         
@@ -143,7 +138,6 @@ class UserUpdate(BaseModel):
 
     @validator('password')
     def validate_password(cls, v):
-        """Valida la fortaleza de la contraseña (solo si se proporciona)"""
         if v is None:
             return v
         
@@ -162,7 +156,6 @@ class UserUpdate(BaseModel):
 
     @validator('teamIds')
     def validate_team_ids(cls, v):
-        """Valida que no haya IDs duplicados"""
         if v is not None:
             unique_ids = list(set(v))
             if len(unique_ids) != len(v):

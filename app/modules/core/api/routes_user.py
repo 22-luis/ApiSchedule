@@ -18,18 +18,15 @@ def create_user(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
 ):
-    # Verificar permisos para crear usuarios con diferentes roles
     current_level = ROLE_HIERARCHY.get(current_user.role, 0)
     target_level = ROLE_HIERARCHY.get(user.role, 0)
 
-    # Solo un admin puede crear otros admins. Nadie puede crear un rol superior al suyo.
     if current_level < target_level or (current_level == target_level and current_user.role != UserRole.ADMIN):
         raise HTTPException(
             status_code=403,
             detail=f"No tienes permisos para crear usuarios con el rol '{user.role.value}'"
         )
 
-    # Verificar que el username no exista
     existing_user = db.query(User).filter(User.username == user.username).first()
     if existing_user:
         raise HTTPException(status_code=400, detail="El nombre de usuario ya existe")
@@ -110,10 +107,10 @@ def get_users(
         query = query.filter(User.username.ilike(f"%{search}%"))
     total = query.count()
     users = query.offset(skip).limit(limit).all()
-    # Mapear manualmente los teamIds
+    
     result = []
     for user in users:
-        team_ids = [team.id for team in getattr(user, 'teams', [])]  # getattr siempre devuelve lista o []
+        team_ids = [team.id for team in getattr(user, 'teams', [])]
         result.append({
             "id": user.id,
             "username": user.username,

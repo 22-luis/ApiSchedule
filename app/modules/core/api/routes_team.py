@@ -19,10 +19,6 @@ def get_teams(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    """
-    Get all teams.
-    If target_date is provided, filters members active on that date.
-    """
     teams = db.query(Team).all()
     
     result = []
@@ -121,11 +117,6 @@ def update_team_members(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
 ):
-    """
-    Update team members effective from a specific date.
-    - Users in `userIds` who are NOT currently active members will be ADDED (start_date = date).
-    - Users who ARE currently active members but NOT in `userIds` will be REMOVED (end_date = date - 1).
-    """
     team = db.query(Team).filter(Team.id == team_id).first()
     if not team:
         raise HTTPException(status_code=404, detail="Team not found")
@@ -142,8 +133,6 @@ def update_team_members(
             
     current_member_ids = {assoc.user_id for assoc in current_associations}
     
-    # 1. Identify members to REMOVE
-    # Present in current but NOT in new
     for assoc in current_associations:
         if assoc.user_id not in new_member_ids:
             # End their membership yesterday
@@ -155,8 +144,6 @@ def update_team_members(
             else:
                 assoc.end_date = end_date
                 
-    # 2. Identify members to ADD
-    # Present in new but NOT in current
     for user_id in new_member_ids:
         if user_id not in current_member_ids:
             new_assoc = UserTeam(
@@ -187,7 +174,6 @@ def delete_team(
     return None
 
 def _build_team_out(db: Session, team: Team, target_date: date) -> TeamOut:
-    # Helper to build response
     active_members_map = {}
     
     for association in team.member_associations:
