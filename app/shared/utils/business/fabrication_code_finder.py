@@ -52,15 +52,17 @@ class FabricationCodeFinder:
         if not packaging_code:
             return None
         
-        # Paso 1: Buscar directamente en tabla Code
-        code_record = db.query(Code).filter(Code.code == packaging_code).first()
+        # Paso 1: Buscar directamente en tabla Code (buscar en TODAS las filas)
+        # Algunos códigos tienen múltiples filas (una por actividad) y solo algunas tienen fabricationCode
+        code_records = db.query(Code).filter(Code.code == packaging_code).all()
         
-        if code_record and code_record.fabricationCode:
-            logger.info(
-                f"Found fabricationCode in Code table for '{packaging_code}': "
-                f"{code_record.fabricationCode}"
-            )
-            return code_record.fabricationCode
+        for code_record in code_records:
+            if code_record.fabricationCode:
+                logger.info(
+                    f"Found fabricationCode in Code table for '{packaging_code}': "
+                    f"{code_record.fabricationCode} (from activity: {code_record.activity})"
+                )
+                return code_record.fabricationCode
         
         # Paso 2: Si el código tiene sufijo, intentar buscar el código base
         for suffix in cls.VARIANT_SUFFIXES:
