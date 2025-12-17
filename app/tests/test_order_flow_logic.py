@@ -59,7 +59,8 @@ def test_bin_8_consumption_logic(db: Session):
         db.commit()
 
         # 3. Process Bin 8 Order
-        processed = OrderFlowService.process_bin_8_orders([pack_order_1], db)
+        result = OrderFlowService.process_bin_8_orders([pack_order_1], db)
+        processed = result["processed"]
         
         # Verify
         db.refresh(man_order)
@@ -85,7 +86,8 @@ def test_bin_8_consumption_logic(db: Session):
         db.commit()
 
         # 5. Process Second Bin 8 Order
-        processed_2 = OrderFlowService.process_bin_8_orders([pack_order_2], db)
+        result_2 = OrderFlowService.process_bin_8_orders([pack_order_2], db)
+        processed_2 = result_2["processed"]
         
         # Verify
         db.refresh(man_order)
@@ -94,10 +96,16 @@ def test_bin_8_consumption_logic(db: Session):
         assert len(processed_2) == 1
         assert pack_order_2._usar_lote_fabricacion == man_lote
         assert man_order.fabricated_quantity == 0.0 # 60 - 60
-        assert man_order.status == OrderStatus.packaged # Exhausted
+        # assert man_order.status == OrderStatus.packaged # Exhausted
+        # Status update logic was removed from OrderFlowService and moved to OrderStatusService (on task completion)
+        assert man_order.status == OrderStatus.manufactured 
 
     finally:
         # Cleanup
-        db.query(Order).filter(Order.lote.in_([man_lote, pack_lote_1, pack_lote_2])).delete(synchronize_session=False)
+        lotes_to_delete = [man_lote]
+        if 'pack_lote_1' in locals(): lotes_to_delete.append(pack_lote_1)
+        if 'pack_lote_2' in locals(): lotes_to_delete.append(pack_lote_2)
+        
+        db.query(Order).filter(Order.lote.in_(lotes_to_delete)).delete(synchronize_session=False)
         # We don't delete codes as they might be used by other tests or system
         db.commit()

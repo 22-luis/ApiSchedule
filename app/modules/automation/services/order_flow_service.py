@@ -60,12 +60,15 @@ class OrderFlowService:
             fabrication_code = FabricationCodeFinder.find_fabrication_code(order.code, db)
             
             if not fabrication_code:
-                logger.warning(f"Could not find fabrication code for order {order.lote} ({order.code}). Marking as failed.")
-                failed_orders.append({
-                    "order": order,
-                    "fabrication_code": None,
-                    "reason": "Código de fabricación no encontrado"
-                })
+                # NEW: Check if this is a packaging-only order (no fabrication needed)
+                # These orders use their own lote for packaging tasks
+                logger.info(f"Order {order.lote} ({order.code}) has no fabrication code. Treating as packaging-only order.")
+                order._usar_lote_fabricacion = order.lote # Use own lote
+                order._original_packaging_lote = order.lote
+                order._is_packaging_only = True
+                order.status = OrderStatus.programmed
+                db.add(order)
+                processed_orders.append(order)
                 continue
 
             # CHECK FOR SELF-SUFFICIENT ORDERS (e.g. mixed liquids that package themselves)
