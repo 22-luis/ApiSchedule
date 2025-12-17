@@ -18,7 +18,7 @@ def clean_int(value):
         if value == '' or value == '-' or value.lower() == 'null':
             return None
     try:
-        return int(float(value))  # Convertir a float primero para manejar decimales
+        return int(float(value))
     except (ValueError, TypeError):
         return None
 
@@ -75,7 +75,6 @@ def bulk_upload_preparations(preparations: list[dict], db: Session = Depends(get
     
     db.commit()
     
-    # Calcular registros sin cambios
     total_processed = len(preparations) - len(errors)
     unchanged = total_processed - created - updated
     

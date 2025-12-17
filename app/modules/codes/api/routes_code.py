@@ -78,7 +78,6 @@ def get_codes(
     total = query.count()
     codes = query.offset(skip).limit(limit).all()
     
-    # La serialización a CodeOut se maneja automáticamente por FastAPI
     return {"codes": codes, "total": total}
 
 @router.get("/{code_id}", response_model=CodeOut)
@@ -114,50 +113,6 @@ def delete_code(code_id: uuid.UUID, db: Session = Depends(get_db), current_user:
     db.commit()
     return {"message": "Code deleted successfully"}
 
-
-@router.delete("/cleanup", status_code=200)
-@invalidate_cache(pattern="codes")
-def cleanup_inactive_codes(db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN))):
-    """
-    Elimina los códigos que no tienen una actividad válida o cuya actividad es nula.
-    """
-    allowed_activities = [
-        "EMPAQUE MANUAL MAS MEZCLA",
-        "EMPAQUE MANUAL GRUPO",
-        "EMPAQUE BOLSA DE 50, 55 LB",
-        "EMPAQUE MAQUINA SEMI AUTOMATICA",
-        "EMPAQUE MAQUINA AUTOMATICA",
-        "PESADO Y/O FABRICADO",
-        "MOLIENDA POLVOS/HORNEO",
-        "MOLIENDA EN PASTA",
-        "MEZCLA MANUAL POLVO",
-        "MEZCLA EN MAQUINA/EMPAQUE 25 KG",
-        "MEZCLAS LIQUIDAS Y/O EMPAQUE",
-        "FABRICACION DE ADEREZOS, JALEAS",
-    ]
-
-    try:
-        # Construir la consulta de eliminación
-        query = db.query(Code).filter(
-            (Code.activity == None) |
-            (~Code.activity.in_(allowed_activities))
-        )
-        
-        num_deleted = query.delete(synchronize_session=False)
-        
-        # Confirmar la transacción
-        db.commit()
-
-        logger.info(f"Se eliminaron {num_deleted} códigos con actividades no permitidas o nulas.")
-        
-        return {"message": f"Se eliminaron {num_deleted} códigos con actividades no permitidas o nulas."}
-
-    except Exception as e:
-        db.rollback()
-        logger.error(f"Ocurrió un error durante la limpieza de códigos: {e}")
-        raise HTTPException(status_code=500, detail="Ocurrió un error durante la limpieza de códigos.")
-
-
 # --- Endpoints de Búsqueda y Específicos ---
 
 @router.get("/by_code_and_activity", response_model=CodeOut)
@@ -183,12 +138,11 @@ def get_activity_details_by_code_and_activity(
         logger.warning(f"No se encontró código '{code}' con actividad '{activity}'")
         raise HTTPException(status_code=404, detail=f"No se encontró código '{code}' con actividad '{activity}'")
     
-    # El response model se encargará de la serialización
     return {
         "success": True,
         "code": code,
         "activity": activity,
-        "activity_details": code_obj, # Retornar el objeto directamente
+        "activity_details": code_obj, 
         "message": f"Datos obtenidos exitosamente para código '{code}' y actividad '{activity}'"
     }
 
@@ -201,7 +155,7 @@ def get_code_activity(code: str, db: Session = Depends(get_db), current_user: Us
     
     return {
         "code": code,
-        "activities": code_objs, # Retornar la lista de objetos directamente
+        "activities": code_objs,
         "total_activities": len(code_objs)
     }
 
@@ -261,10 +215,10 @@ def bulk_upload_codes(codes: List[dict], db: Session = Depends(get_db), current_
             errors.append({"row": idx + 2, "error": e.errors()})
             continue
 
-        code_data = item.dict(exclude_unset=True) # Usar el dict del modelo pydantic
+        code_data = item.dict(exclude_unset=True) 
         code_str = code_data.get("code")
         
-        if not code_str: # Pydantic ya valida esto, pero es una doble seguridad
+        if not code_str: 
             errors.append({"row": idx + 2, "error": "Fila sin código"})
             continue
 
