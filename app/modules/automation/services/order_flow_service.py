@@ -131,7 +131,7 @@ class OrderFlowService:
                 # Obtenemos candidatos de la BD
                 pending_candidates = db.query(order_model.Order).filter(
                     order_model.Order.code == fabrication_code,
-                    order_model.Order.status.in_([OrderStatus.unprogrammed, OrderStatus.programmed]),
+                    order_model.Order.status.in_([OrderStatus.unprogrammed, OrderStatus.programmed, OrderStatus.weighed]),
                     order_model.Order.bin.in_([10, 100]),  # Solo órdenes de fabricación
                     order_model.Order.quantity >= order.quantity # Filtro inicial optimista
                 ).order_by(order_model.Order.lote.asc()).limit(10).all() # Limitamos a 10 para no procesar demasiados
