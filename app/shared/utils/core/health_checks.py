@@ -1,7 +1,3 @@
-"""
-Sistema de health checks para monitoreo de la aplicación.
-Proporciona verificaciones de salud de diferentes componentes del sistema.
-"""
 import time
 import asyncio
 from typing import Dict, Any, List, Optional
@@ -17,7 +13,6 @@ logger = get_logger("health_checks")
 
 
 class HealthChecker:
-    """Clase para realizar verificaciones de salud del sistema"""
     
     def __init__(self):
         self.start_time = time.time()
@@ -25,12 +20,6 @@ class HealthChecker:
         self.db_check_interval = 30  # segundos
     
     async def check_database_connection(self) -> Dict[str, Any]:
-        """
-        Verifica la conexión a la base de datos.
-        
-        Returns:
-            Dict con información del estado de la base de datos
-        """
         try:
             # Verificar si ya hicimos una verificación reciente
             if (self.last_db_check and 
@@ -76,12 +65,6 @@ class HealthChecker:
             }
     
     async def check_memory_usage(self) -> Dict[str, Any]:
-        """
-        Verifica el uso de memoria del sistema.
-        
-        Returns:
-            Dict con información del uso de memoria
-        """
         try:
             import psutil
             
@@ -106,12 +89,6 @@ class HealthChecker:
             }
     
     async def check_disk_usage(self) -> Dict[str, Any]:
-        """
-        Verifica el uso de disco del sistema.
-        
-        Returns:
-            Dict con información del uso de disco
-        """
         try:
             import psutil
             
@@ -136,12 +113,6 @@ class HealthChecker:
             }
     
     async def check_rate_limiting(self) -> Dict[str, Any]:
-        """
-        Verifica el estado del sistema de rate limiting.
-        
-        Returns:
-            Dict con información del rate limiting
-        """
         try:
             from app.shared.utils.performance.rate_limiting import get_rate_limit_stats
             
@@ -160,12 +131,6 @@ class HealthChecker:
             }
     
     async def check_configuration(self) -> Dict[str, Any]:
-        """
-        Verifica la configuración crítica de la aplicación.
-        
-        Returns:
-            Dict con información de la configuración
-        """
         try:
             # Verificar variables críticas
             critical_vars = {
@@ -201,12 +166,6 @@ class HealthChecker:
             }
     
     async def comprehensive_health_check(self) -> Dict[str, Any]:
-        """
-        Realiza una verificación completa de salud del sistema.
-        
-        Returns:
-            Dict con el estado completo del sistema
-        """
         start_time = time.time()
         
         # Ejecutar todas las verificaciones en paralelo
@@ -272,22 +231,10 @@ health_checker = HealthChecker()
 
 
 async def get_health_status() -> Dict[str, Any]:
-    """
-    Obtiene el estado de salud completo del sistema.
-    
-    Returns:
-        Dict con el estado de salud del sistema
-    """
     return await health_checker.comprehensive_health_check()
 
 
 async def get_quick_health_status() -> Dict[str, Any]:
-    """
-    Obtiene un estado de salud rápido (solo verificación básica).
-    
-    Returns:
-        Dict con el estado de salud básico
-    """
     return {
         "status": "healthy",
         "timestamp": datetime.utcnow().isoformat(),

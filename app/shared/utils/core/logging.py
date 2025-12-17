@@ -1,7 +1,3 @@
-"""
-Sistema de logging centralizado para la aplicación.
-Proporciona logging estructurado con diferentes niveles y formatos.
-"""
 import logging
 import sys
 import json
@@ -12,10 +8,8 @@ from app.shared.core.config import settings
 
 
 class JSONFormatter(logging.Formatter):
-    """Formateador JSON para logging estructurado"""
     
     def format(self, record: logging.LogRecord) -> str:
-        """Formatea el registro como JSON"""
         log_entry = {
             "timestamp": datetime.utcnow().isoformat(),
             "level": record.levelname,
@@ -48,7 +42,6 @@ class JSONFormatter(logging.Formatter):
 
 
 class CustomFormatter(logging.Formatter):
-    """Formateador personalizado para desarrollo"""
     
     # Colores para diferentes niveles
     COLORS = {
@@ -61,7 +54,6 @@ class CustomFormatter(logging.Formatter):
     }
     
     def format(self, record: logging.LogRecord) -> str:
-        """Formatea el registro con colores en desarrollo"""
         color = self.COLORS.get(record.levelname, self.COLORS['RESET'])
         reset = self.COLORS['RESET']
         
@@ -76,7 +68,6 @@ class CustomFormatter(logging.Formatter):
 
 
 def setup_logging() -> None:
-    """Configura el sistema de logging"""
     # Crear directorio de logs si no existe
     log_dir = Path("logs")
     log_dir.mkdir(exist_ok=True)
@@ -125,7 +116,6 @@ def setup_logging() -> None:
 
 
 def setup_specific_loggers() -> None:
-    """Configura loggers específicos para diferentes módulos"""
     # Logger para base de datos
     db_logger = logging.getLogger("sqlalchemy.engine")
     db_logger.setLevel(logging.WARNING if settings.is_production else logging.INFO)
@@ -140,19 +130,16 @@ def setup_specific_loggers() -> None:
 
 
 def get_logger(name: str) -> logging.Logger:
-    """Obtiene un logger configurado"""
     return logging.getLogger(f"app.{name}")
 
 
 class RequestLogger:
-    """Logger especializado para requests HTTP"""
     
     def __init__(self, logger: logging.Logger):
         self.logger = logger
     
     def log_request(self, method: str, url: str, user_id: Optional[str] = None, 
                    request_id: Optional[str] = None) -> None:
-        """Registra el inicio de una request"""
         extra = {
             'method': method,
             'endpoint': url,
@@ -164,7 +151,6 @@ class RequestLogger:
     def log_response(self, method: str, url: str, status_code: int, 
                     duration: float, user_id: Optional[str] = None,
                     request_id: Optional[str] = None) -> None:
-        """Registra la respuesta de una request"""
         level = logging.ERROR if status_code >= 400 else logging.INFO
         extra = {
             'method': method,
@@ -178,7 +164,6 @@ class RequestLogger:
     
     def log_error(self, method: str, url: str, error: Exception, 
                  user_id: Optional[str] = None, request_id: Optional[str] = None) -> None:
-        """Registra un error en una request"""
         extra = {
             'method': method,
             'endpoint': url,
@@ -189,14 +174,12 @@ class RequestLogger:
 
 
 def log_function_call(func_name: str, **kwargs) -> None:
-    """Decorador para logging de llamadas a funciones"""
     logger = get_logger("function_calls")
     logger.debug(f"Llamada a función: {func_name}", extra={'function': func_name, 'params': kwargs})
 
 
 def log_database_operation(operation: str, table: str, record_id: Optional[str] = None, 
                           user_id: Optional[str] = None) -> None:
-    """Registra operaciones de base de datos"""
     logger = get_logger("database")
     extra = {
         'operation': operation,
@@ -209,7 +192,6 @@ def log_database_operation(operation: str, table: str, record_id: Optional[str] 
 
 def log_security_event(event_type: str, user_id: Optional[str] = None, 
                       details: Optional[Dict[str, Any]] = None) -> None:
-    """Registra eventos de seguridad"""
     logger = get_logger("security")
     extra = {
         'event_type': event_type,
@@ -221,7 +203,6 @@ def log_security_event(event_type: str, user_id: Optional[str] = None,
 
 def log_business_logic(operation: str, entity: str, entity_id: Optional[str] = None,
                       user_id: Optional[str] = None, details: Optional[Dict[str, Any]] = None) -> None:
-    """Registra operaciones de lógica de negocio"""
     logger = get_logger("business")
     extra = {
         'operation': operation,
