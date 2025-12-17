@@ -24,12 +24,12 @@ def create_user(
     if current_level < target_level or (current_level == target_level and current_user.role != UserRole.ADMIN):
         raise HTTPException(
             status_code=403,
-            detail=f"No tienes permisos para crear usuarios con el rol '{user.role.value}'"
+            detail=f"You don't have permission to create users with the role '{user.role.value}'"
         )
 
     existing_user = db.query(User).filter(User.username == user.username).first()
     if existing_user:
-        raise HTTPException(status_code=400, detail="El nombre de usuario ya existe")
+        raise HTTPException(status_code=400, detail="That name is already in use")
     
     db_user = User(
         username=user.username, 

@@ -144,7 +144,7 @@ class UserUpdate(BaseModel):
         if len(v) < 6:
             raise ValueError('La contraseña debe tener al menos 6 caracteres')
         
-        # Verificar contraseñas muy comunes
+        # Verify common passwords
         common_passwords = [
             'password', '123456', 'qwerty', 'admin', 'letmein',
             'welcome', 'monkey', 'password123', 'admin123'
