@@ -1,32 +1,11 @@
-"""
-Utilidades para limpieza de datos de entrada
-"""
 import re
 
 def clean_string_field(value: str) -> str:
-    """
-    Limpia un campo string eliminando espacios en blanco al inicio y final
-    
-    Args:
-        value: El valor string a limpiar
-        
-    Returns:
-        El string limpio sin espacios al inicio y final
-    """
     if value is None:
         return ""
     return str(value).strip()
 
 def clean_order_data(order_data: dict) -> dict:
-    """
-    Limpia todos los campos string de una orden
-    
-    Args:
-        order_data: Diccionario con los datos de la orden
-        
-    Returns:
-        Diccionario con los datos limpios
-    """
     cleaned_data = order_data.copy()
     
     # Limpiar campos string

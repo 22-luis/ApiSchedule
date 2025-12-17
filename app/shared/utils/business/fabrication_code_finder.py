@@ -1,7 +1,3 @@
-"""
-Servicio para obtener el código de fabricación de un código de empaque.
-"""
-
 from typing import Optional
 from sqlalchemy.orm import Session
 from app.modules.codes.models.code import Code
