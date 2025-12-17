@@ -1,7 +1,3 @@
-"""
-Configuración de sesión de base de datos usando SQLAlchemy.
-Proporciona conexión segura y configuración optimizada.
-"""
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import StaticPool
@@ -59,22 +55,16 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
 
 @event.listens_for(engine, "checkout")
 def receive_checkout(dbapi_connection, connection_record, connection_proxy):
-    """Log cuando se obtiene una conexión del pool"""
     if settings.DEBUG:
         logger.debug("Conexión obtenida del pool")
 
 @event.listens_for(engine, "checkin")
 def receive_checkin(dbapi_connection, connection_record):
-    """Log cuando se devuelve una conexión al pool"""
     if settings.DEBUG:
         logger.debug("Conexión devuelta al pool")
 
 
 def get_db() -> Session:
-    """
-    Dependency para obtener sesión de base de datos.
-    Maneja automáticamente el cierre de la sesión.
-    """
     db = SessionLocal()
     try:
         yield db
@@ -87,12 +77,6 @@ def get_db() -> Session:
 
 
 def test_database_connection() -> bool:
-    """
-    Prueba la conexión a la base de datos.
-    
-    Returns:
-        bool: True si la conexión es exitosa, False en caso contrario
-    """
     try:
         with engine.connect() as connection:
             connection.execute("SELECT 1")
@@ -104,12 +88,6 @@ def test_database_connection() -> bool:
 
 
 def get_database_info() -> dict:
-    """
-    Obtiene información sobre la configuración de la base de datos.
-    
-    Returns:
-        dict: Información de configuración de la base de datos
-    """
     return {
         "database_url": settings.SQLALCHEMY_DATABASE_URI.replace(
             settings.POSTGRES_PASSWORD, "***"
