@@ -57,11 +57,12 @@ def update_user(
     user: UserUpdate, 
     db: Session = Depends(get_db), 
     target_user: User = Depends(check_user_modification_permission), 
-    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))
+    current_user: User = Depends(get_current_user())
 ):
     past_state = target_user.state
 
     setattr(target_user, "username", user.username)
+    setattr(target_user, "signature", user.signature)
     if user.password is not None and user.password.strip():
         setattr(target_user, "password", hash_password(user.password))
     setattr(target_user, "role", user.role)
