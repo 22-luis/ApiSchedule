@@ -1,6 +1,8 @@
 import uuid
 import re
 from pydantic import BaseModel, Field, validator, EmailStr
+from sqlalchemy import LargeBinary
+
 from app.modules.core.models.role import UserRole
 from app.modules.core.models.state import UserState
 from app.modules.core.models.team import Team
@@ -45,7 +47,7 @@ class UserCreate(BaseModel):
         return v
 
     @validator('password')
-    def validate_password(cls, v):
+    def validate_password(self, v):
         if len(v) < 6:
             raise ValueError('La contraseña debe tener al menos 6 caracteres')
         
@@ -59,7 +61,7 @@ class UserCreate(BaseModel):
         return v
 
     @validator('teamIds')
-    def validate_team_ids(cls, v):
+    def validate_team_ids(self, v):
         if v is not None:
             unique_ids = list(set(v))
             if len(unique_ids) != len(v):
@@ -83,6 +85,7 @@ class UserOut(BaseModel):
     username: str = Field(..., description="Nombre de usuario")
     role: UserRole = Field(..., description="Rol del usuario")
     state: UserState = Field(default=UserState.ACTIVE, description="Estado del usuario")
+    signature: LargeBinary = Field(..., description="Firma del usuario")
     teamIds: Optional[List[uuid.UUID]] = Field(default=[], description="IDs de equipos")
 
     class Config:
@@ -126,7 +129,7 @@ class UserUpdate(BaseModel):
     )
 
     @validator('username')
-    def validate_username(cls, v):
+    def validate_username(self, v):
         if not re.match(r'^[a-zA-Z0-9_]+$', v):
             raise ValueError('El nombre de usuario solo puede contener letras, números y guiones bajos')
         
@@ -137,7 +140,7 @@ class UserUpdate(BaseModel):
         return v
 
     @validator('password')
-    def validate_password(cls, v):
+    def validate_password(self, v):
         if v is None:
             return v
         
@@ -155,7 +158,7 @@ class UserUpdate(BaseModel):
         return v
 
     @validator('teamIds')
-    def validate_team_ids(cls, v):
+    def validate_team_ids(self, v):
         if v is not None:
             unique_ids = list(set(v))
             if len(unique_ids) != len(v):
