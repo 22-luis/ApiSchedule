@@ -1,3 +1,4 @@
+import uuid
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -122,7 +123,7 @@ def get_users(
 
 @router.get("/{user_id}", response_model=UserOut)
 def get_user(
-    user_id: UserOut,
+    user_id: uuid.UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -133,7 +134,7 @@ def get_user(
 
 @router.get("/{user_id}/signature", response_model=UserOut)
 def get_user_signature(
-    user_id: UserOut,
+    user_id: uuid.UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
