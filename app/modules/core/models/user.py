@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import Column, String, Enum
+from sqlalchemy import Column, String, Enum, LargeBinary
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
 from app.modules.core.models.role import UserRole
@@ -14,6 +14,7 @@ class User(Base):
     password = Column(String, nullable=False)
     role = Column(Enum(UserRole))
     state = Column(Enum(UserState), default=UserState.ACTIVE)
+    signature = Column(LargeBinary, nullable=True)
     # Relationship to UserTeam (Association Object)
     team_associations = relationship("UserTeam", back_populates="user", cascade="all, delete-orphan")
     
