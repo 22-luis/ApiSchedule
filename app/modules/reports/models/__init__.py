@@ -1,0 +1,2 @@
+from app.modules.reports.models.compare import ProductionReport
+from app.modules.reports.models.historico_comparacion_fechas import HistoricoComparacionFechas
