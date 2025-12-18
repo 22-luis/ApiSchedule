@@ -1,6 +1,6 @@
 import uuid
 import re
-from pydantic import BaseModel, Field, validator, EmailStr
+from pydantic import BaseModel, Field, field_validator, EmailStr, ConfigDict
 from sqlalchemy import LargeBinary
 
 from app.modules.core.models.role import UserRole
@@ -36,7 +36,8 @@ class UserCreate(BaseModel):
         description="Lista de IDs de equipos a los que pertenece el usuario"
     )
 
-    @validator('username')
+    @field_validator('username')
+    @classmethod
     def validate_username(cls, v):
         if not re.match(r'^[a-zA-Z0-9_]+$', v):
             raise ValueError('El nombre de usuario solo puede contener letras, números y guiones bajos')
@@ -46,8 +47,9 @@ class UserCreate(BaseModel):
         
         return v
 
-    @validator('password')
-    def validate_password(self, v):
+    @field_validator('password')
+    @classmethod
+    def validate_password(cls, v):
         if len(v) < 6:
             raise ValueError('La contraseña debe tener al menos 6 caracteres')
         
@@ -60,17 +62,18 @@ class UserCreate(BaseModel):
         
         return v
 
-    @validator('teamIds')
-    def validate_team_ids(self, v):
+    @field_validator('teamIds')
+    @classmethod
+    def validate_team_ids(cls, v):
         if v is not None:
             unique_ids = list(set(v))
             if len(unique_ids) != len(v):
                 raise ValueError('No se permiten IDs de equipo duplicados')
         return v
 
-    class Config:
-        from_attributes = True
-        schema_extra = {
+    model_config = ConfigDict(
+        from_attributes = True,
+        json_schema_extra = {
             "example": {
                 "username": "john_doe",
                 "password": "mipassword123",
@@ -79,26 +82,29 @@ class UserCreate(BaseModel):
                 "teamIds": []
             }
         }
+    )
 
 class UserOut(BaseModel):
     id: uuid.UUID = Field(..., description="ID único del usuario")
     username: str = Field(..., description="Nombre de usuario")
     role: UserRole = Field(..., description="Rol del usuario")
     state: UserState = Field(default=UserState.ACTIVE, description="Estado del usuario")
-    signature: LargeBinary = Field(..., description="Firma del usuario")
     teamIds: Optional[List[uuid.UUID]] = Field(default=[], description="IDs de equipos")
+    signature: Optional[str] = Field(None, description="Firma del usuario")
 
-    class Config:
-        from_attributes = True
-        schema_extra = {
+    model_config = ConfigDict(
+        from_attributes = True,
+        json_schema_extra = {
             "example": {
                 "id": "123e4567-e89b-12d3-a456-426614174000",
                 "username": "john_doe",
                 "role": "USER",
                 "state": "ACTIVE",
-                "teamIds": []
+                "teamIds": [],
+                "signature": None
             }
         }
+    )
 
 class UserUpdate(BaseModel):
     username: str = Field(
@@ -127,9 +133,11 @@ class UserUpdate(BaseModel):
         default=[],
         description="Lista de IDs de equipos a los que pertenece el usuario"
     )
+    signature: Optional[str] = Field(None, description="Firma del usuario")
 
-    @validator('username')
-    def validate_username(self, v):
+    @field_validator('username')
+    @classmethod
+    def validate_username(cls, v):
         if not re.match(r'^[a-zA-Z0-9_]+$', v):
             raise ValueError('El nombre de usuario solo puede contener letras, números y guiones bajos')
         
@@ -139,8 +147,9 @@ class UserUpdate(BaseModel):
         # For updates, preserve the original casing
         return v
 
-    @validator('password')
-    def validate_password(self, v):
+    @field_validator('password')
+    @classmethod
+    def validate_password(cls, v):
         if v is None:
             return v
         
@@ -157,25 +166,28 @@ class UserUpdate(BaseModel):
         
         return v
 
-    @validator('teamIds')
-    def validate_team_ids(self, v):
+    @field_validator('teamIds')
+    @classmethod
+    def validate_team_ids(cls, v):
         if v is not None:
             unique_ids = list(set(v))
             if len(unique_ids) != len(v):
                 raise ValueError('No se permiten IDs de equipo duplicados')
         return v
 
-    class Config:
-        from_attributes = True
-        schema_extra = {
+    model_config = ConfigDict(
+        from_attributes = True,
+        json_schema_extra = {
             "example": {
                 "username": "john_doe",
                 "password": "mipassword123",
                 "role": "USER",
                 "state": "ACTIVE",
-                "teamIds": []
+                "teamIds": [],
+                "signature": None
             }
         }
+    )
 
 class UserStateUpdate(BaseModel):
     state: UserState
@@ -186,8 +198,9 @@ class User(BaseModel):
     role: UserRole = Field(..., description="Rol del usuario")
     state: UserState = Field(default=UserState.ACTIVE, description="Estado del usuario")
 
-    class Config:
+    model_config = ConfigDict(
         from_attributes = True
+    )
 
 class UsersPageOut(BaseModel):
     users: List[UserOut]

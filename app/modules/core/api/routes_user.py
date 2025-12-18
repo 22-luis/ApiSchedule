@@ -57,9 +57,15 @@ def update_user(
     user: UserUpdate, 
     db: Session = Depends(get_db), 
     target_user: User = Depends(check_user_modification_permission), 
-    current_user: User = Depends(get_current_user())
+    current_user: User = Depends(get_current_user)
 ):
     past_state = target_user.state
+
+    # Protección de campos administrativos para usuarios sin privilegios
+    if current_user.role not in [UserRole.ADMIN, UserRole.PLANNER]:
+        user.role = target_user.role
+        user.state = target_user.state
+        user.teamIds = [team.id for team in target_user.teams]
 
     setattr(target_user, "username", user.username)
     setattr(target_user, "signature", user.signature)
