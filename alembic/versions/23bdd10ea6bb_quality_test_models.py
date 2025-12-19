@@ -44,9 +44,10 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id')
     )
     op.drop_table('user_team_association')
-    op.add_column('historico_comparacion_fechas', sa.Column('fecha', sa.DateTime(), nullable=False))
-    op.drop_column('historico_comparacion_fechas', 'date')
-    op.add_column('history_comparison', sa.Column('numero_personas', sa.Integer(), nullable=True))
+    # op.add_column('historico_comparacion_fechas', sa.Column('fecha', sa.DateTime(), server_default=sa.text('now()'), nullable=False))
+    op.alter_column('historico_comparacion_fechas', 'fecha', existing_type=sa.DateTime(), nullable=False, server_default=sa.text('now()'))
+    # op.drop_column('historico_comparacion_fechas', 'date')
+    # op.add_column('history_comparison', sa.Column('numero_personas', sa.Integer(), nullable=True))
     op.alter_column('history_comparison', 'diferencia',
                existing_type=sa.NUMERIC(precision=7, scale=3),
                type_=sa.Numeric(precision=6, scale=2),
@@ -63,9 +64,9 @@ def downgrade() -> None:
                existing_type=sa.Numeric(precision=6, scale=2),
                type_=sa.NUMERIC(precision=7, scale=3),
                existing_nullable=True)
-    op.drop_column('history_comparison', 'numero_personas')
-    op.add_column('historico_comparacion_fechas', sa.Column('date', postgresql.TIMESTAMP(), autoincrement=False, nullable=True))
-    op.drop_column('historico_comparacion_fechas', 'fecha')
+    # op.drop_column('history_comparison', 'numero_personas')
+    # op.add_column('historico_comparacion_fechas', sa.Column('date', postgresql.TIMESTAMP(), autoincrement=False, nullable=True))
+    # op.drop_column('historico_comparacion_fechas', 'fecha')
     op.create_table('user_team_association',
     sa.Column('user_id', sa.UUID(), autoincrement=False, nullable=True),
     sa.Column('team_id', sa.UUID(), autoincrement=False, nullable=True),
