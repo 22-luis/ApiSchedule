@@ -40,7 +40,15 @@ def create_user(
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
-    return db_user
+    
+    return {
+        "id": db_user.id,
+        "username": db_user.username,
+        "role": db_user.role,
+        "state": db_user.state,
+        "teamIds": [],
+        "signature": None
+    }
 
 @router.delete("/{user_id}")
 def delete_user(
@@ -54,35 +62,59 @@ def delete_user(
 
 @router.patch("/{user_id}", response_model=UserOut)
 def update_user(
-    user: UserUpdate, 
+    user_update: UserUpdate, 
     db: Session = Depends(get_db), 
     target_user: User = Depends(check_user_modification_permission), 
     current_user: User = Depends(get_current_user)
 ):
+    update_data = user_update.model_dump(exclude_unset=True)
     past_state = target_user.state
 
     # Protección de campos administrativos para usuarios sin privilegios
     if current_user.role not in [UserRole.ADMIN, UserRole.PLANNER]:
-        user.role = target_user.role
-        user.state = target_user.state
-        user.teamIds = [team.id for team in target_user.teams]
+        # Si no es admin/planner, eliminar campos restringidos del update_data
+        for field in ["role", "state", "teamIds"]:
+            update_data.pop(field, None)
 
-    setattr(target_user, "username", user.username)
-    setattr(target_user, "signature", user.signature)
-    if user.password is not None and user.password.strip():
-        setattr(target_user, "password", hash_password(user.password))
-    setattr(target_user, "role", user.role)
-    setattr(target_user, "state", user.state)
+    # Procesar campos especiales
+    if "password" in update_data:
+        password = update_data.pop("password")
+        if password and password.strip():
+            target_user.password = hash_password(password)
 
-    if user.state.value == UserState.INACTIVE.value and past_state.value == UserState.ACTIVE.value:
+    if "teamIds" in update_data:
+        team_ids = update_data.pop("teamIds")
+        if "state" in update_data:
+            current_state = update_data["state"]
+        else:
+            current_state = target_user.state
+            
+        if current_state.value == UserState.ACTIVE.value:
+            target_user.teams = db.query(Team).filter(Team.id.in_(team_ids)).all()
+        else:
+            target_user.teams = []
+
+    # Manejar cambio a INACTIVE (limpiar equipos)
+    if update_data.get("state") == UserState.INACTIVE and past_state == UserState.ACTIVE:
         target_user.teams = []
 
-    if user.teamIds is not None and user.state.value == UserState.ACTIVE.value:
-        target_user.teams = db.query(Team).filter(Team.id.in_(user.teamIds)).all()
+    # Actualizar el resto de campos (username, role, state, signature)
+    for field, value in update_data.items():
+        setattr(target_user, field, value)
 
     db.commit()
     db.refresh(target_user)
-    return target_user
+    
+    # Construir la respuesta manualmente para asegurar que teamIds esté presente
+    # y evitar problemas con response_model=UserOut y SQLAlchemy objects
+    return {
+        "id": target_user.id,
+        "username": target_user.username,
+        "role": target_user.role,
+        "state": target_user.state,
+        "teamIds": [team.id for team in target_user.teams],
+        "signature": target_user.signature
+    }
 
 @router.patch("/{user_id}/state", response_model=UserOut)
 def update_user_state(
@@ -137,7 +169,15 @@ def get_user(
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    return user
+    
+    return {
+        "id": user.id,
+        "username": user.username,
+        "role": user.role,
+        "state": user.state,
+        "teamIds": [team.id for team in user.teams],
+        "signature": user.signature
+    }
 
 @router.get("/{user_id}/signature", response_model=UserOut)
 def get_user_signature(
@@ -148,4 +188,12 @@ def get_user_signature(
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    return {"signature": user.signature}
+        
+    return {
+        "id": user.id,
+        "username": user.username,
+        "role": user.role,
+        "state": user.state,
+        "teamIds": [team.id for team in user.teams],
+        "signature": user.signature
+    }
