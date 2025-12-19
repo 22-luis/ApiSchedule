@@ -6,7 +6,7 @@ from app.modules.programming.models.state import ProgrammingStatus
 from app.modules.core.models.role import UserRole
 from app.modules.programming.models.task import Task
 from app.modules.core.models.team import Team, UserTeam
-from app.modules.programming.schemas.programming import ProgrammingCreate, ProgrammingRead, ProgrammingUpdate, ProgrammingTaskOrderIn, ProgrammingReorderResponse, ProgrammingTaskOrderOut, AvailableProgrammingResponse, AvailableProgrammingItem, TasksOrderRequest, ProgrammingTaskReportIn, ToggleTaskStatusRequest
+from app.modules.programming.schemas.programming import ProgrammingCreate, ProgrammingRead, ProgrammingUpdate, ProgrammingTaskOrderIn, ProgrammingReorderResponse, ProgrammingTaskOrderOut, AvailableProgrammingResponse, AvailableProgrammingItem, TasksOrderRequest, ProgrammingTaskReportIn, ToggleTaskStatusRequest, ProgrammingSummaryResponse, ProgrammingSummaryItem
 from app.shared.db.session import get_db
 from app.shared.utils.core.dependencies import get_current_user, require_roles
 from datetime import date, datetime, timedelta, time
@@ -113,6 +113,57 @@ def get_programming_by_team_date(team_id: str, date: str, db: Session = Depends(
         return response
     except Exception as e:
         print("[DEBUG] Exception in get_programming_by_team_date:", e)
+        raise
+
+# Endpoint simplificado para obtener solo lote, codigo y descripcion
+@router.get("/summary", response_model=ProgrammingSummaryResponse)
+def get_programming_summary(team_id: str, date: str, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    """
+    Devuelve un resumen de la programación con solo lote, código y descripción.
+    """
+    try:
+        # Convertir date a objeto date
+        date_obj = datetime.strptime(date, "%Y-%m-%d").date()
+        
+        # Optimización: Cargar solo lo necesario
+        programming = db.query(Programming).options(
+            joinedload(Programming.programming_tasks).joinedload(ProgrammingTask.task).joinedload(Task.code)
+        ).filter_by(team_id=team_id, date=date_obj).first()
+
+        if not programming:
+            # Si no existe, lanzamos 404 (o podríamos crearla, pero para un "summary" mejor 404)
+            raise HTTPException(status_code=404, detail="Programming not found")
+
+        # Verificar permisos
+        if current_user.role.value not in ("admin", "planner", "supervisor", "timekeeper") and not user_belongs_to_team(current_user, team_id):
+            raise HTTPException(status_code=403, detail="Not authorized")
+
+        tasks = []
+        for pt in sorted(programming.programming_tasks, key=lambda pt: pt.order):
+            task_obj = pt.task
+            if not task_obj:
+                continue
+            
+            # Obtener el código desde la relación o el campo fabricationCode/rel_code si aplica
+            # Pero el usuario pidió "codigo", usaremos task_obj.code.code (el string)
+            code_str = task_obj.code.code if task_obj.code else (task_obj.fabricationCode or "N/A")
+            
+            tasks.append({
+                "lote": task_obj.lote,
+                "code": code_str,
+                "description": task_obj.description or (task_obj.code.description if task_obj.code else None)
+            })
+
+        return {
+            "id": programming.id,
+            "date": programming.date,
+            "team_id": programming.team_id,
+            "tasks": tasks
+        }
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+    except Exception as e:
+        print("[DEBUG] Exception in get_programming_summary:", e)
         raise
 
 # Endpoint optimizado para el dashboard - devuelve todos los datos en una sola consulta

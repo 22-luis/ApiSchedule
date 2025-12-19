@@ -105,3 +105,15 @@ class AvailableProgrammingResponse(BaseModel):
     team_id: str
     team_name: str
     available_programmings: List[AvailableProgrammingItem]
+
+# Schemas para el endpoint de resumen simplificado
+class ProgrammingSummaryItem(BaseModel):
+    lote: Optional[str] = None
+    code: str
+    description: Optional[str] = None
+
+class ProgrammingSummaryResponse(BaseModel):
+    id: UUID
+    date: date
+    team_id: UUID
+    tasks: List[ProgrammingSummaryItem]
