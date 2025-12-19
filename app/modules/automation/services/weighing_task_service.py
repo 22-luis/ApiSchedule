@@ -5,7 +5,7 @@ Hereda de BaseTaskService para reutilizar funcionalidad común.
 
 from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
-from datetime import time
+from datetime import time, date, timedelta
 import math
 import logging
 
@@ -264,7 +264,7 @@ class WeighingTaskService(BaseTaskService):
                 
                 # Obtener programaciones disponibles para este equipo
                 # Nota: Podríamos optimizar cacheando si es el mismo equipo, pero para seguridad y corrección lo traemos fresco
-                available_programmings = self.get_available_programmings_for_team(team_id, db)
+                available_programmings = self.get_available_programmings_for_team(team_id, db, start_date=date.today() + timedelta(days=1))
                 
                 if not available_programmings:
                      failed_orders.append({

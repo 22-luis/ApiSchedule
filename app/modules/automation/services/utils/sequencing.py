@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 from typing import Optional
 
 def get_sequence_start_date(dependency_date: Optional[date], min_date: Optional[date] = None) -> date:
@@ -15,7 +15,7 @@ def get_sequence_start_date(dependency_date: Optional[date], min_date: Optional[
         date: The calculated valid start date.
     """
     if min_date is None:
-        min_date = date.today()
+        min_date = date.today() + timedelta(days=1)
         
     if dependency_date:
         # Schedule on or after the dependency date, but not in the past relative to min_date

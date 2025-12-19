@@ -172,7 +172,10 @@ class ProgrammingUtils:
             # Chequear si la primera fecha está muy lejos
             first_prog_date = programmings[0].date
             days_diff = (first_prog_date - target_date).days
-            if days_diff > 7:
+            
+            # FIXED: stricter check. If there is ANY gap (days_diff > 0), auto-create the target date.
+            # This ensures we don't skip empty days just because a future one exists.
+            if days_diff > 0:
                 should_create = True
                 logger.info(f"First programming is {days_diff} days away ({first_prog_date}). Auto-creating for {target_date} to fill gap.")
 
