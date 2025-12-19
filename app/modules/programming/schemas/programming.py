@@ -111,6 +111,7 @@ class ProgrammingSummaryItem(BaseModel):
     lote: Optional[str] = None
     code: str
     description: Optional[str] = None
+    quality_status: Optional[str] = None
 
 class ProgrammingSummaryResponse(BaseModel):
     id: UUID

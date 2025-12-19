@@ -22,6 +22,7 @@ from app.shared.utils.business.programming_availability import update_programmin
 from app.modules.programming.models.order import Order as OrderModel
 from app.modules.programming.models.state import OrderStatus
 from app.modules.timer.services.timer import TimerService
+from app.modules.quality.models.test import Test
 
 router = APIRouter(prefix="/programmings", tags=["programmings"])
 
@@ -80,6 +81,7 @@ def get_programming_by_team_date(team_id: str, date: str, db: Session = Depends(
             # Si existe la programación, verificar permisos de acceso
             if current_user.role.value not in ("admin", "planner", "supervisor", "timekeeper") and not user_belongs_to_team(current_user, team_id):
                 raise HTTPException(status_code=403, detail="Not authorized")
+
         # Construir la respuesta con los datos ya cargados (sin consultas adicionales)
         tasks = []
         for pt in sorted(programming.programming_tasks, key=lambda pt: pt.order):
@@ -97,6 +99,7 @@ def get_programming_by_team_date(team_id: str, date: str, db: Session = Depends(
             t['duration_in_hours'] = getattr(pt, 'duration_in_hours', None)
             t['comment'] = getattr(pt, 'comment', None)
             t['created_at'] = getattr(pt, 'created_at', None)
+            
             # Properly serialize the created_by_user object
             if task_obj.created_by_user:
                 t['created_by_user'] = UserOut.model_validate(task_obj.created_by_user, from_attributes=True).model_dump()
@@ -138,6 +141,23 @@ def get_programming_summary(team_id: str, date: str, db: Session = Depends(get_d
         if current_user.role.value not in ("admin", "planner", "supervisor", "timekeeper") and not user_belongs_to_team(current_user, team_id):
             raise HTTPException(status_code=403, detail="Not authorized")
 
+        # Obtener estados de calidad
+        lotes = [str(pt.task.lote) for pt in programming.programming_tasks if pt.task and pt.task.lote]
+        quality_map = {}
+        if lotes:
+            try:
+                lote_ints = []
+                for l in set(lotes):
+                    try:
+                        lote_ints.append(int(l))
+                    except ValueError:
+                        continue
+                if lote_ints:
+                    tests = db.query(Test).filter(Test.lote.in_(lote_ints)).all()
+                    quality_map = {str(test.lote): test.status.value if hasattr(test.status, 'value') else str(test.status) for test in tests}
+            except Exception as qe:
+                print(f"DEBUG: Error fetching quality status for summary: {qe}")
+
         tasks = []
         for pt in sorted(programming.programming_tasks, key=lambda pt: pt.order):
             task_obj = pt.task
@@ -151,7 +171,8 @@ def get_programming_summary(team_id: str, date: str, db: Session = Depends(get_d
             tasks.append({
                 "lote": task_obj.lote,
                 "code": code_str,
-                "description": task_obj.description or (task_obj.code.description if task_obj.code else None)
+                "description": task_obj.description or (task_obj.code.description if task_obj.code else None),
+                "quality_status": quality_map.get(str(task_obj.lote))
             })
 
         return {
