@@ -1,5 +1,6 @@
 from typing import List, Dict, Any, Optional
 import uuid
+import logging
 from sqlalchemy.orm import Session
 from datetime import datetime, time, timedelta, date
 
@@ -11,6 +12,8 @@ from app.modules.programming.models.state import ProgrammingStatus
 from app.modules.programming.models.task import Task
 from app.modules.core.models.team import Team
 from app.shared.utils.business.programming_availability import check_programming_availability
+
+logger = logging.getLogger(__name__)
 
 class ProgrammingUtils:
     @staticmethod
@@ -219,19 +222,31 @@ class ProgrammingUtils:
         Calcula el tiempo ocupado (en minutos desde el inicio del día) basado en las tareas.
         """
         if not programming_tasks:
-            # Si no hay tareas, asumimos inicio a las 7:00 AM (420 minutos)
+            # Si no hay tareas, asumimos inicio a las 7:30 AM (450 minutos) si es sábado, 
+            # o 7:00 AM (420 minutos) de lo contrario.
+            # Nota: Esto es opcional, pero ayuda a la consistencia.
+            if programming_date and programming_date.weekday() == 5:
+                return 450
             return 420 
+            
+        from pytz import timezone
+        sv_tz = timezone("America/El_Salvador")
             
         # Encontrar la tarea que termina más tarde
         last_end_time = None
-        for task in programming_tasks:
-            if task.end_time:
-                # Si end_time es datetime, extraer time. Si es time, usarlo.
-                # Asumimos que end_time es datetime en la base de datos
-                if isinstance(task.end_time, datetime):
-                    et = task.end_time.time()
+        for pt in programming_tasks:
+            if pt.end_time:
+                # Si end_time es datetime, extraer time.
+                et_dt = pt.end_time
+                
+                if isinstance(et_dt, datetime):
+                    # Si tiene info de zona horaria, convertir a El Salvador
+                    if et_dt.tzinfo is not None:
+                        et_dt = et_dt.astimezone(sv_tz)
+                    et = et_dt.time()
                 else:
-                    et = task.end_time
+                    # Asumimos que ya es un objeto time
+                    et = et_dt
                 
                 if last_end_time is None or et > last_end_time:
                     last_end_time = et
@@ -239,7 +254,10 @@ class ProgrammingUtils:
         if last_end_time:
             return last_end_time.hour * 60 + last_end_time.minute
         
-        return 420 # Default start time if logic fails
+        # Fallback a inicio de jornada si no hay horas válidas
+        if programming_date and programming_date.weekday() == 5:
+            return 450
+        return 420
 
     @staticmethod
     def create_order_task(programming_id: str, programming_tasks: List[ProgrammingTask], task_minutes: int, 

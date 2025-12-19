@@ -10,7 +10,7 @@ class ProgrammingTask(Base):
     __tablename__ = "programming_task"
     programming_id = Column(UUID(as_uuid=True), ForeignKey("programming.id"), primary_key=True)
     task_id = Column(UUID(as_uuid=True), ForeignKey("task.id"), primary_key=True)
-    created_at = Column('created_at',DateTime, default=datetime.now())
+    created_at = Column('created_at', DateTime, default=datetime.now)
     order = Column(Integer, nullable=False)
     start_time = Column(DateTime, nullable=True)
     end_time = Column(DateTime, nullable=True)

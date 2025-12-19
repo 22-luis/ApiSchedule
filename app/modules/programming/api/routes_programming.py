@@ -373,6 +373,7 @@ async def reorder_programming_tasks(
     result = []
     current_time = None
     base_time = None # Fix for undefined base_time
+    sv_tz = timezone("America/El_Salvador")
     for item in sorted(tasks_order, key=lambda x: x.order):
         pt = programming_tasks_map.get(item.task_id)
         if not pt:
@@ -380,8 +381,17 @@ async def reorder_programming_tasks(
         pt.order = item.order
         pt.duration_in_hours = item.duration_in_hours
         if item.start_time and item.end_time:
-            pt.start_time = item.start_time if isinstance(item.start_time, datetime) else datetime.fromisoformat(item.start_time)
-            pt.end_time = item.end_time if isinstance(item.end_time, datetime) else datetime.fromisoformat(item.end_time)
+            st = item.start_time if isinstance(item.start_time, datetime) else datetime.fromisoformat(item.start_time)
+            et = item.end_time if isinstance(item.end_time, datetime) else datetime.fromisoformat(item.end_time)
+            
+            # Normalize to America/El_Salvador if it has TZ info
+            if st.tzinfo:
+                st = st.astimezone(sv_tz).replace(tzinfo=None)
+            if et.tzinfo:
+                et = et.astimezone(sv_tz).replace(tzinfo=None)
+                
+            pt.start_time = st
+            pt.end_time = et
             current_time = pt.end_time
         else:
             # Solo recalcula si NO se envían los valores

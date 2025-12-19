@@ -74,7 +74,7 @@ class ScheduleRule:
             
             # Verificar que la programación esté disponible
             if programming_obj.status != ProgrammingStatus.available:
-                logger.debug(f"Descartada {programming_id}: Estado no es 'available' (es '{programming_obj.status}').")
+                logger.warning(f"REJECTED {programming_id}: Status is {programming_obj.status} (expected available).")
                 continue
 
             # Verificar disponibilidad usando la nueva función centralizada
@@ -160,7 +160,11 @@ class ScheduleRule:
 
                 return result
         
-        logger.warning("No se encontró ninguna programación que cumpla con los requisitos.")
+        if sorted_programmings:
+            logger.warning(f"No se encontró ninguna programación que cumpla con los requisitos entre {len(sorted_programmings)} evaluadas.")
+        else:
+            logger.warning("No se proporcionaron programaciones para evaluar.")
+            
         # Si ninguna programación cumple con el límite
         return {
             "success": False,

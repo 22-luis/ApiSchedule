@@ -164,6 +164,10 @@ def check_programming_availability(db: Session, programming: Programming) -> boo
                 
                 # Check if programmable hours are filled
                 if current_end_minutes >= max_allowed_minutes:
+                    # Log for debugging
+                    from app.shared.utils.core.logging import get_logger
+                    logger = get_logger("availability")
+                    logger.debug(f"Capacidad agotada para {team_name} el {programming.date}: {current_end_minutes} >= {max_allowed_minutes}")
                     return False  # Hours filled, should be unavailable
     
     # Check 3: Cutoff time exceeded (original logic)
@@ -191,8 +195,18 @@ def check_programming_availability(db: Session, programming: Programming) -> boo
     cutoff_datetime = datetime.combine(programming.date, cutoff_time)
     max_allowed_time = cutoff_datetime + max_extension
     
+    # Localizar el tiempo de la tarea si es necesario
+    from pytz import timezone
+    sv_tz = timezone("America/El_Salvador")
+    
+    task_end_time = last_programming_task.end_time
+    if task_end_time.tzinfo is not None:
+        # Si ya tiene zona horaria, convertimos a local
+        task_end_time = task_end_time.astimezone(sv_tz).replace(tzinfo=None)
+    # Si es naive, asumimos que ya es local
+
     # Check if the last task's end time exceeds the maximum allowed time
-    if last_programming_task.end_time > max_allowed_time:
+    if task_end_time > max_allowed_time:
         return False  # Should be unavailable
     
     return True  # Should be available
@@ -422,9 +436,18 @@ def get_programming_availability(db: Session, programming_id: str, task_duration
     # Determinar disponibilidad
     is_available = final_minutes <= max_allowed_minutes
 
-    logger.info(f"Availability Check: Team='{team_name}', Rule={team_rule}, Duration={duration_minutes}, "
-                f"MaxAllowed={max_allowed_minutes}, Current={current_end_minutes}, "
-                f"Task={task_duration}, Final={final_minutes}, Available={is_available}")
+    try:
+        with open("scheduling_debug.log", "a") as f:
+            f.write(f"[{datetime.now()}] Team={team_name}, Date={programming.date}, CurrentEnd={current_end_minutes}, Task={task_duration}, Final={final_minutes}, Max={max_allowed_minutes}, Available={is_available}\n")
+    except:
+        pass
+
+    if not is_available:
+        logger.warning(f"REJECTED: Team='{team_name}', Date={programming.date}, Final={final_minutes} > MaxAllowed={max_allowed_minutes}. (Current: {current_end_minutes}, Task: {task_duration})")
+    else:
+        logger.info(f"Availability Check: Team='{team_name}', Rule={team_rule}, Duration={duration_minutes}, "
+                    f"MaxAllowed={max_allowed_minutes}, Current={current_end_minutes}, "
+                    f"Task={task_duration}, Final={final_minutes}, Available={is_available}")
     
     return {
         "available": is_available,

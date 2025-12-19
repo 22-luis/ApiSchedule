@@ -3,6 +3,8 @@ from sqlalchemy.orm import Session, joinedload
 from typing import List, Dict, Any
 from pydantic import BaseModel
 import datetime
+from pytz import timezone
+import pytz
 
 from app.shared.db.session import get_db
 from app.modules.programming.models.task import Task
@@ -66,12 +68,22 @@ def _create_task_logic(db: Session, task_data: Dict[str, Any], teams: List[Team]
 
     # Associate the task with the programming
     max_order = db.query(ProgrammingTask).filter(ProgrammingTask.programming_id == programming.id).count()
+    # Normalize times to local for ProgrammingTask (naive column)
+    sv_tz = timezone("America/El_Salvador")
+    st = db_task.start_time
+    et = db_task.end_time
+    
+    if st and st.tzinfo:
+        st = st.astimezone(sv_tz).replace(tzinfo=None)
+    if et and et.tzinfo:
+        et = et.astimezone(sv_tz).replace(tzinfo=None)
+
     programming_task = ProgrammingTask(
         programming_id=programming.id,
         task_id=db_task.id,
         order=max_order + 1,
-        start_time=db_task.start_time,
-        end_time=db_task.end_time
+        start_time=st,
+        end_time=et
     )
     db.add(programming_task)
 
@@ -194,12 +206,20 @@ def update_task(
         db_task.teams = teams
     
     if updating_times:
+        sv_tz = timezone("America/El_Salvador")
         programming_tasks = db.query(ProgrammingTask).filter(ProgrammingTask.task_id == task_id).all()
         for pt in programming_tasks:
             if 'start_time' in update_data:
-                pt.start_time = update_data['start_time']
+                st = update_data['start_time']
+                if st and st.tzinfo:
+                    st = st.astimezone(sv_tz).replace(tzinfo=None)
+                pt.start_time = st
+                
             if 'end_time' in update_data:
-                pt.end_time = update_data['end_time']
+                et = update_data['end_time']
+                if et and et.tzinfo:
+                    et = et.astimezone(sv_tz).replace(tzinfo=None)
+                pt.end_time = et
     
     db.commit()
     

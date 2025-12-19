@@ -154,10 +154,11 @@ class BaseTaskService(ABC):
             created_tasks = []
             failed_orders = []
             
-            # Índice para rastrear la programación actual que estamos llenando
-            current_prog_idx = 0
-            
+            # For each order, find the best programming starting from Day 1
             for order_data in extracted_orders:
+                # Reset search index for EVERY order (First-Fit strategy)
+                current_prog_idx = 0
+                
                 # Obtener la actividad específica para esta orden
                 activity = self.get_activity_for_order(order_data, filtered_activities)
                 
@@ -168,45 +169,83 @@ class BaseTaskService(ABC):
                     })
                     continue
                 
+                # Obtener minutos y detalles
+                # Support both direct activity objects and objects with 'activity_data'/ 'minutes_calculation' wraps
+                if "activity_data" in activity:
+                    activity_details = activity.get("activity_data", {})
+                    task_minutes = activity.get("minutes_calculation", {}).get("calculated_minutes", 0)
+                else:
+                    activity_details = activity
+                    # Si no vienen precalculados, intentar calcularlos
+                    performance = activity.get("performance")
+                    quantity = order_data.get("quantity")
+                    time_val = activity.get("time")
+                    task_minutes = self.calculate_minutes_from_performance_and_quantity(performance, quantity, time_val)
+
+                activity_type = activity_details.get("type")
+                target_lote = order_data.get("lote")
+                activity_name = activity_details.get("activity")
+
+                # DEBUG LOG START
+                try:
+                    with open("scheduling_debug.log", "a") as f:
+                        f.write(f"[{datetime.now()}] Order={target_lote}, Code={order_data.get('code')}, Activity={activity_name}, CalcMins={task_minutes}\n")
+                except:
+                    pass
+                # DEBUG LOG END
+
                 # --- DUPLICATE CHECK START ---
-                # Check if a task for this batch and activity type (role) already exists.
-                # "batch" in order_data corresponds to the 'lote'
-                # "role" in activity corresponds to the type of task (e.g., 'weighing', 'fabrication')
-                # We need to query ProgrammingTask
-                
+                from app.modules.programming.models.task import Task
                 from app.modules.programming.models.programming import ProgrammingTask
                 
-                # Determine the 'type' to check based on the service class or activity info
-                # This is a bit tricky since 'type' in Task model is sometimes specific (e.g., 'M1') 
-                # but we want to prevent *any* task of this *category* (e.g., 'weighing') for this lote.
-                # However, the user said "same lote and activity".
-                # For safety, let's check if there is ANY task for this lote with the same 'type' 
-                # that we are about to assign.
-                
-                # activity_details contains the specific activity info, including 'type' if available
-                activity_type_to_create = activity.get("activity_data", {}).get("type")
-                target_lote = order_data.get("lote")
-                
-                if activity_type_to_create and target_lote:
-                    existing_task = db.query(ProgrammingTask).filter(
-                        ProgrammingTask.batch == str(target_lote),
-                        ProgrammingTask.type == activity_type_to_create
+                if target_lote and (activity_type or activity_name):
+                    # Check for existing task for this lote and type/activity
+                    existing_task = db.query(Task).filter(Task.lote == str(target_lote)).filter(
+                        (Task.type == activity_type) if activity_type else (Task.activity == activity_name)
                     ).first()
                     
                     if existing_task:
-                         print(f"Skipping task creation for lote {target_lote} and type {activity_type_to_create}: Task already exists.")
-                         # We consider it "processed" but don't create a new one. 
-                         # Maybe we should add it to a "skipped" list or just log it?
-                         # For now, let's just skip it silently or with a log.
-                         failed_orders.append({
+                         # Retrieve programming info for the existing task if possible
+                         pt = db.query(ProgrammingTask).filter(ProgrammingTask.task_id == existing_task.id).first()
+                         
+                         from app.shared.utils.core.logging import get_logger
+                         logger = get_logger(__name__)
+                         logger.info(f"Existing task found for order {target_lote} type {activity_type or activity_name}. SKIPPING CREATION.")
+                         
+                         # Update order status to 'programmed' even if task already exists
+                         try:
+                             OrderStatusService.update_order_status_for_task_creation(db, existing_task)
+                         except Exception as e:
+                             logger.error(f"Error updating order status for existing task: {e}")
+
+                         # Add to successfully "processed" list for notifications
+                         prog_date = None
+                         team_name = None
+                         if pt:
+                             from app.modules.programming.models.programming import Programming
+                             from app.modules.core.models.team import Team
+                             prog = db.query(Programming).filter(Programming.id == pt.programming_id).first()
+                             if prog:
+                                 prog_date = str(prog.date)
+                                 tm = db.query(Team).filter(Team.id == prog.team_id).first()
+                                 if tm:
+                                     team_name = tm.name
+
+                         created_tasks.append({
                             "order_data": order_data,
-                            "reason": f"Ya existe una tarea para el lote {target_lote} con tipo {activity_type_to_create}"
-                        })
+                            "selected_programming": {
+                                "id": str(pt.programming_id) if pt else None,
+                                "date": prog_date,
+                                "team_name": team_name
+                            },
+                            "order_task": {
+                                "task_id": str(existing_task.id),
+                                "programming_id": str(pt.programming_id) if pt else None,
+                                "status": "existing"
+                            }
+                         })
                          continue
                 # --- DUPLICATE CHECK END ---
-                
-                task_minutes = activity.get("minutes_calculation", {}).get("calculated_minutes", 0)
-                activity_details = activity.get("activity_data", {})
                 
                 if task_minutes <= 0:
                     failed_orders.append({
@@ -217,7 +256,7 @@ class BaseTaskService(ABC):
                 
                 task_created = False
                 attempts = 0
-                max_attempts = 100
+                max_attempts = 100 # Safety limit
                 
                 while not task_created and attempts < max_attempts:
                     attempts += 1
