@@ -142,7 +142,7 @@ class BaseTaskService(ABC):
             restore_programmings_availability(db)
 
             # Obtener programaciones disponibles iniciando desde HOY
-            available_programmings = self.get_available_programmings_for_team(team_id, db, start_date=date.today())
+            available_programmings = self.get_available_programmings_for_team(team_id, db, start_date=date.today() + timedelta(days=1))
             
             # Filtrar explícitamente los domingos (weekday == 6)
             available_programmings = [
@@ -231,7 +231,7 @@ class BaseTaskService(ABC):
                                 last_date = date.fromisoformat(last_date)
                             next_date = last_date + timedelta(days=1)
                         else:
-                            next_date = date.today()
+                            next_date = date.today() + timedelta(days=1)
                         
                         # Si es domingo (6), sumar un día para pasar al lunes
                         if next_date.weekday() == 6:
