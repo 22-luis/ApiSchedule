@@ -15,6 +15,11 @@ from app.modules.core.models.user import User
 from app.modules.codes.schemas.code import CodeCreate, CodeOut, CodePageOut, CodeUpdate
 from app.shared.utils.business.data_cleaning import clean_float, clean_str, clean_str_preserve_case
 from app.shared.utils.core.dependencies import require_roles
+from app.shared.core.enums import (
+    WeighingActivities, 
+    ManufacturingActivities
+)
+from sqlalchemy import func, distinct
 
 # Configurar logger
 logger = logging.getLogger(__name__)
@@ -77,6 +82,47 @@ def get_codes(
     
     total = query.count()
     codes = query.offset(skip).limit(limit).all()
+    
+    return {"codes": codes, "total": total}
+
+@router.get("/production", response_model=CodePageOut)
+@cache_response(ttl=300, key_fields=["skip", "limit", "search"])
+def get_production_codes(
+    db: Session = Depends(get_db),
+    skip: int = Query(0, ge=0, description="Cuántos registros omitir"),
+    limit: int = Query(20, ge=1, le=100, description="Cantidad máxima de registros a devolver"),
+    search: str = Query(None, description="Buscar por código o descripción"),
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))
+):
+    PRODUCTION_ACTIVITIES = [
+        WeighingActivities.PESADO,
+        ManufacturingActivities.FABRICACION,
+        ManufacturingActivities.MOL_PASTA,
+        ManufacturingActivities.MOL_POLVO,
+        ManufacturingActivities.MEZ_MAQUINA,
+        ManufacturingActivities.MEZ_POLVO,
+        ManufacturingActivities.MEZ_LIQUIDA
+    ]
+
+    subquery = db.query(
+        func.min(Code.id).label("min_id")
+    ).filter(
+        Code.activity.in_(PRODUCTION_ACTIVITIES)
+    )
+
+    if search:
+        search_pattern = f"%{search.lower()}%"
+        subquery = subquery.filter(
+            (Code.code.ilike(search_pattern)) |
+            (Code.description.ilike(search_pattern))
+        )
+    
+    subquery = subquery.group_by(Code.code).subquery()
+
+    query = db.query(Code).filter(Code.id.in_(subquery))
+    
+    total = query.count()
+    codes = query.order_by(Code.code).offset(skip).limit(limit).all()
     
     return {"codes": codes, "total": total}
 
