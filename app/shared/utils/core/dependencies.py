@@ -1,10 +1,9 @@
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from typing import List
 
-from app.shared.db.session import get_db
-from app.modules.core.models.user import User
 from app.modules.core.models.role import UserRole
+from app.modules.core.models.user import User
+from app.shared.db.session import get_db
 from app.shared.utils.security.jwt import decode_token
 from app.shared.utils.security.security import oauth2_scheme
 
@@ -13,8 +12,10 @@ from app.shared.utils.security.security import oauth2_scheme
 ROLE_HIERARCHY = {
     UserRole.ADMIN: 4,
     UserRole.PLANNER: 3,
+    UserRole.QC_ENGINEER: 3,
     UserRole.ACCOUNTING: 3,
     UserRole.SUPERVISOR: 2,
+    UserRole.QC_TECHNICIAN: 2,
     UserRole.WAREHOUSE: 1,
     UserRole.TIMEKEEPER: 1,
     UserRole.USER: 0,
@@ -48,7 +49,7 @@ def get_current_active_user(
     return current_user
 
 
-def require_roles(*roles: List[UserRole]):
+def require_roles(*roles: UserRole):
     flat_roles = []
     for r in roles:
         if isinstance(r, (list, tuple)):
@@ -73,7 +74,7 @@ def require_roles(*roles: List[UserRole]):
 
 
 # 2. Crear una dependencia para obtener el usuario objetivo y manejar el 404.
-def get_target_user(user_id: str, db: Session = Depends(get_db)) -> User:
+def get_target_user(user_id: str, db: Session = Depends(get_db)) -> type[User]:
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
