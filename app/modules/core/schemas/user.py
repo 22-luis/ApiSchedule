@@ -1,13 +1,13 @@
-import uuid
-import re
 import base64
-from pydantic import BaseModel, Field, field_validator, EmailStr, ConfigDict
-from sqlalchemy import LargeBinary
+import re
+import uuid
+from typing import List, Optional, Union
+
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 
 from app.modules.core.models.role import UserRole
 from app.modules.core.models.state import UserState
-from app.modules.core.models.team import Team
-from typing import List, Optional, Union
+
 
 class UserCreate(BaseModel):
     username: str = Field(
@@ -22,7 +22,7 @@ class UserCreate(BaseModel):
         min_length=6,
         max_length=128,
         description="Contraseña (mínimo 6 caracteres)",
-        example="mipassword123"
+        example="mypassword123"
     )
     role: UserRole = Field(
         default=UserRole.USER,
@@ -77,7 +77,7 @@ class UserCreate(BaseModel):
         json_schema_extra = {
             "example": {
                 "username": "john_doe",
-                "password": "mipassword123",
+                "password": "mypassword123",
                 "role": "USER",
                 "state": "ACTIVE",
                 "teamIds": []
@@ -92,6 +92,7 @@ class UserOut(BaseModel):
     state: UserState = Field(default=UserState.ACTIVE, description="Estado del usuario")
     teamIds: Optional[List[uuid.UUID]] = Field(default=[], description="IDs de equipos")
     signature: Optional[str] = Field(None, description="Firma del usuario")
+    document_name: Optional[str] = Field(None, description="Nombre del documento firmado")
 
     @field_validator('signature', mode='before')
     @classmethod
@@ -132,7 +133,7 @@ class UserUpdate(BaseModel):
         min_length=6,
         max_length=128,
         description="Contraseña (mínimo 6 caracteres, opcional para actualizaciones)",
-        example="mipassword123"
+        example="mypassword123"
     )
     role: Optional[UserRole] = Field(
         None,
@@ -147,6 +148,7 @@ class UserUpdate(BaseModel):
         description="Lista de IDs de equipos a los que pertenece el usuario"
     )
     signature: Optional[Union[str, bytes]] = Field(None, description="Firma del usuario")
+    document_name: Optional[str] = Field(None, description="Nombre del documento firmado")
 
     @field_validator('username')
     @classmethod
@@ -212,7 +214,7 @@ class UserUpdate(BaseModel):
         json_schema_extra = {
             "example": {
                 "username": "john_doe",
-                "password": "mipassword123",
+                "password": "mypassword123",
                 "role": "USER",
                 "state": "ACTIVE",
                 "teamIds": [],

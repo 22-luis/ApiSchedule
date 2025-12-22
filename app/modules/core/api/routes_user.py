@@ -35,7 +35,8 @@ def create_user(
     db_user = User(
         username=user.username, 
         password=hash_password(user.password),
-        role=user.role
+        role=user.role,
+        document_name=user.username
     )
     db.add(db_user)
     db.commit()

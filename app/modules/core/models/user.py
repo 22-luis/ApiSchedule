@@ -15,6 +15,7 @@ class User(Base):
     role = Column(Enum(UserRole))
     state = Column(Enum(UserState), default=UserState.ACTIVE)
     signature = Column(LargeBinary, nullable=True)
+    document_name = Column(String, nullable=True)
     # Relationship to UserTeam (Association Object)
     team_associations = relationship("UserTeam", back_populates="user", cascade="all, delete-orphan")
     
