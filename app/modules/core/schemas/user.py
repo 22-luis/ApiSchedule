@@ -82,7 +82,7 @@ class UserCreate(BaseModel):
                 "role": "USER",
                 "state": "ACTIVE",
                 "teamIds": [],
-                "document_name": null
+                "document_name": None
             }
         }
     )
