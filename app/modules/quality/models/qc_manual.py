@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 import pytz
-from sqlalchemy import Column, Integer, JSON, DateTime
+from sqlalchemy import Column, Integer, JSON, DateTime, String
 from app.shared.db.database import Base
 
 def get_time():
@@ -14,3 +14,4 @@ class QcManual(Base):
     version = Column(Integer, nullable=False)
     content = Column(JSON, nullable=False)
     createdAt = Column(DateTime(timezone=True), default=get_time, nullable=False)
+    created_by = Column(String, nullable=False)

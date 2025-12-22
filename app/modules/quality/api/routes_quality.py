@@ -45,7 +45,8 @@ def create_qc_manual(
     try:
         new_manual = QcManual(
             content=manual_data.content,
-            version=0
+            version=0,
+            created_by=current_user.username
         )
         db.add(new_manual)
         db.flush()
