@@ -36,6 +36,7 @@ class UserCreate(BaseModel):
         default=[],
         description="Lista de IDs de equipos a los que pertenece el usuario"
     )
+    document_name: Optional[str] = Field(None, description="Nombre del documento firmado")
 
     @field_validator('username')
     @classmethod
@@ -80,7 +81,8 @@ class UserCreate(BaseModel):
                 "password": "mypassword123",
                 "role": "USER",
                 "state": "ACTIVE",
-                "teamIds": []
+                "teamIds": [],
+                "document_name": null
             }
         }
     )
@@ -115,7 +117,8 @@ class UserOut(BaseModel):
                 "role": "USER",
                 "state": "ACTIVE",
                 "teamIds": [],
-                "signature": None
+                "signature": None,
+                "document_name": None
             }
         }
     )

@@ -36,7 +36,7 @@ def create_user(
         username=user.username, 
         password=hash_password(user.password),
         role=user.role,
-        document_name=user.username
+        document_name=getattr(user, "document_name", None)
     )
     db.add(db_user)
     db.commit()
@@ -48,7 +48,8 @@ def create_user(
         "role": db_user.role,
         "state": db_user.state,
         "teamIds": [],
-        "signature": None
+        "signature": None,
+        "document_name": db_user.document_name
     }
 
 @router.delete("/{user_id}")
@@ -114,7 +115,8 @@ def update_user(
         "role": target_user.role,
         "state": target_user.state,
         "teamIds": [team.id for team in target_user.teams],
-        "signature": target_user.signature
+        "signature": target_user.signature,
+        "document_name": target_user.document_name
     }
 
 @router.patch("/{user_id}/state", response_model=UserOut)
@@ -177,7 +179,8 @@ def get_user(
         "role": user.role,
         "state": user.state,
         "teamIds": [team.id for team in user.teams],
-        "signature": user.signature
+        "signature": user.signature,
+        "document_name": user.document_name
     }
 
 @router.get("/{user_id}/signature", response_model=UserOut)
@@ -196,5 +199,6 @@ def get_user_signature(
         "role": user.role,
         "state": user.state,
         "teamIds": [team.id for team in user.teams],
-        "signature": user.signature
+        "signature": user.signature,
+        "document_name": user.document_name
     }
