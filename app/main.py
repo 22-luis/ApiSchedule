@@ -61,6 +61,7 @@ from app.modules.programming.api.routes_task import router as task_router
 from app.modules.programming.api.routes_task_status_log import router as task_status_log_router
 from app.modules.codes.api.routes_preparation import router as preparation_router
 from app.modules.codes.api.routes_code import router as code_router
+from app.modules.codes.api.routes_catalog_test import router as catalog_test_router
 from app.modules.programming.api.routes_programming import router as programming_router
 from app.modules.programming.api.routes_calculations import router as calculations_router
 from app.modules.timer.api.routes_timer import router as timer_router
@@ -464,6 +465,7 @@ api_router.include_router(task_router, tags=["tasks"])
 api_router.include_router(task_status_log_router, tags=["tasks"])
 api_router.include_router(preparation_router, tags=["preparations"])
 api_router.include_router(code_router, tags=["codes"])
+api_router.include_router(catalog_test_router, tags=["catalog-tests"])
 api_router.include_router(programming_router, tags=["programmings"])
 api_router.include_router(calculations_router, tags=["calculations"])
 api_router.include_router(timer_router, tags=["Timer"])

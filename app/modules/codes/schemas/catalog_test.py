@@ -6,6 +6,7 @@ from app.modules.codes.models.type import Type
 class CatalogTestBase(BaseModel):
     test: str
     type: Type
+    options: list[str] | None = None
 
 class CatalogTestOut(CatalogTestBase):
     id: UUID
