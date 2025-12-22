@@ -54,3 +54,10 @@ def create_qc_manual(
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/manual/latest", response_model=QcManualOut)
+def get_latest_qc_manual(db: Session = Depends(get_db)):
+    manual = db.query(QcManual).order_by(QcManual.id.desc()).first()
+    if not manual:
+        raise HTTPException(status_code=404, detail="Manual QC no encontrado")
+    return manual

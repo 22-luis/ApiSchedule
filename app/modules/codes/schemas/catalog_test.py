@@ -7,6 +7,7 @@ class CatalogTestBase(BaseModel):
     test: str
     type: Type
     options: list[str] | None = None
+    manual_section_id: str | None = None
 
 class CatalogTestOut(CatalogTestBase):
     id: UUID

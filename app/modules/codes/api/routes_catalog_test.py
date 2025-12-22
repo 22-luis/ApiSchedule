@@ -37,7 +37,8 @@ def create(
         new_test = CatalogTest(
             test=test_data.test,
             type=test_data.type,
-            options=test_data.options
+            options=test_data.options,
+            manual_section_id=test_data.manual_section_id
         )
         db.add(new_test)
         db.commit()

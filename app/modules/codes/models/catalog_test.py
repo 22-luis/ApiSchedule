@@ -11,3 +11,4 @@ class CatalogTest(Base):
     test = Column(String, nullable=False)
     type = Column(Enum(Type), nullable=False)
     options = Column(JSON, nullable=True)
+    manual_section_id = Column(String, nullable=True)

@@ -19,7 +19,8 @@ from app.shared.core.enums import (
     WeighingActivities, 
     ManufacturingActivities
 )
-from sqlalchemy import func, distinct
+from sqlalchemy import func, distinct, cast, String
+from sqlalchemy.dialects.postgresql import UUID
 
 # Configurar logger
 logger = logging.getLogger(__name__)
@@ -92,7 +93,7 @@ def get_production_codes(
     skip: int = Query(0, ge=0, description="Cuántos registros omitir"),
     limit: int = Query(20, ge=1, le=100, description="Cantidad máxima de registros a devolver"),
     search: str = Query(None, description="Buscar por código o descripción"),
-    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.QC_ENGINEER))
 ):
     PRODUCTION_ACTIVITIES = [
         WeighingActivities.PESADO,
@@ -105,7 +106,7 @@ def get_production_codes(
     ]
 
     subquery = db.query(
-        func.min(Code.id).label("min_id")
+        func.min(cast(Code.id, String)).cast(UUID).label("min_id")
     ).filter(
         Code.activity.in_(PRODUCTION_ACTIVITIES)
     )
