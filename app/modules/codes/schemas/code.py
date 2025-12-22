@@ -1,6 +1,7 @@
 import uuid
 from pydantic import BaseModel
 from typing import List, Optional
+from app.modules.codes.schemas.catalog_test import CatalogTestOut
 
 class CodeCreate(BaseModel):
     code: str
@@ -50,6 +51,7 @@ class CodeOut(BaseModel):
     presentation: Optional[str] = None
     fabricationCode: Optional[str] = None
     usefulLife: Optional[str] = None
+    tests: Optional[List[CatalogTestOut]] = None
 
     class Config:
         from_attributes = True

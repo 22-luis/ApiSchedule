@@ -13,6 +13,8 @@ from app.modules.programming.models.order import Order
 from app.modules.core.models.role import UserRole
 from app.modules.core.models.user import User
 from app.modules.codes.schemas.code import CodeCreate, CodeOut, CodePageOut, CodeUpdate
+from app.modules.codes.models.code_test import CodeTest
+from app.modules.codes.models.catalog_test import CatalogTest
 from app.shared.utils.business.data_cleaning import clean_float, clean_str, clean_str_preserve_case
 from app.shared.utils.core.dependencies import require_roles
 from app.shared.core.enums import (
@@ -124,6 +126,15 @@ def get_production_codes(
     
     total = query.count()
     codes = query.order_by(Code.code).offset(skip).limit(limit).all()
+    # Cargar pruebas vinculadas a los códigos obtenidos
+    code_ids = [c.id for c in codes]
+    if code_ids:
+        rows = db.query(CodeTest.code_id, CatalogTest).join(CatalogTest, CatalogTest.id == CodeTest.catalog_test_id).filter(CodeTest.code_id.in_(code_ids)).all()
+        tests_map = {}
+        for code_id, test in rows:
+            tests_map.setdefault(code_id, []).append(test)
+        for c in codes:
+            setattr(c, "tests", tests_map.get(c.id, []))
     
     return {"codes": codes, "total": total}
 
