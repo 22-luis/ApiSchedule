@@ -44,10 +44,12 @@ def create_qc_manual(
 ):
     try:
         new_manual = QcManual(
-            content=manual_data.content
-            # version and id are auto-generated
+            content=manual_data.content,
+            version=0
         )
         db.add(new_manual)
+        db.flush()
+        new_manual.version = new_manual.id
         db.commit()
         db.refresh(new_manual)
         return new_manual
