@@ -66,7 +66,8 @@ def update_test_record(
 @router.get("/{lote}", response_model=TestOut)
 def get_test_record_by_lote(
     lote: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
 ):
     test_record = db.query(Test).filter(Test.lote == lote).first()
     if not test_record:
