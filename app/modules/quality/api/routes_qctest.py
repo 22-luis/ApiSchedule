@@ -63,12 +63,13 @@ def update_test_record(
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))    
 
-@router.get("/{test_id}", response_model=TestOut)
-def get_test_record(
-    test_id: str,
+@router.get("/{lote}", response_model=TestOut)
+def get_test_record_by_lote(
+    lote: int,
     db: Session = Depends(get_db)
 ):
-    test_record = db.query(Test).filter(Test.id == test_id).first()
+    test_record = db.query(Test).filter(Test.lote == lote).first()
     if not test_record:
         raise HTTPException(status_code=404, detail="Registro de calidad no encontrado")
     return test_record
+
