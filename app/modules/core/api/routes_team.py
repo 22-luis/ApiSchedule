@@ -1,26 +1,52 @@
+import uuid
+from datetime import date, timedelta
+from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
-from typing import List, Optional
-from datetime import date, timedelta
-import uuid
 
-from app.shared.db.session import get_db
-from app.modules.core.models.user import User
-from app.modules.core.models.team import Team, UserTeam
 from app.modules.core.models.role import UserRole
+from app.modules.core.models.team import Team, UserTeam
+from app.modules.core.models.user import User
 from app.modules.core.schemas.team import TeamCreate, TeamOut, TeamUpdate, TeamMembersUpdate, TeamMemberOut
+from app.shared.db.session import get_db
 from app.shared.utils.core.dependencies import get_current_active_user, require_roles
 
 router = APIRouter(prefix="/teams", tags=["teams"])
+
+
+def _build_team_out(db: Session, team: Team, target_date: date) -> TeamOut:
+    """Helper para construir el esquema TeamOut filtrando miembros por fecha."""
+    active_members_map = {}
+    for association in team.member_associations:
+        if association.start_date <= target_date and (
+                association.end_date is None or association.end_date >= target_date):
+            if association.user_id not in active_members_map:
+                active_members_map[association.user_id] = TeamMemberOut(
+                    userId=association.user_id,
+                    username=association.user.username if association.user else None,
+                    startDate=association.start_date,
+                    endDate=association.end_date
+                )
+
+    supervisor = db.query(User).filter(User.id == team.supervisorId).first()
+
+    return TeamOut(
+        id=team.id,
+        name=team.name,
+        supervisorId=team.supervisorId,
+        supervisorUsername=supervisor.username if supervisor else None,
+        members=list(active_members_map.values())
+    )
 
 @router.get("/", response_model=List[TeamOut])
 def get_teams(
     target_date: date = Query(default_factory=date.today),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    _current_user: User = Depends(get_current_active_user)
 ):
     teams = db.query(Team).all()
-    
+
     result = []
     for team in teams:
         # Filter members for the specific date
@@ -28,7 +54,7 @@ def get_teams(
         for association in team.member_associations:
             # Check if the association covers the target_date
             # start_date <= target_date AND (end_date IS NULL OR end_date >= target_date)
-            
+
             if association.start_date <= target_date and (association.end_date is None or association.end_date >= target_date):
                 # Deduplicate by user_id. If multiple records exist, we take the first one encountered.
                 if association.user_id not in active_members_map:
@@ -39,9 +65,9 @@ def get_teams(
                         endDate=association.end_date
                     )
                     active_members_map[association.user_id] = member_out
-        
+
         active_members = list(active_members_map.values())
-        
+
         supervisor_username = None
         # We need to fetch supervisor manually or via relationship if not loaded
         supervisor = db.query(User).filter(User.id == team.supervisorId).first()
@@ -56,14 +82,14 @@ def get_teams(
             members=active_members
         )
         result.append(team_out)
-        
+
     return result
 
 @router.post("/", response_model=TeamOut)
 def create_team(
     team_in: TeamCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
+    _current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
 ):
     team = Team(
         name=team_in.name,
@@ -95,7 +121,7 @@ def update_team(
     team_id: uuid.UUID,
     team_update: TeamUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
+    _current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
 ):
     team = db.query(Team).filter(Team.id == team_id).first()
     if not team:
@@ -115,7 +141,7 @@ def update_team_members(
     team_id: uuid.UUID,
     update_data: TeamMembersUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
+    _current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
 ):
     team = db.query(Team).filter(Team.id == team_id).first()
     if not team:
@@ -163,7 +189,7 @@ def update_team_members(
 def delete_team(
     team_id: uuid.UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.ADMIN))
+    _current_user: User = Depends(require_roles(UserRole.ADMIN))
 ):
     team = db.query(Team).filter(Team.id == team_id).first()
     if not team:
@@ -172,30 +198,3 @@ def delete_team(
     db.delete(team)
     db.commit()
     return None
-
-def _build_team_out(db: Session, team: Team, target_date: date) -> TeamOut:
-    active_members_map = {}
-    
-    for association in team.member_associations:
-        if association.start_date <= target_date and (association.end_date is None or association.end_date >= target_date):
-            if association.user_id not in active_members_map:
-                member_out = TeamMemberOut(
-                    userId=association.user_id,
-                    username=association.user.username if association.user else None,
-                    startDate=association.start_date,
-                    endDate=association.end_date
-                )
-                active_members_map[association.user_id] = member_out
-            
-    active_members = list(active_members_map.values())
-            
-    supervisor = db.query(User).filter(User.id == team.supervisorId).first()
-    supervisor_username = supervisor.username if supervisor else None
-    
-    return TeamOut(
-        id=team.id,
-        name=team.name,
-        supervisorId=team.supervisorId,
-        supervisorUsername=supervisor_username,
-        members=active_members
-    )

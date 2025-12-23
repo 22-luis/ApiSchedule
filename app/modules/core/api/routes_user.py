@@ -1,14 +1,17 @@
 import uuid
-from typing import List, Optional
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from app.shared.db.session import get_db
-from app.modules.core.models.user import User
+
 from app.modules.core.models.role import UserRole
-from app.modules.core.models.team import Team
 from app.modules.core.models.state import UserState
+from app.modules.core.models.team import Team
+from app.modules.core.models.user import User
 from app.modules.core.schemas.user import UserCreate, UserUpdate, UserOut, UsersPageOut, UserStateUpdate
-from app.shared.utils.core.dependencies import get_current_user, require_roles, ROLE_HIERARCHY, check_user_modification_permission
+from app.shared.db.session import get_db
+from app.shared.utils.core.dependencies import get_current_user, require_roles, ROLE_HIERARCHY, \
+    check_user_modification_permission
 from app.shared.utils.security.security import hash_password
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -17,12 +20,12 @@ router = APIRouter(prefix="/users", tags=["users"])
 def create_user(
     user: UserCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
+    _current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
 ):
-    current_level = ROLE_HIERARCHY.get(current_user.role, 0)
+    current_level = ROLE_HIERARCHY.get(_current_user.role, 0)
     target_level = ROLE_HIERARCHY.get(user.role, 0)
 
-    if current_level < target_level or (current_level == target_level and current_user.role != UserRole.ADMIN):
+    if current_level < target_level or (current_level == target_level and _current_user.role != UserRole.ADMIN):
         raise HTTPException(
             status_code=403,
             detail=f"You don't have permission to create users with the role '{user.role.value}'"
@@ -56,7 +59,7 @@ def create_user(
 def delete_user(
     db: Session = Depends(get_db), 
     target_user: User = Depends(check_user_modification_permission),
-    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))
+    _current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))
 ):
     db.delete(target_user)
     db.commit()
@@ -67,13 +70,13 @@ def update_user(
     user_update: UserUpdate, 
     db: Session = Depends(get_db), 
     target_user: User = Depends(check_user_modification_permission), 
-    current_user: User = Depends(get_current_user)
+    _current_user: User = Depends(get_current_user)
 ):
     update_data = user_update.model_dump(exclude_unset=True)
     past_state = target_user.state
 
     # Protección de campos administrativos para usuarios sin privilegios
-    if current_user.role not in [UserRole.ADMIN, UserRole.PLANNER]:
+    if _current_user.role not in [UserRole.ADMIN, UserRole.PLANNER]:
         # Si no es admin/planner, eliminar campos restringidos del update_data
         for field in ["role", "state", "teamIds"]:
             update_data.pop(field, None)
@@ -124,7 +127,7 @@ def update_user_state(
     state_update: UserStateUpdate, 
     db: Session = Depends(get_db), 
     target_user: User = Depends(check_user_modification_permission), 
-    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))
+    _current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))
 ):
     setattr(target_user, "state", state_update.state)
     db.commit()
@@ -139,7 +142,7 @@ def get_users(
     skip: int = Query(0, ge=0, description="Skip"),
     limit: int = Query(10, ge=1, le=50, description="Limit"),
     search: Optional[str] = Query(None, description="Search by username"),
-    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
+    _current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
 ):
     query = db.query(User)
     if state is not None:
@@ -167,7 +170,7 @@ def get_users(
 def get_user(
     user_id: uuid.UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    _current_user: User = Depends(get_current_user)
 ):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
@@ -187,7 +190,7 @@ def get_user(
 def get_user_signature(
     user_id: uuid.UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    _current_user: User = Depends(get_current_user)
 ):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
@@ -195,10 +198,6 @@ def get_user_signature(
         
     return {
         "id": user.id,
-        "username": user.username,
-        "role": user.role,
-        "state": user.state,
-        "teamIds": [team.id for team in user.teams],
         "signature": user.signature,
         "document_name": user.document_name
     }

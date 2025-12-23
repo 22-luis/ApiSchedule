@@ -6,7 +6,6 @@ from app.shared.db.session import get_db
 from app.modules.core.models.user import User
 from app.shared.utils.security.jwt import create_access_token
 from app.shared.utils.security.security import verify_password
-from passlib.exc import UnknownHashError
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -33,5 +32,5 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     }
 
 @router.post("/logout")
-def logout(current_user=Depends(get_current_user)):
+def logout(_current_user=Depends(get_current_user)):
     return {"message": "Logout successful"}

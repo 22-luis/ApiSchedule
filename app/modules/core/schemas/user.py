@@ -1,4 +1,5 @@
 import base64
+import binascii
 import re
 import uuid
 from typing import List, Optional, Union
@@ -9,59 +10,38 @@ from app.modules.core.models.role import UserRole
 from app.modules.core.models.state import UserState
 
 
-class UserCreate(BaseModel):
-    username: str = Field(
-        ..., 
-        min_length=3, 
-        max_length=50,
-        description="Nombre de usuario único",
-        example="john_doe"
-    )
-    password: str = Field(
-        ..., 
-        min_length=6,
-        max_length=128,
-        description="Contraseña (mínimo 6 caracteres)",
-        example="mypassword123"
-    )
-    role: UserRole = Field(
-        default=UserRole.USER,
-        description="Rol del usuario en el sistema"
-    )
-    state: UserState = Field(
-        default=UserState.ACTIVE,
-        description="Estado del usuario"
-    )
-    teamIds: Optional[List[uuid.UUID]] = Field(
-        default=[],
-        description="Lista de IDs de equipos a los que pertenece el usuario"
-    )
-    document_name: Optional[str] = Field(None, description="Nombre del documento firmado")
+class UserBase(BaseModel):
+    username: Optional[str] = None
+    password: Optional[str] = None
+    role: Optional[UserRole] = None
+    state: Optional[UserState] = None
+    teamIds: Optional[List[uuid.UUID]] = None
+    document_name: Optional[str] = None
 
     @field_validator('username')
     @classmethod
     def validate_username(cls, v):
+        if v is None:
+            return v
         if not re.match(r'^[a-zA-Z0-9_]+$', v):
             raise ValueError('El nombre de usuario solo puede contener letras, números y guiones bajos')
-        
         if v.lower() in ['admin', 'root', 'system', 'test', 'guest']:
             raise ValueError('Nombre de usuario no permitido')
-        
         return v
 
     @field_validator('password')
     @classmethod
     def validate_password(cls, v):
+        if v is None:
+            return v
         if len(v) < 6:
             raise ValueError('La contraseña debe tener al menos 6 caracteres')
-        
         common_passwords = [
             'password', '123456', 'qwerty', 'admin', 'letmein',
             'welcome', 'monkey', 'password123', 'admin123'
         ]
         if v.lower() in common_passwords:
             raise ValueError('La contraseña es demasiado común')
-        
         return v
 
     @field_validator('teamIds')
@@ -73,9 +53,16 @@ class UserCreate(BaseModel):
                 raise ValueError('No se permiten IDs de equipo duplicados')
         return v
 
+class UserCreate(UserBase):
+    username: str = Field(..., min_length=3, max_length=50)
+    password: str = Field(..., min_length=6, max_length=128)
+    role: UserRole = Field(default=UserRole.USER)
+    state: UserState = Field(default=UserState.ACTIVE)
+    teamIds: Optional[List[uuid.UUID]] = Field(default=[])
+
     model_config = ConfigDict(
-        from_attributes = True,
-        json_schema_extra = {
+        from_attributes=True,
+        json_schema_extra={
             "example": {
                 "username": "john_doe",
                 "password": "mypassword123",
@@ -104,8 +91,10 @@ class UserOut(BaseModel):
         if isinstance(v, (bytes, bytearray, memoryview)):
             try:
                 return base64.b64encode(bytes(v)).decode('utf-8')
-            except Exception:
-                return None
+            except (binascii.Error, ValueError):
+                raise ValueError('La firma debe ser una cadena base64 valida')
+        if isinstance(v, (bytes, bytearray, memoryview)):
+            return bytes(v)
         return v
 
     model_config = ConfigDict(
@@ -123,78 +112,8 @@ class UserOut(BaseModel):
         }
     )
 
-class UserUpdate(BaseModel):
-    username: Optional[str] = Field(
-        None, 
-        min_length=3, 
-        max_length=50,
-        description="Nombre de usuario único",
-        example="john_doe"
-    )
-    password: Optional[str] = Field(
-        None, 
-        min_length=6,
-        max_length=128,
-        description="Contraseña (mínimo 6 caracteres, opcional para actualizaciones)",
-        example="mypassword123"
-    )
-    role: Optional[UserRole] = Field(
-        None,
-        description="Rol del usuario en el sistema"
-    )
-    state: Optional[UserState] = Field(
-        None,
-        description="Estado del usuario"
-    )
-    teamIds: Optional[List[uuid.UUID]] = Field(
-        None,
-        description="Lista de IDs de equipos a los que pertenece el usuario"
-    )
+class UserUpdate(UserBase):
     signature: Optional[Union[str, bytes]] = Field(None, description="Firma del usuario")
-    document_name: Optional[str] = Field(None, description="Nombre del documento firmado")
-
-    @field_validator('username')
-    @classmethod
-    def validate_username(cls, v):
-        if v is None:
-            return v
-            
-        if not re.match(r'^[a-zA-Z0-9_]+$', v):
-            raise ValueError('El nombre de usuario solo puede contener letras, números y guiones bajos')
-        
-        if v.lower() in ['admin', 'root', 'system', 'test', 'guest']:
-            raise ValueError('Nombre de usuario no permitido')
-        
-        # For updates, preserve the original casing
-        return v
-
-    @field_validator('password')
-    @classmethod
-    def validate_password(cls, v):
-        if v is None:
-            return v
-        
-        if len(v) < 6:
-            raise ValueError('La contraseña debe tener al menos 6 caracteres')
-        
-        # Verify common passwords
-        common_passwords = [
-            'password', '123456', 'qwerty', 'admin', 'letmein',
-            'welcome', 'monkey', 'password123', 'admin123'
-        ]
-        if v.lower() in common_passwords:
-            raise ValueError('La contraseña es demasiado común')
-        
-        return v
-
-    @field_validator('teamIds')
-    @classmethod
-    def validate_team_ids(cls, v):
-        if v is not None:
-            unique_ids = list(set(v))
-            if len(unique_ids) != len(v):
-                raise ValueError('No se permiten IDs de equipo duplicados')
-        return v
 
     @field_validator('signature', mode='before')
     @classmethod
@@ -203,18 +122,16 @@ class UserUpdate(BaseModel):
             return None
         if isinstance(v, str) and v.strip():
             try:
-                # Si ya es un Base64 válido, lo decodificamos a bytes
                 return base64.b64decode(v)
             except Exception:
-                # Si no es un Base64 válido pero es un string, lanzamos el error
                 raise ValueError('La firma debe ser una cadena base64 válida')
         if isinstance(v, (bytes, bytearray, memoryview)):
             return bytes(v)
         return v
 
     model_config = ConfigDict(
-        from_attributes = True,
-        json_schema_extra = {
+        from_attributes=True,
+        json_schema_extra={
             "example": {
                 "username": "john_doe",
                 "password": "mypassword123",
