@@ -25,7 +25,7 @@ class StopwatchInDBBase(StopwatchBase):
     is_from_programming: bool
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class Stopwatch(StopwatchInDBBase):
     pass

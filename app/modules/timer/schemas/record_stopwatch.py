@@ -19,7 +19,7 @@ class RecordStopwatchInDBBase(RecordStopwatchBase):
     creation_date: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class RecordStopwatch(RecordStopwatchInDBBase):
     pass

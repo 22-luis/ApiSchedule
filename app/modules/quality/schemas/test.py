@@ -11,6 +11,10 @@ class TestBase(BaseModel):
 class TestCreate(TestBase):
     pass
 
+class TestUpdate(BaseModel):
+    status: Optional[TestStatus] = None
+    results: Optional[Dict[str, Any]] = None
+
 class TestOut(TestBase):
     id: UUID
 

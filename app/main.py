@@ -1,7 +1,3 @@
-"""
-Aplicación principal de FastAPI para ApiSchedule.
-Configuración centralizada con logging, rate limiting y manejo de errores.
-"""
 import time
 import uuid
 from fastapi import APIRouter, FastAPI, HTTPException, Request, Response
@@ -70,7 +66,8 @@ from app.modules.timer.api.routes_record_stopwatch import router as record_stopw
 from app.modules.reports.api.routes_report import router as report_router
 from app.modules.monitoring.api.routes import router as monitoring_router
 from app.modules.programming.api.routes_notification import router as notification_router
-from app.modules.quality.api.routes_quality import router as quality_router
+from app.modules.quality.api.routes_manual import router as manual_router
+from app.modules.quality.api.routes_qctest import router as qc_router
 
 
 # Import models to ensure they are registered with Base
@@ -475,8 +472,8 @@ api_router.include_router(record_stopwatch_router, tags=["Record Stopwatch"])
 api_router.include_router(report_router, tags=["reports"])
 api_router.include_router(monitoring_router)
 api_router.include_router(notification_router, tags=["notifications"])
-api_router.include_router(quality_router, tags=["quality"])
-
+api_router.include_router(manual_router, tags=["manual"])
+api_router.include_router(qc_router, tags=["qctest"])
 
 # Incluir el router principal en la app
 app.include_router(api_router)
