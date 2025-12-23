@@ -121,9 +121,6 @@ def get_programming_by_team_date(team_id: str, date: str, db: Session = Depends(
 # Endpoint simplificado para obtener solo lote, codigo y descripcion
 @router.get("/summary", response_model=ProgrammingSummaryResponse)
 def get_programming_summary(team_id: str, date: str, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
-    """
-    Devuelve un resumen de la programación con solo lote, código y descripción.
-    """
     try:
         # Convertir date a objeto date
         date_obj = datetime.strptime(date, "%Y-%m-%d").date()
@@ -164,9 +161,12 @@ def get_programming_summary(team_id: str, date: str, db: Session = Depends(get_d
             if not task_obj:
                 continue
             
-            # Obtener el código desde la relación o el campo fabricationCode/rel_code si aplica
-            # Pero el usuario pidió "codigo", usaremos task_obj.code.code (el string)
-            code_str = task_obj.code.code if task_obj.code else (task_obj.fabricationCode or "N/A")
+            # Obtener el código desde la relación o el campo fabricationCode
+            code_str = task_obj.code.code if task_obj.code else task_obj.fabricationCode
+            
+            # Si no hay código ni fabricationCode, omitimos la tarea
+            if not code_str:
+                continue
             
             tasks.append({
                 "lote": task_obj.lote,
