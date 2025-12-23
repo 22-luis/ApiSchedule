@@ -7,6 +7,10 @@ class QcManualBase(BaseModel):
 class QcManualCreate(QcManualBase):
     pass
 
+class SectionOut(BaseModel):
+    section_name: str
+    content: str
+
 class QcManualOut(QcManualBase):
     id: int
     version: int

@@ -11,4 +11,5 @@ class CatalogTestBase(BaseModel):
 
 class CatalogTestOut(CatalogTestBase):
     id: UUID
+    manual_content: str | None = None
 

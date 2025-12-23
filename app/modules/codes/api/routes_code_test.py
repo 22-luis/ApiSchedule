@@ -11,6 +11,9 @@ from app.modules.codes.schemas.code_test import CodeTestLink, CodeTestOut
 from app.modules.codes.schemas.catalog_test import CatalogTestOut
 from app.modules.core.models.role import UserRole
 from app.shared.utils.core.dependencies import require_roles
+from app.modules.quality.models.qc_manual import QcManual
+import unicodedata
+import re
 
 router = APIRouter(prefix="/codes/{code_id}/tests", tags=["codes"])
 
@@ -65,7 +68,50 @@ def get_tests_for_code(code_id: UUID, db: Session = Depends(get_db)):
         CodeTest, CatalogTest.id == CodeTest.catalog_test_id
     ).filter(CodeTest.code_id == code_id).all()
     
-    return tests
+    # Enrich with manual content if applicable
+    return enrich_tests_with_manual_content(db, tests)
+
+def slugify(text: str) -> str:
+    if not text: return ""
+    text = unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode('ascii')
+    text = re.sub(r'[^\w\s-]', '', text).strip().lower()
+    return re.sub(r'[-\s]+', '-', text)
+
+def enrich_tests_with_manual_content(db: Session, tests: List[CatalogTest]) -> List[dict]:
+    # Obtener el último manual
+    manual = db.query(QcManual).order_by(QcManual.id.desc()).first()
+    if not manual or not manual.content:
+        return [CatalogTestOut.model_validate(t, from_attributes=True).model_dump() for t in tests]
+
+    content_dict = manual.content
+    # Pre-calcular slugs del manual para eficiencia
+    slug_map = {slugify(k): v for k, v in content_dict.items()}
+
+    result = []
+    for t in tests:
+        test_data = CatalogTestOut.model_validate(t, from_attributes=True).model_dump()
+        if t.manual_section_id:
+            # Intentar búsqueda exacta
+            content = content_dict.get(t.manual_section_id)
+            
+            # Si falla, intentar búsqueda normalizada
+            if content is None:
+                target_slug = slugify(t.manual_section_id)
+                clean_target_slug = re.sub(r'^section-\d+-', '', target_slug)
+                
+                content = slug_map.get(target_slug) or slug_map.get(clean_target_slug)
+                
+                # Búsqueda por subcadena si aún no hay nada (fallback robuso)
+                if content is None:
+                    for s_slug, s_content in slug_map.items():
+                        if s_slug in clean_target_slug or clean_target_slug in s_slug:
+                            content = s_content
+                            break
+            
+            test_data["manual_content"] = content
+        result.append(test_data)
+    
+    return result
 
 @router.delete("/{test_id}", status_code=204)
 def unlink_test_from_code(
@@ -93,9 +139,9 @@ def get_tests_by_code_string(code: str, db: Session = Depends(get_db)):
     if not code_obj:
         raise HTTPException(status_code=404, detail="Code not found")
     
-    # Use existing logic to get tests
+    # Get tests linked to this code
     tests = db.query(CatalogTest).join(
         CodeTest, CatalogTest.id == CodeTest.catalog_test_id
     ).filter(CodeTest.code_id == code_obj.id).all()
     
-    return tests
+    return enrich_tests_with_manual_content(db, tests)
