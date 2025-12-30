@@ -15,11 +15,7 @@ def create_test_record(
     current_user = Depends(get_current_user)
 ):
     try:
-        new_test = Test(
-            lote=test_data.lote,
-            status=test_data.status,
-            results=test_data.results
-        )
+        new_test = Test(**test_data.model_dump())
         db.add(new_test)
         db.commit()
         db.refresh(new_test)
@@ -46,10 +42,9 @@ def update_test_record(
     if not test_record:
         raise HTTPException(status_code=404, detail="Registro de calidad no encontrado")
     try:
-        if test_data.status is not None:
-            test_record.status = test_data.status
-        if test_data.results is not None:
-            test_record.results = test_data.results
+        update_data = test_data.model_dump(exclude_unset=True)
+        for key, value in update_data.items():
+            setattr(test_record, key, value)
         db.commit()
         db.refresh(test_record)
         return test_record
