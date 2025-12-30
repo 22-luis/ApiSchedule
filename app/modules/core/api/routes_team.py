@@ -46,44 +46,7 @@ def get_teams(
     _current_user: User = Depends(get_current_active_user)
 ):
     teams = db.query(Team).all()
-
-    result = []
-    for team in teams:
-        # Filter members for the specific date
-        active_members_map = {}
-        for association in team.member_associations:
-            # Check if the association covers the target_date
-            # start_date <= target_date AND (end_date IS NULL OR end_date >= target_date)
-
-            if association.start_date <= target_date and (association.end_date is None or association.end_date >= target_date):
-                # Deduplicate by user_id. If multiple records exist, we take the first one encountered.
-                if association.user_id not in active_members_map:
-                    member_out = TeamMemberOut(
-                        userId=association.user_id,
-                        username=association.user.username if association.user else None,
-                        startDate=association.start_date,
-                        endDate=association.end_date
-                    )
-                    active_members_map[association.user_id] = member_out
-
-        active_members = list(active_members_map.values())
-
-        supervisor_username = None
-        # We need to fetch supervisor manually or via relationship if not loaded
-        supervisor = db.query(User).filter(User.id == team.supervisorId).first()
-        if supervisor:
-            supervisor_username = supervisor.username
-
-        team_out = TeamOut(
-            id=team.id,
-            name=team.name,
-            supervisorId=team.supervisorId,
-            supervisorUsername=supervisor_username,
-            members=active_members
-        )
-        result.append(team_out)
-
-    return result
+    return [_build_team_out(db, team, target_date) for team in teams]
 
 @router.post("/", response_model=TeamOut)
 def create_team(

@@ -45,15 +45,7 @@ def create_user(
     db.commit()
     db.refresh(db_user)
     
-    return {
-        "id": db_user.id,
-        "username": db_user.username,
-        "role": db_user.role,
-        "state": db_user.state,
-        "teamIds": [],
-        "signature": None,
-        "document_name": db_user.document_name
-    }
+    return UserOut.model_validate(db_user)
 
 @router.delete("/{user_id}")
 def delete_user(
@@ -110,17 +102,7 @@ def update_user(
     db.commit()
     db.refresh(target_user)
     
-    # Construir la respuesta manualmente para asegurar que teamIds esté presente
-    # y evitar problemas con response_model=UserOut y SQLAlchemy objects
-    return {
-        "id": target_user.id,
-        "username": target_user.username,
-        "role": target_user.role,
-        "state": target_user.state,
-        "teamIds": [team.id for team in target_user.teams],
-        "signature": target_user.signature,
-        "document_name": target_user.document_name
-    }
+    return UserOut.model_validate(target_user)
 
 @router.patch("/{user_id}/state", response_model=UserOut)
 def update_user_state(
@@ -154,17 +136,10 @@ def get_users(
     total = query.count()
     users = query.offset(skip).limit(limit).all()
     
-    result = []
-    for user in users:
-        team_ids = [team.id for team in getattr(user, 'teams', [])]
-        result.append({
-            "id": user.id,
-            "username": user.username,
-            "role": user.role,
-            "state": user.state,
-            "teamIds": team_ids
-        })
-    return {"users": result, "total": total}
+    return UsersPageOut(
+        users=[UserOut.model_validate(user) for user in users],
+        total=total
+    )
 
 @router.get("/{user_id}", response_model=UserOut)
 def get_user(
@@ -176,15 +151,7 @@ def get_user(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    return {
-        "id": user.id,
-        "username": user.username,
-        "role": user.role,
-        "state": user.state,
-        "teamIds": [team.id for team in user.teams],
-        "signature": user.signature,
-        "document_name": user.document_name
-    }
+    return UserOut.model_validate(user)
 
 @router.get("/{user_id}/signature", response_model=UserOut)
 def get_user_signature(

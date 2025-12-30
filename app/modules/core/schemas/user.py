@@ -93,8 +93,6 @@ class UserOut(BaseModel):
                 return base64.b64encode(bytes(v)).decode('utf-8')
             except (binascii.Error, ValueError):
                 raise ValueError('La firma debe ser una cadena base64 valida')
-        if isinstance(v, (bytes, bytearray, memoryview)):
-            return bytes(v)
         return v
 
     model_config = ConfigDict(
