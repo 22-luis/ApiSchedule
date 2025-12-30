@@ -34,7 +34,7 @@ def user_belongs_to_team(user, team_id):
 # Listar programaciones (admin/planner: todas, user: solo su equipo)
 @router.get("/", response_model=List[ProgrammingRead])
 def list_programmings(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
-    if current_user.role.value in ("admin", "planner", "supervisor", "timekeeper", "qc_engineer", "qc_technician"):
+    if current_user.role.value in ("admin", "planner", "supervisor", "timekeeper", "qc_coordinator", "qc_assistant"):
         programmings = db.query(Programming).all()
     else:
         team_ids = [team.id for team in getattr(current_user, "teams", [])]
@@ -70,7 +70,7 @@ def get_programming_by_team_date(team_id: str, date: str, db: Session = Depends(
             print(f"DEBUG: No programming found for team {team_id} on date {date_obj}")
         if not programming:
             # Si no existe la programación, verificar si el usuario puede crearla
-            if current_user.role.value not in ("admin", "planner", "supervisor", "timekeeper", "qc_engineer", "qc_technician") and not user_belongs_to_team(current_user, team_id):
+            if current_user.role.value not in ("admin", "planner", "supervisor", "timekeeper", "qc_coordinator", "qc_assistant") and not user_belongs_to_team(current_user, team_id):
                 raise HTTPException(status_code=403, detail="Not authorized")
             # Crear la programación automáticamente para usuarios autorizados
             programming = Programming(date=date_obj, team_id=team_id)
@@ -79,7 +79,7 @@ def get_programming_by_team_date(team_id: str, date: str, db: Session = Depends(
             db.refresh(programming)
         else:
             # Si existe la programación, verificar permisos de acceso
-            if current_user.role.value not in ("admin", "planner", "supervisor", "timekeeper", "qc_engineer", "qc_technician") and not user_belongs_to_team(current_user, team_id):
+            if current_user.role.value not in ("admin", "planner", "supervisor", "timekeeper", "qc_coordinator", "qc_assistant") and not user_belongs_to_team(current_user, team_id):
                 raise HTTPException(status_code=403, detail="Not authorized")
 
         # Construir la respuesta con los datos ya cargados (sin consultas adicionales)
@@ -135,7 +135,7 @@ def get_programming_summary(team_id: str, date: str, db: Session = Depends(get_d
             raise HTTPException(status_code=404, detail="Programming not found")
 
         # Verificar permisos
-        if current_user.role.value not in ("admin", "planner", "supervisor", "timekeeper", "qc_engineer", "qc_technician") and not user_belongs_to_team(current_user, team_id):
+        if current_user.role.value not in ("admin", "planner", "supervisor", "timekeeper", "qc_coordinator", "qc_assistant") and not user_belongs_to_team(current_user, team_id):
             raise HTTPException(status_code=403, detail="Not authorized")
 
         # Obtener estados de calidad
@@ -200,7 +200,7 @@ def get_dashboard_data(date: str, db: Session = Depends(get_db), current_user=De
         date_obj = datetime.strptime(date, "%Y-%m-%d").date()
         
         # Determinar qué programaciones puede ver el usuario
-        if current_user.role.value in ("admin", "planner", "supervisor", "timekeeper", "qc_engineer", "qc_technician"):
+        if current_user.role.value in ("admin", "planner", "supervisor", "timekeeper", "qc_coordinator", "qc_assistant"):
             # Usuarios privilegiados ven todas las programaciones
             programmings_query = db.query(Programming)
         else:

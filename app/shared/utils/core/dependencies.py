@@ -12,10 +12,10 @@ from app.shared.utils.security.security import oauth2_scheme
 ROLE_HIERARCHY = {
     UserRole.ADMIN: 4,
     UserRole.PLANNER: 3,
-    UserRole.QC_ENGINEER: 3,
+    UserRole.QC_COORDINATOR: 3,
     UserRole.ACCOUNTING: 3,
     UserRole.SUPERVISOR: 2,
-    UserRole.QC_TECHNICIAN: 2,
+    UserRole.QC_ASSISTANT: 2,
     UserRole.WAREHOUSE: 1,
     UserRole.TIMEKEEPER: 1,
     UserRole.USER: 0,

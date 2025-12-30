@@ -8,5 +8,5 @@ class UserRole(str, enum.Enum):
     USER = "user"
     WAREHOUSE = "warehouse"
     ACCOUNTING = "accounting"
-    QC_ENGINEER = "qc_engineer"
-    QC_TECHNICIAN = "qc_technician"
+    QC_COORDINATOR = "qc_coordinator"
+    QC_ASSISTANT = "qc_assistant"

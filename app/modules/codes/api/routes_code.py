@@ -59,7 +59,7 @@ router = APIRouter(prefix="/codes", tags=["codes"])
 @router.post("/", response_model=CodeOut)
 @invalidate_cache(pattern="codes")
 def create_code(code: CodeCreate, db: Session = Depends(get_db),
-                current_user: User = Depends(require_roles(UserRole.ADMIN))):
+                _current_user: User = Depends(require_roles(UserRole.ADMIN))):
     db_code = Code(**code.dict())
     db.add(db_code)
     db.commit()
@@ -73,7 +73,7 @@ def get_codes(
     skip: int = Query(0, ge=0, description="Cuántos registros omitir"),
     limit: int = Query(20, ge=1, le=100, description="Cantidad máxima de registros a devolver"),
     search: str = Query(None, description="Buscar por código o descripción"),
-    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))
+    _current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))
 ):
     query = db.query(Code)
     if search:
@@ -95,7 +95,7 @@ def get_production_codes(
     skip: int = Query(0, ge=0, description="Cuántos registros omitir"),
     limit: int = Query(20, ge=1, le=100, description="Cantidad máxima de registros a devolver"),
     search: str = Query(None, description="Buscar por código o descripción"),
-    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.QC_ENGINEER, UserRole.QC_TECHNICIAN))
+    _current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.QC_COORDINATOR, UserRole.QC_ASSISTANT))
 ):
     PRODUCTION_ACTIVITIES = [
         WeighingActivities.PESADO,
@@ -140,7 +140,7 @@ def get_production_codes(
 
 @router.get("/{code_id}", response_model=CodeOut)
 @cache_response(ttl=600, key_fields=["code_id"])
-def get_code(code_id: uuid.UUID, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))):
+def get_code(code_id: uuid.UUID, db: Session = Depends(get_db), _current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))):
     code = db.query(Code).filter(Code.id == code_id).first()
     if not code:
         raise HTTPException(status_code=404, detail="Code not found")
@@ -148,7 +148,7 @@ def get_code(code_id: uuid.UUID, db: Session = Depends(get_db), current_user: Us
 
 @router.patch("/{code_id}", response_model=CodeOut)
 @invalidate_cache(pattern="codes")
-def update_code(code_id: uuid.UUID, code_update: CodeUpdate, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN))):
+def update_code(code_id: uuid.UUID, code_update: CodeUpdate, db: Session = Depends(get_db), _current_user: User = Depends(require_roles(UserRole.ADMIN))):
     db_code = db.query(Code).filter(Code.id == code_id).first()
     if not db_code:
         raise HTTPException(status_code=404, detail="Code not found")
@@ -163,7 +163,7 @@ def update_code(code_id: uuid.UUID, code_update: CodeUpdate, db: Session = Depen
 
 @router.delete("/{code_id}")
 @invalidate_cache(pattern="codes")
-def delete_code(code_id: uuid.UUID, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN))):
+def delete_code(code_id: uuid.UUID, db: Session = Depends(get_db), _current_user: User = Depends(require_roles(UserRole.ADMIN))):
     db_code = db.query(Code).filter(Code.id == code_id).first()
     if not db_code:
         raise HTTPException(status_code=404, detail="Code not found")
@@ -175,7 +175,7 @@ def delete_code(code_id: uuid.UUID, db: Session = Depends(get_db), current_user:
 
 @router.get("/by_code_and_activity", response_model=CodeOut)
 @cache_response(ttl=600, key_fields=["code", "activity"])
-def get_code_by_code_and_activity(code: str, activity: str, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))):
+def get_code_by_code_and_activity(code: str, activity: str, db: Session = Depends(get_db), _current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))):
     code_obj = db.query(Code).filter(Code.code == code, Code.activity == activity).first()
     if not code_obj:
         raise HTTPException(status_code=404, detail="Code not found with given code and activity")
@@ -187,7 +187,7 @@ def get_activity_details_by_code_and_activity(
     code: str, 
     activity: str, 
     db: Session = Depends(get_db), 
-    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))
+    _current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))
 ):
     logger.debug(f"Buscando detalles para código '{code}' y actividad '{activity}'")
     
@@ -206,7 +206,7 @@ def get_activity_details_by_code_and_activity(
 
 @router.get("/by_code/{code}/activity")
 @cache_response(ttl=600, key_fields=["code"])
-def get_code_activity(code: str, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))):
+def get_code_activity(code: str, db: Session = Depends(get_db), _current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))):
     code_objs = db.query(Code).filter(Code.code == code).all()
     if not code_objs:
         raise HTTPException(status_code=404, detail="Code not found")
@@ -219,7 +219,7 @@ def get_code_activity(code: str, db: Session = Depends(get_db), current_user: Us
 
 @router.get("/by_code/{code}/lotes")
 @cache_response(ttl=300, key_fields=["code"])
-def get_lotes_by_code(code: str, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))):
+def get_lotes_by_code(code: str, db: Session = Depends(get_db), _current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))):
     lotes = db.query(Order.lote).filter(
         Order.code == code,
         Order.status != "completed"
@@ -255,7 +255,7 @@ class CodeBulkItem(BaseModel):
 
 @router.post("/bulk_upload")
 @invalidate_cache(pattern="codes")
-def bulk_upload_codes(codes: List[dict], db: Session = Depends(get_db), current_user=Depends(require_roles(UserRole.ADMIN))):
+def bulk_upload_codes(codes: List[dict], db: Session = Depends(get_db), _current_user=Depends(require_roles(UserRole.ADMIN))):
     logger.info(f"Iniciando carga masiva con {len(codes)} registros")
     
     all_db_codes = db.query(Code).all()

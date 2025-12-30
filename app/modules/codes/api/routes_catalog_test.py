@@ -1,11 +1,11 @@
 from uuid import UUID
+
 from fastapi import APIRouter, HTTPException
 from fastapi.params import Depends
 from sqlalchemy.orm import Session
 
 from app.modules.codes.models.catalog_test import CatalogTest
 from app.modules.codes.models.type import Type
-from app.modules.codes.schemas import catalog_test
 from app.modules.codes.schemas.catalog_test import CatalogTestBase, CatalogTestOut
 from app.modules.core.models.role import UserRole
 from app.shared.db.session import get_db
@@ -13,7 +13,7 @@ from app.shared.utils.core.dependencies import require_roles
 
 router = APIRouter(prefix="/catalog_tests", tags=["catalog-tests"])
 
-def get_catalog_test_or_404(db: Session, test_id: UUID) -> CatalogTest:
+def get_catalog_test_or_404(db: Session, test_id: UUID) -> type[CatalogTest]:
     db_test = db.query(CatalogTest).filter(CatalogTest.id == test_id).first()
     if not db_test:
         raise HTTPException(status_code=404, detail="Catalog test not found")
@@ -22,7 +22,7 @@ def get_catalog_test_or_404(db: Session, test_id: UUID) -> CatalogTest:
 @router.post("/",
              response_model=CatalogTestOut,
              status_code=201,
-             dependencies =[Depends(require_roles(UserRole.ADMIN,UserRole.QC_ENGINEER))])
+             dependencies =[Depends(require_roles(UserRole.ADMIN,UserRole.QC_COORDINATOR))])
 def create(
         test_data: CatalogTestBase,
         db: Session = Depends(get_db),
