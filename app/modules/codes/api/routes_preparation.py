@@ -7,28 +7,9 @@ from app.shared.db.session import get_db
 from app.modules.core.models.user import User
 from app.shared.utils.core.dependencies import require_roles
 from app.modules.core.models.role import UserRole
+from app.shared.utils.business.data_cleaning import clean_int, clean_str
 
 router = APIRouter(prefix="/preparations", tags=["preparations"])
-
-def clean_int(value):
-    if value is None:
-        return None
-    if isinstance(value, str):
-        value = value.strip().replace('\xa0', '').replace(' ', '').replace(',', '.')
-        if value == '' or value == '-' or value.lower() == 'null':
-            return None
-    try:
-        return int(float(value))
-    except (ValueError, TypeError):
-        return None
-
-def clean_str(value):
-    if value is None:
-        return ""
-    if isinstance(value, str):
-        cleaned = value.strip().replace('\xa0', ' ')
-        return cleaned if cleaned.lower() != 'null' else ""
-    return str(value).strip()
 
 @router.post("/", response_model=PreparationOut)
 def create_preparation(
@@ -91,7 +72,8 @@ def get_preparations(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))
 ):
-    return db.query(Preparation).all()
+    preparations = db.query(Preparation).all()
+    return [PreparationOut.model_validate(p) for p in preparations]
 
 @router.get("/{preparation_id}", response_model=PreparationOut)
 def get_preparation(

@@ -86,7 +86,10 @@ def get_codes(
     total = query.count()
     codes = query.offset(skip).limit(limit).all()
     
-    return {"codes": codes, "total": total}
+    return CodePageOut(
+        codes=[CodeOut.model_validate(c) for c in codes],
+        total=total
+    )
 
 @router.get("/production", response_model=CodePageOut)
 @cache_response(ttl=300, key_fields=["skip", "limit", "search"])
@@ -136,7 +139,10 @@ def get_production_codes(
         for c in codes:
             setattr(c, "tests", tests_map.get(c.id, []))
     
-    return {"codes": codes, "total": total}
+    return CodePageOut(
+        codes=[CodeOut.model_validate(c) for c in codes],
+        total=total
+    )
 
 @router.get("/{code_id}", response_model=CodeOut)
 @cache_response(ttl=600, key_fields=["code_id"])

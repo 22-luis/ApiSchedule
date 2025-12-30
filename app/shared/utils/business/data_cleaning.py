@@ -32,6 +32,18 @@ def clean_float(value):
     except (ValueError, TypeError):
         return None
 
+def clean_int(value):
+    if value is None:
+        return None
+    if isinstance(value, str):
+        value = value.strip().replace('\xa0', '').replace(' ', '').replace(',', '.')
+        if value in ['', '-', 'null', 'NULL']:
+            return None
+    try:
+        return int(float(value))
+    except (ValueError, TypeError):
+        return None
+
 def clean_str(value):
     if value is None:
         return ""

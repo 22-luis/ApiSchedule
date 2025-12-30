@@ -89,7 +89,7 @@ def enrich_tests_with_manual_content(db: Session, tests: List[CatalogTest]) -> L
 
     result = []
     for t in tests:
-        test_data = CatalogTestOut.model_validate(t, from_attributes=True).model_dump()
+        test_data = CatalogTestOut.model_validate(t).model_dump()
         if t.manual_section_id:
             # Intentar búsqueda exacta
             content = content_dict.get(t.manual_section_id)
