@@ -1,78 +1,60 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
+from typing import Dict, Any
+
+from app.modules.monitoring.services.monitoring_service import monitoring_service
 from app.shared.core.config import settings
+from app.modules.monitoring.schemas.monitoring import (
+    AppInfoOut,
+    HealthStatusOut,
+    DetailsHealthStatusOut,
+    SystemStatusOut
+)
 
 router = APIRouter(tags=["monitoring"])
 
 # Endpoint de health check
-@router.get("/health")
+@router.get("/health", response_model=HealthStatusOut)
 async def health_check():
-    from app.shared.utils.core.health_checks import get_quick_health_status
-    return await get_quick_health_status()
+    return await monitoring_service.get_health(detailed=False)
 
 
-@router.get("/health/detailed")
+@router.get("/health/detailed", response_model=DetailsHealthStatusOut)
 async def detailed_health_check():
-    """
-    Endpoint de verificación de salud detallada de la aplicación.
-    
-    Realiza verificaciones completas de:
-    - Conexión a base de datos
-    - Uso de memoria y disco
-    - Estado del rate limiting
-    - Configuración crítica
-    
-    Returns:
-        Dict con el estado de salud completo del sistema
-    """
-    from app.shared.utils.core.health_checks import get_health_status
-    return await get_health_status()
+    return await monitoring_service.get_health(detailed=True)
 
 # Endpoint de información de la aplicación
-@router.get("/info")
+@router.get("/info", response_model=AppInfoOut)
 async def app_info():
-    return {
-        "app_name": settings.APP_NAME,
-        "version": settings.APP_VERSION,
-        "environment": settings.ENVIRONMENT,
-        "debug": settings.DEBUG,
-        "database_configured": bool(settings.SQLALCHEMY_DATABASE_URI),
-        "rate_limiting_enabled": settings.RATE_LIMIT_ENABLED,
-        "cors_origins": settings.CORS_ORIGINS,
-        "working_hours": {
-            "monday_friday": settings.WORKING_HOURS_MONDAY_FRIDAY,
-            "saturday": settings.WORKING_HOURS_SATURDAY,
-            "sunday": settings.WORKING_HOURS_SUNDAY
-        }
-    }
+    return await monitoring_service.get_app_info()
 
 # Endpoint de estadísticas de rate limiting (solo en desarrollo)
-@router.get("/rate-limit-stats")
+@router.get("/rate-limit-stats", response_model=SystemStatusOut)
 async def rate_limit_stats():
     if settings.is_production:
         raise HTTPException(status_code=404, detail="Endpoint no disponible en producción")
     
     from app.shared.utils.performance.rate_limiting import get_rate_limit_stats
-    return get_rate_limit_stats()
+    return {"data": get_rate_limit_stats()}
 
 
 # Endpoint de métricas de rendimiento (solo en desarrollo)
-@router.get("/metrics")
+@router.get("/metrics", response_model=SystemStatusOut)
 async def get_metrics():
     if settings.is_production:
         raise HTTPException(status_code=404, detail="Endpoint no disponible en producción")
     
     from app.shared.utils.performance.metrics import metrics_collector
-    return metrics_collector.get_all_metrics()
+    return {"data": metrics_collector.get_all_metrics()}
 
 
 # Endpoint de estado de circuit breakers (solo en desarrollo)
-@router.get("/circuit-breakers")
+@router.get("/circuit-breakers", response_model=SystemStatusOut)
 async def get_circuit_breakers():
     if settings.is_production:
         raise HTTPException(status_code=404, detail="Endpoint no disponible en producción")
     
     from app.shared.utils.performance.circuit_breaker import circuit_breakers
-    return circuit_breakers.get_status()
+    return {"data": circuit_breakers.get_status()}
 
 @router.get("/cache-stats", include_in_schema=False)
 async def get_cache_stats():
