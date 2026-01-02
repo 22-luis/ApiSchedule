@@ -43,13 +43,7 @@ class Settings(BaseSettings):
     # Configuración de rate limiting
     RATE_LIMIT_ENABLED: bool = Field(default=True, description="Habilitar rate limiting")
     RATE_LIMIT_REQUESTS_PER_MINUTE: int = Field(default=1200, ge=1, description="Requests por minuto")
-    RATE_LIMIT_USE_REDIS: bool = Field(default=False, description="Usar Redis para rate limiting")
     
-    # Configuración de Redis (opcional)
-    REDIS_HOST: str = Field(default="localhost", description="Host de Redis")
-    REDIS_PORT: int = Field(default=6379, description="Puerto de Redis")
-    REDIS_DB: int = Field(default=0, description="Base de datos de Redis")
-    REDIS_PASSWORD: Optional[str] = Field(default=None, description="Contraseña de Redis")
 
     # Configuración de pool de conexiones de base de datos
     DB_POOL_SIZE: int = Field(default=10, description="Tamaño del pool de conexiones")

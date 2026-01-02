@@ -68,28 +68,6 @@ class OrderStatusService:
             pass
     
     @staticmethod
-    def update_order_status_for_task_start(db: Session, programming_task: ProgrammingTask) -> None:
-        """
-        Actualiza el estado de la orden cuando se inicia una tarea.
-        Cambia de 'programmed' a 'pending' cuando una tarea comienza su ejecución.
-        """
-        task = programming_task.task
-        if not task or not task.lote or task.lote == '-':
-            return
-            
-        try:
-            lote_int = int(task.lote)
-            order = db.query(Order).filter(Order.lote == lote_int).first()
-            if not order:
-                return
-                
-            pass
-                
-        except (ValueError, TypeError):
-            # Si el lote no es un número válido, no hacer nada
-            pass
-    
-    @staticmethod
     def _are_all_tasks_completed_for_types(db: Session, lote: str, task_types: list[str]) -> bool:
         """
         Verifica si todas las tareas relacionadas con ciertos tipos están completadas.

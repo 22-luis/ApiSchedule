@@ -23,7 +23,6 @@ beautifulsoup4>=4.14.3
 
 # Monitoreo y métricas (opcional para producción)
 psutil>=5.9.0
-redis>=4.5.0 #no implementado aun
 
 # Dependencias opcionales para desarrollo
 pytest>=7.4.0

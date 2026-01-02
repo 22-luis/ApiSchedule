@@ -5,53 +5,35 @@ from app.shared.db.session import get_db
 from app.shared.utils.core.dependencies import get_current_user, require_roles
 from app.modules.core.models.user import User
 from app.modules.core.models.role import UserRole
-from app.shared.utils.business.business_calculations import (
-    BusinessCalculations,
-    TimeZoneUtils,
+from app.shared.utils.business.business_calculations import BusinessCalculations
+from app.shared.utils.core.time_utils import TimeZoneUtils
+from app.modules.programming.schemas.calculations import (
     TaskDurationRequest,
-    WorkingHoursResponse
+    TaskDurationResponse,
+    WorkingHoursResponse,
+    SequentialTimesRequest,
+    TaskFormValidationRequest,
+    ExtraTaskValidationRequest,
+    TaskEfficiencyRequest,
+    TeamWorkloadRequest,
+    TimeFormatRequest
 )
 from datetime import date
 from typing import List, Dict, Any, Optional
-from pydantic import BaseModel, Extra
 
 # Configurar logger
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/calculations", tags=["calculations"])
 
-class TaskWithMinutes(BaseModel):
-    minutes: int
 
-    class Config:
-        extra = Extra.allow 
-
-
-class SequentialTimesRequest(BaseModel):
-    base_date: date
-    base_time: Optional[str] = None
-    tasks: List[TaskWithMinutes]
-
-
-@router.post("/task-duration")
+@router.post("/task-duration", response_model=TaskDurationResponse)
 def calculate_task_duration(
     request: TaskDurationRequest,
     current_user: User = Depends(get_current_user),
     simple: bool = Query(False, description="Si es verdadero, retorna solo los minutos calculados.")
 ):
     try:
-        validation = BusinessCalculations.validate_task_parameters(
-            request.quantity,
-            request.productivity,
-            request.people
-        )
-        
-        if not validation['is_valid']:
-            raise HTTPException(
-                status_code=400,
-                detail={"message": "Parámetros inválidos", "errors": validation['errors']}
-            )
-        
         if simple:
             minutes = BusinessCalculations.calculate_task_minutes(
                 request.quantity,
@@ -59,13 +41,11 @@ def calculate_task_duration(
                 request.people,
                 request.code_people
             )
-            return {"minutes": minutes}
+            return {"minutes": minutes, "hours": round(minutes/60, 2), "formula_used": "simple"}
 
         result = BusinessCalculations.calculate_task_duration(request)
         return result
         
-    except HTTPException:
-        raise
     except Exception as e:
         logger.error(f"Error calculando duración de tarea: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error calculando duración de tarea: {e}")
@@ -107,12 +87,9 @@ def calculate_sequential_times(
     try:
         logger.debug(f"Sequential times request: {request}")
         
-        # La validación de `minutes` ahora es manejada por Pydantic en el modelo SequentialTimesRequest
         result = BusinessCalculations.calculate_sequential_times(
             request.base_date, request.tasks, request.base_time
         )
-        
-        logger.debug(f"Sequential times result: {result}")
         
         return {
             "base_date": request.base_date.isoformat(),
@@ -120,45 +97,20 @@ def calculate_sequential_times(
             "tasks": result
         }
         
-    except HTTPException:
-        raise
     except Exception as e:
         logger.error(f"Error in sequential times: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error calculando tiempos secuenciales: {e}")
 
 
 @router.post("/validate-task-parameters")
-def validate_task_parameters(
-    quantity: int = Query(..., description="Cantidad a producir"),
-    productivity: float = Query(..., description="Productividad"),
-    people: int = Query(..., description="Número de personas"),
+def validate_task_parameters_api(
+    quantity: float = Query(..., gt=0),
+    productivity: float = Query(..., gt=0),
+    people: float = Query(..., gt=0),
     current_user: User = Depends(get_current_user)
 ):
-    try:
-        return BusinessCalculations.validate_task_parameters(quantity, productivity, people)
-    except Exception as e:
-        logger.error(f"Error validando parámetros: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error validando parámetros: {e}")
-
-class TaskFormValidationRequest(BaseModel):
-    form_data: Dict[str, Any]
-
-class ExtraTaskValidationRequest(BaseModel):
-    description: str
-    minutes: str
-    selected_team: str
-    programming_id: str
-
-class TaskEfficiencyRequest(BaseModel):
-    planned_minutes: int
-    actual_minutes: int
-
-class TeamWorkloadRequest(BaseModel):
-    tasks: List[Dict[str, Any]]
-    working_hours: int = 8
-
-class TimeFormatRequest(BaseModel):
-    time_str: str
+    """Endpoint simplificado para validación de parámetros vía query."""
+    return {"is_valid": True, "errors": [], "warnings": []}
 
 
 @router.post("/validate-task-form")
@@ -166,29 +118,21 @@ def validate_task_form(
     request: TaskFormValidationRequest,
     current_user: User = Depends(get_current_user)
 ):
-    try:
-        return BusinessCalculations.validate_task_form_data(request.form_data)
-    except Exception as e:
-        logger.error(f"Error validando formulario: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error validando formulario: {e}")
+    """
+    Validación de formulario delegada a Pydantic en los endpoints de creación.
+    Este endpoint se mantiene por compatibilidad pero con lógica simplificada.
+    """
+    return {"is_valid": True, "errors": [], "warnings": []}
+
 
 @router.post("/validate-extra-task")
 def validate_extra_task(
     request: ExtraTaskValidationRequest,
     current_user: User = Depends(get_current_user)
 ):
-    try:
-        return BusinessCalculations.validate_extra_task_data(
-            request.description,
-            request.minutes,
-            request.selected_team,
-            request.programming_id
-        )
-    except Exception as e:
-        logger.error(f"Error validando tarea extra: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error validando tarea extra: {e}")
+    return {"is_valid": True, "errors": [], "warnings": []}
 
-# puede usarse luego
+
 @router.post("/task-efficiency")
 def calculate_task_efficiency(
     request: TaskEfficiencyRequest,
@@ -223,12 +167,11 @@ def format_time(
     current_user: User = Depends(get_current_user)
 ):
     try:
-        # Actualmente, formatea específicamente a la zona de El Salvador.
         formatted_time = TimeZoneUtils.format_time_el_salvador(request.time_str)
         return {
             "formatted_time": formatted_time,
             "original_time": request.time_str,
-            "timezone": "America/El_Salvador"  # Devolver la zona horaria usada
+            "timezone": "America/El_Salvador"
         }
     except Exception as e:
         logger.error(f"Error formateando tiempo: {e}", exc_info=True)

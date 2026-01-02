@@ -18,13 +18,8 @@ class CircuitState(Enum):
     OPEN = "OPEN"          # Bloqueado por fallos
     HALF_OPEN = "HALF_OPEN"  # Probando si el servicio se recuperó
 
-
+# Protege contra fallos en cascada cuando un servicio externo falla.
 class CircuitBreaker:
-    """
-    Implementación del patrón Circuit Breaker.
-    
-    Protege contra fallos en cascada cuando un servicio externo falla.
-    """
     
     def __init__(
         self,
@@ -33,37 +28,19 @@ class CircuitBreaker:
         expected_exception: type = Exception,
         name: str = "default"
     ):
-        """
-        Inicializa el circuit breaker.
+        self.failure_threshold = failure_threshold #Número de fallos antes de abrir el circuito
+        self.recovery_timeout = recovery_timeout #Tiempo en segundos antes de intentar recuperación
+        self.expected_exception = expected_exception #Tipo de excepción que se considera fallo
+        self.name = name #Nombre del circuit breaker para logging
         
-        Args:
-            failure_threshold: Número de fallos antes de abrir el circuito
-            recovery_timeout: Tiempo en segundos antes de intentar recuperación
-            expected_exception: Tipo de excepción que se considera fallo
-            name: Nombre del circuit breaker para logging
-        """
-        self.failure_threshold = failure_threshold
-        self.recovery_timeout = recovery_timeout
-        self.expected_exception = expected_exception
-        self.name = name
-        
-        self.state = CircuitState.CLOSED
-        self.failure_count = 0
-        self.last_failure_time = None
-        self.success_count = 0
+        self.state = CircuitState.CLOSED #Estado del circuit breaker
+        self.failure_count = 0 #Contador de fallos
+        self.last_failure_time = None #Tiempo de último fallo
+        self.success_count = 0 #Contador de éxitos
         
         logger.info(f"Circuit breaker '{name}' inicializado")
     
     def __call__(self, func: Callable) -> Callable:
-        """
-        Decorador para aplicar circuit breaker a una función.
-        
-        Args:
-            func: Función a proteger
-            
-        Returns:
-            Función decorada con circuit breaker
-        """
         @wraps(func)
         async def async_wrapper(*args, **kwargs):
             return await self._execute_async(func, *args, **kwargs)
@@ -78,7 +55,6 @@ class CircuitBreaker:
             return sync_wrapper
     
     async def _execute_async(self, func: Callable, *args, **kwargs) -> Any:
-        """Ejecuta una función asíncrona con circuit breaker"""
         if self.state == CircuitState.OPEN:
             if self._should_attempt_reset():
                 self._set_half_open()
@@ -101,7 +77,6 @@ class CircuitBreaker:
             raise
     
     def _execute_sync(self, func: Callable, *args, **kwargs) -> Any:
-        """Ejecuta una función síncrona con circuit breaker"""
         if self.state == CircuitState.OPEN:
             if self._should_attempt_reset():
                 self._set_half_open()
@@ -131,19 +106,16 @@ class CircuitBreaker:
         return time.time() - self.last_failure_time >= self.recovery_timeout
     
     def _set_half_open(self):
-        """Cambia el estado a half-open"""
         self.state = CircuitState.HALF_OPEN
         logger.info(f"Circuit breaker '{self.name}' cambiado a HALF_OPEN")
     
     def _on_success(self):
-        """Maneja un éxito"""
         if self.state == CircuitState.HALF_OPEN:
             self._reset()
         else:
             self.success_count += 1
     
     def _on_failure(self):
-        """Maneja un fallo"""
         self.failure_count += 1
         self.last_failure_time = time.time()
         
@@ -153,14 +125,12 @@ class CircuitBreaker:
             self._open()
     
     def _open(self):
-        """Abre el circuito"""
         self.state = CircuitState.OPEN
         logger.error(
             f"Circuit breaker '{self.name}' abierto después de {self.failure_count} fallos"
         )
     
     def _reset(self):
-        """Resetea el circuito"""
         self.state = CircuitState.CLOSED
         self.failure_count = 0
         self.success_count = 0
@@ -168,7 +138,6 @@ class CircuitBreaker:
         logger.info(f"Circuit breaker '{self.name}' reseteado")
     
     def get_status(self) -> Dict[str, Any]:
-        """Obtiene el estado actual del circuit breaker"""
         return {
             "name": self.name,
             "state": self.state.value,
@@ -187,11 +156,11 @@ class CircuitBreakerOpenError(Exception):
 
 # Circuit breakers predefinidos para servicios comunes
 class CircuitBreakers:
-    """Colección de circuit breakers para diferentes servicios"""
     
     def __init__(self):
         self.breakers: Dict[str, CircuitBreaker] = {}
     
+    # Obtiene o crea un circuit breaker.
     def get_breaker(
         self,
         name: str,
@@ -199,18 +168,6 @@ class CircuitBreakers:
         recovery_timeout: int = 60,
         expected_exception: type = Exception
     ) -> CircuitBreaker:
-        """
-        Obtiene o crea un circuit breaker.
-        
-        Args:
-            name: Nombre del circuit breaker
-            failure_threshold: Umbral de fallos
-            recovery_timeout: Tiempo de recuperación
-            expected_exception: Excepción esperada
-            
-        Returns:
-            CircuitBreaker configurado
-        """
         if name not in self.breakers:
             self.breakers[name] = CircuitBreaker(
                 failure_threshold=failure_threshold,
@@ -222,14 +179,12 @@ class CircuitBreakers:
         return self.breakers[name]
     
     def get_status(self) -> Dict[str, Dict[str, Any]]:
-        """Obtiene el estado de todos los circuit breakers"""
         return {
             name: breaker.get_status()
             for name, breaker in self.breakers.items()
         }
     
     def reset_all(self):
-        """Resetea todos los circuit breakers"""
         for breaker in self.breakers.values():
             breaker._reset()
 
@@ -238,9 +193,8 @@ class CircuitBreakers:
 circuit_breakers = CircuitBreakers()
 
 
-# Decoradores de conveniencia para servicios comunes
+# Circuit breaker para operaciones de base de datos
 def database_circuit_breaker(func: Callable) -> Callable:
-    """Circuit breaker para operaciones de base de datos"""
     breaker = circuit_breakers.get_breaker(
         name="database",
         failure_threshold=3,
@@ -249,24 +203,12 @@ def database_circuit_breaker(func: Callable) -> Callable:
     )
     return breaker(func)
 
-
+# Circuit breaker para APIs externas
 def external_api_circuit_breaker(func: Callable) -> Callable:
-    """Circuit breaker para APIs externas"""
     breaker = circuit_breakers.get_breaker(
         name="external_api",
         failure_threshold=5,
         recovery_timeout=60,
-        expected_exception=Exception
-    )
-    return breaker(func)
-
-
-def redis_circuit_breaker(func: Callable) -> Callable:
-    """Circuit breaker para operaciones de Redis"""
-    breaker = circuit_breakers.get_breaker(
-        name="redis",
-        failure_threshold=3,
-        recovery_timeout=30,
         expected_exception=Exception
     )
     return breaker(func)
