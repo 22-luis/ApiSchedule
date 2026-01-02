@@ -14,37 +14,15 @@ from app.modules.programming.schemas.programming import ProgrammingTaskOrderOut 
 from app.shared.utils.core.dependencies import get_current_user
 from app.modules.core.models.user import User
 
-class RecordStopwatchDetailSchema(BaseModel):
-    id: uuid.UUID
-    task_id: uuid.UUID
-    quantity: float
-    accumulated_duration: float
-    creation_date: datetime
-    code_code: str
-    task_description: str
-    task_type: Optional[str] = None
-    task_activity: Optional[str] = None
-    task_people: int
-    comments: Optional[str] = None
+from app.modules.timer.schemas.timer import (
+    RecordStopwatchDetailSchema,
+    TaskStatusRequest,
+    TaskStatusResponse,
+    TimerStartPayload,
+    TimerStopPayload
+)
 
 router = APIRouter()
-
-class TaskStatusRequest(BaseModel):
-    task_ids: List[uuid.UUID]
-
-class TaskStatusResponse(BaseModel):
-    task_id: str
-    status: str
-    record_id: Optional[str] = None
-    is_from_programming: bool
-
-class TimerStartPayload(BaseModel):
-    start_time: Optional[datetime] = None
-    is_from_programming: bool = False
-
-class TimerStopPayload(BaseModel):
-    quantity: float
-    is_completed: Optional[bool] = None
 
 @router.post("/stopwatch/start/{task_id}", response_model=StopwatchSchema, tags=["Timer"])
 def start_timer(task_id: uuid.UUID, payload: TimerStartPayload, db: Session = Depends(get_db)):

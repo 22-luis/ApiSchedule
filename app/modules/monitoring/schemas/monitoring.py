@@ -30,7 +30,7 @@ class HealthStatusOut(BaseModel):
 class DetailsHealthStatusOut(BaseModel):
     status: str
     message: str
-    cached = Optional[bool] = None
+    cached: Optional[bool] = None
     version: Optional[str] = None
     response_time: Optional[float] = None
     used_percentage: Optional[float] = None
