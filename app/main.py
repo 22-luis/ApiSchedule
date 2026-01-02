@@ -64,6 +64,7 @@ from app.modules.programming.api.routes_calculations import router as calculatio
 from app.modules.timer.api.routes_timer import router as timer_router
 from app.modules.timer.api.routes_record_stopwatch import router as record_stopwatch_router
 from app.modules.reports.api.routes_report import router as report_router
+from app.modules.available.api.routes_available import router as available_router
 from app.modules.monitoring.api.routes import router as monitoring_router
 from app.modules.programming.api.routes_notification import router as notification_router
 from app.modules.quality.api.routes_manual import router as manual_router
@@ -470,6 +471,7 @@ api_router.include_router(calculations_router, tags=["calculations"])
 api_router.include_router(timer_router, tags=["Timer"])
 api_router.include_router(record_stopwatch_router, tags=["Record Stopwatch"])
 api_router.include_router(report_router, tags=["reports"])
+api_router.include_router(available_router, tags=["available"])
 api_router.include_router(monitoring_router)
 api_router.include_router(notification_router, tags=["notifications"])
 api_router.include_router(manual_router, tags=["manual"])
