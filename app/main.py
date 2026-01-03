@@ -1,60 +1,76 @@
+import hashlib
 import time
 import uuid
-import logging
-import hashlib
-from typing import List, Dict, Any, Optional
+from contextlib import asynccontextmanager
 
-from fastapi import APIRouter, FastAPI, HTTPException, Request, Response
+from fastapi import APIRouter, FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from starlette.middleware.base import BaseHTTPMiddleware
 from sqlalchemy.exc import SQLAlchemyError
+from starlette.middleware.base import BaseHTTPMiddleware
 
+from app.modules.available.api.routes_available import router as available_router
+from app.modules.codes.api.routes_catalog_test import router as catalog_test_router
+from app.modules.codes.api.routes_code import router as code_router
+from app.modules.codes.api.routes_code_test import router as code_test_router
+from app.modules.codes.api.routes_preparation import router as preparation_router
+# Import Routers
+from app.modules.core.api.routes_auth import router as auth_router
+from app.modules.core.api.routes_team import router as team_router
+from app.modules.core.api.routes_user import router as user_router
+from app.modules.monitoring.api.routes import router as monitoring_router
+from app.modules.programming.api.routes_calculations import router as calculations_router
+from app.modules.programming.api.routes_notification import router as notification_router
+from app.modules.programming.api.routes_order import router as order_router
+from app.modules.programming.api.routes_programming import router as programming_router
+from app.modules.programming.api.routes_task import router as task_router
+from app.modules.programming.api.routes_task_status_log import router as task_status_log_router
+from app.modules.quality.api.routes_manual import router as manual_router
+from app.modules.quality.api.routes_qctest import router as qc_router
+from app.modules.reports.api.routes_report import router as report_router
+from app.modules.timer.api.routes_record_stopwatch import router as record_stopwatch_router
+from app.modules.timer.api.routes_timer import router as timer_router
 from app.shared.core.config import settings, validate_critical_settings
-from app.shared.db.session import engine
-from app.shared.db.database import Base
 from app.shared.utils.core.exception_handlers import (
-    http_exception_handler, 
-    validation_exception_handler, 
+    http_exception_handler,
+    validation_exception_handler,
     database_exception_handler,
     circuit_breaker_exception_handler,
     generic_exception_handler
 )
-from app.shared.utils.performance.circuit_breaker import CircuitBreakerOpenError
 from app.shared.utils.core.logging import setup_logging, get_logger
+from app.shared.utils.performance.circuit_breaker import CircuitBreakerOpenError
+from app.shared.utils.performance.metrics import start_system_metrics_collector
 from app.shared.utils.performance.rate_limiting import rate_limit_middleware
 
-# Import Routers
-from app.modules.core.api.routes_auth import router as auth_router
-from app.modules.core.api.routes_user import router as user_router
-from app.modules.core.api.routes_team import router as team_router
-from app.modules.programming.api.routes_order import router as order_router
-from app.modules.programming.api.routes_task import router as task_router
-from app.modules.programming.api.routes_task_status_log import router as task_status_log_router
-from app.modules.codes.api.routes_preparation import router as preparation_router
-from app.modules.codes.api.routes_code import router as code_router
-from app.modules.codes.api.routes_catalog_test import router as catalog_test_router
-from app.modules.codes.api.routes_code_test import router as code_test_router
-from app.modules.programming.api.routes_programming import router as programming_router
-from app.modules.programming.api.routes_calculations import router as calculations_router
-from app.modules.timer.api.routes_timer import router as timer_router
-from app.modules.timer.api.routes_record_stopwatch import router as record_stopwatch_router
-from app.modules.reports.api.routes_report import router as report_router
-from app.modules.available.api.routes_available import router as available_router
-from app.modules.monitoring.api.routes import router as monitoring_router
-from app.modules.programming.api.routes_notification import router as notification_router
-from app.modules.quality.api.routes_manual import router as manual_router
-from app.modules.quality.api.routes_qctest import router as qc_router
-
 # Import models to ensure they are registered with Base
-from app.modules.core.models import user, team
-from app.modules.programming.models import task, order, programming
-from app.modules.codes.models import code, preparation
 
 # Initialize logging
 setup_logging()
 logger = get_logger("main")
+
+# --- Events ---
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    # Startup
+    logger.info(f"Iniciando {settings.APP_NAME} v{settings.APP_VERSION} en {settings.ENVIRONMENT}")
+    validate_critical_settings()
+
+    try:
+        start_system_metrics_collector()
+        logger.info("Sistema de metricas inicializado")
+    except Exception as e:
+        logger.error(f"Error inicializando metricas: {e}")
+
+    yield  #funcion que maneja el ciclo de vida del servidor
+
+    # Shutdown
+    logger.info(f"Finalizando {settings.APP_NAME}")
+
+if settings.is_development:
+    print(f"🚀 ApiSchedule iniciado correctamente! Health: http://localhost:8000/api/v1/health")
 
 # Start Application
 app = FastAPI(
@@ -63,7 +79,8 @@ app = FastAPI(
     description="ApiSchedule - API de Gestión de Programaciones, cronometro y reportes",
     docs_url="/docs" if settings.DEBUG else None,
     redoc_url="/redoc" if settings.DEBUG else None,
-    debug=settings.DEBUG
+    debug=settings.DEBUG,
+    lifespan=lifespan
 )
 
 # --- Middlewares ---
@@ -79,7 +96,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             if auth_header and auth_header.startswith("Bearer "):
                 token = auth_header.split(" ")[1]
                 user_id = hashlib.md5(token.encode()).hexdigest()[:8]
-        except Exception:
+        except (IndexError, AttributeError, ValueError):
             pass
         
         start_time = time.time()
@@ -150,24 +167,3 @@ api_router.include_router(manual_router, tags=["manual"])
 api_router.include_router(qc_router, tags=["qctest"])
 
 app.include_router(api_router)
-
-# --- Events ---
-
-@app.on_event("startup")
-async def startup_event():
-    logger.info(f"Iniciando {settings.APP_NAME} v{settings.APP_VERSION} en {settings.ENVIRONMENT}")
-    validate_critical_settings()
-    
-    try:
-        from app.shared.utils.performance.metrics import start_system_metrics_collector
-        start_system_metrics_collector()
-        logger.info("Sistema de métricas inicializado")
-    except Exception as e:
-        logger.error(f"Error inicializando métricas: {e}")
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    logger.info(f"Cerrando {settings.APP_NAME}")
-
-if settings.is_development:
-    print(f"🚀 ApiSchedule iniciado correctamente! Health: http://localhost:8000/api/v1/health")
