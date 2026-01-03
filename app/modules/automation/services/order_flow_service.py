@@ -1,5 +1,7 @@
-from typing import List, Dict, Optional
+from typing import List, Dict
+
 from sqlalchemy.orm import Session
+
 from app.modules.programming.models import order as order_model
 from app.modules.programming.models.state import OrderStatus
 from app.shared.utils.business.fabrication_code_finder import FabricationCodeFinder
@@ -28,10 +30,10 @@ class OrderFlowService:
         Args:
             orders: List of bin 8 (packaging) orders to process
             db: Database session
-            fabrication_orders_in_batch: Optional list of bin 10/100 orders being uploaded in same batch
+            fabrication_orders_in_batch: Optional list of bin 10/100 orders being uploaded in the same batch
             
         Returns:
-            Dict with 'processed' (successfully linked orders) and 'failed' (orders without fabrication lot)
+            Dict with 'processed' (successfully linked orders) and 'failed' (orders without a fabrication lot)
         """
         processed_orders = []
         failed_orders = []
@@ -46,7 +48,7 @@ class OrderFlowService:
 
             logger.info(f"Processing Bin 8 order {order.lote} ({order.code})...")
             
-            # CHECK IF ORDER ALREADY HAS MANUALLY ASSIGNED FABRICATION LOT
+            # CHECK IF ORDER ALREADY MANUALLY HAS ASSIGNED FABRICATION LOT
             if hasattr(order, '_usar_lote_fabricacion') and order._usar_lote_fabricacion:
                 logger.info(
                     f"Order {order.lote} has manually assigned fabrication lot {order._usar_lote_fabricacion}. "
@@ -71,7 +73,7 @@ class OrderFlowService:
                 processed_orders.append(order)
                 continue
 
-            # CHECK FOR SELF-SUFFICIENT ORDERS (e.g. mixed liquids that package themselves)
+            # CHECK FOR SELF-SUFFICIENT ORDERS (e.g., mixed liquids that package themselves)
             if fabrication_code == order.code:
                  logger.info(f"Order {order.lote} is self-sufficient (Code == FabricationCode: {fabrication_code}). Skipping matching logic.")
                  self_sufficient_orders.append(order)
@@ -80,7 +82,7 @@ class OrderFlowService:
             logger.info(f"Order {order.lote} ({order.code}) -> fabrication_code: {fabrication_code}")
 
             # Priority:
-            # 1. Batch orders from same file (most relevant - same upload)
+            # 1. Batch orders from the same file (most relevant - same upload)
             # 2. Manufactured orders in DB (already completed, ready to pack)
             # 3. Pending orders in DB (not yet manufactured)
             
@@ -200,7 +202,7 @@ class OrderFlowService:
             
             logger.info(f"Packaging order {order.lote} linked to fabrication {matched_order.lote} (source: {match_source})")
 
-            # Update the packaging order status to programmed
+            # Update the packaging order status to program
             order.status = OrderStatus.programmed
             db.add(order)
             

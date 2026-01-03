@@ -9,7 +9,7 @@ def get_sequence_start_date(dependency_date: Optional[date], min_date: Optional[
     Args:
         dependency_date: The date the dependency task is scheduled to finish. 
                         Can be None if no dependency exists.
-        min_date: The minimum allowed date to schedule (defaults to today).
+        min_date: The minimum allowed date to schedule (defaults today).
         
     Returns:
         date: The calculated valid start date.

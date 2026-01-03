@@ -15,8 +15,8 @@ logger = logging.getLogger(__name__)
 
 def create_programming_if_not_exists(db: Session, team_id: str, programming_date: date) -> Dict[str, Any]:
     """
-    Crea una programación automáticamente si no existe para un equipo y fecha específicos.
-    
+    Crea una programación automáticamente si no existe para un equipo y fecha específica.
+
     Args:
         db: Sesión de base de datos
         team_id: ID del equipo

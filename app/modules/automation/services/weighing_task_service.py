@@ -3,18 +3,16 @@ Servicio refactorizado para manejar la creación de tareas de pesado.
 Hereda de BaseTaskService para reutilizar funcionalidad común.
 """
 
-from typing import List, Dict, Any, Optional
-from sqlalchemy.orm import Session
-from datetime import time, date, timedelta
-import math
 import logging
+from typing import List, Dict, Any, Optional
+
+from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 
 from app.modules.automation.services.base_task_service import BaseTaskService
 from app.modules.automation.services.config import ServiceType, ServiceConfig
 from app.modules.automation.rules.weighning import WeighingRule
-from app.shared.utils.business.programming_availability import restore_programmings_availability
 
 
 class WeighingTaskService(BaseTaskService):
@@ -152,5 +150,5 @@ class WeighingTaskService(BaseTaskService):
         Returns:
             Resultado del proceso con información de las tareas creadas
         """
-        # Simplemente llamamos a la implementación base consolidada
+        # Simplemente, llamamos a la implementación base consolidada
         return self.create_tasks_for_orders(extracted_orders, db)

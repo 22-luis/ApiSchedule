@@ -1,15 +1,10 @@
-﻿from typing import List, Dict, Any
+﻿from datetime import time
+from typing import Dict
+
 from pydantic import BaseModel, Field
-from datetime import time
-from sqlalchemy.orm import Session
-from app.modules.core.models.team import Team
-from app.modules.programming.models.programming import Programming, ProgrammingStatus
-from app.shared.core.enums import (
-    PackagingActivities, 
-    ManufacturingActivities, 
-    WeighingActivities
-)
+
 from app.modules.automation.services.factory import TaskServiceFactory
+
 
 class TaskConfiguration:
     class WorkingHours(BaseModel):

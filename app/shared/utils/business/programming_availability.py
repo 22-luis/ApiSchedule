@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from app.modules.programming.models.programming import Programming, ProgrammingTask
 from app.modules.core.models.team import Team
 from app.modules.programming.models.state import ProgrammingStatus
-from typing import Optional
+from typing import Optional, List, cast, Any
 
 
 def get_team_type(team: Team) -> str:
@@ -141,7 +141,8 @@ def check_programming_availability(db: Session, programming: Programming) -> boo
             STANDARD_START_MINUTES = 420  # 7:00 AM
             
             # Determinar hora de inicio y duración según el día de la semana
-            is_saturday = programming.date.weekday() == 5
+            programming_date: date_class = programming.date
+            is_saturday = programming_date.weekday() == 5
             
             if is_saturday:
                 # Para sábados: 7:30 AM - 12:30 PM
@@ -159,7 +160,7 @@ def check_programming_availability(db: Session, programming: Programming) -> boo
                 # Calculate current total time using the utility function
                 from app.modules.automation.services.utils.programming_utils import ProgrammingUtils
                 current_end_minutes = ProgrammingUtils.calculate_current_programming_time(
-                    programming_tasks, programming.date
+                    programming_tasks, programming_date
                 )
                 
                 # Check if programmable hours are filled
@@ -167,7 +168,7 @@ def check_programming_availability(db: Session, programming: Programming) -> boo
                     # Log for debugging
                     from app.shared.utils.core.logging import get_logger
                     logger = get_logger("availability")
-                    logger.debug(f"Capacidad agotada para {team_name} el {programming.date}: {current_end_minutes} >= {max_allowed_minutes}")
+                    logger.debug(f"Capacidad agotada para {team_name} el {programming_date}: {current_end_minutes} >= {max_allowed_minutes}")
                     return False  # Hours filled, should be unavailable
     
     # Check 3: Cutoff time exceeded (original logic)
@@ -188,11 +189,12 @@ def check_programming_availability(db: Session, programming: Programming) -> boo
         return True  # No team found, keep available
     
     # Pass the programming date to handle Saturday logic
-    cutoff_time = get_cutoff_time_for_team(team, programming.date)
+    programming_date: date_class = programming.date
+    cutoff_time = get_cutoff_time_for_team(team, programming_date)
     max_extension = timedelta(minutes=5)  # Maximum 5 minutes extension
     
     # Create cutoff datetime for the programming date
-    cutoff_datetime = datetime.combine(programming.date, cutoff_time)
+    cutoff_datetime = datetime.combine(programming_date, cutoff_time)
     max_allowed_time = cutoff_datetime + max_extension
     
     # Localizar el tiempo de la tarea si es necesario
@@ -377,8 +379,11 @@ def get_programming_availability(db: Session, programming_id: str, task_duration
             "error": "Programming not found"
         }
     
+    # Asegurar que programming_date sea de tipo date para evitar warnings de tipo
+    programming_date: date_class = programming.date
+
     # BLOQUEO EXPLÍCITO DE DOMINGOS: Los domingos NO se programan NUNCA
-    if programming.date.weekday() == 6:
+    if programming_date.weekday() == 6:
         logger.info(f"Programming {programming_id} rejected: Sunday (no programming allowed)")
         return {
             "available": False,
@@ -404,7 +409,7 @@ def get_programming_availability(db: Session, programming_id: str, task_duration
     tolerance_minutes = 10
     
     # Determinar hora de inicio y duración según el día de la semana
-    is_saturday = programming.date.weekday() == 5
+    is_saturday = programming_date.weekday() == 5
     
     if is_saturday:
         STANDARD_START_MINUTES = 450  # 7:30 AM
@@ -422,12 +427,12 @@ def get_programming_availability(db: Session, programming_id: str, task_duration
             max_allowed_minutes = STANDARD_START_MINUTES + duration_minutes + tolerance_minutes
         
     # Calcular tiempo ocupado actual
-    programming_tasks = db.query(ProgrammingTask).filter(
+    programming_tasks = cast(List[ProgrammingTask], cast(Any, db.query(ProgrammingTask).filter(
         ProgrammingTask.programming_id == programming_id
-    ).all()
+    ).all()))
     
     current_end_minutes = ProgrammingUtils.calculate_current_programming_time(
-        programming_tasks, programming.date
+        programming_tasks, programming_date
     )
     
     # Calcular tiempo final
@@ -435,15 +440,15 @@ def get_programming_availability(db: Session, programming_id: str, task_duration
     
     # Determinar disponibilidad
     is_available = final_minutes <= max_allowed_minutes
-
+    
     try:
         with open("scheduling_debug.log", "a") as f:
-            f.write(f"[{datetime.now()}] Team={team_name}, Date={programming.date}, CurrentEnd={current_end_minutes}, Task={task_duration}, Final={final_minutes}, Max={max_allowed_minutes}, Available={is_available}\n")
+            f.write(f"[{datetime.now()}] Team={team_name}, Date={programming_date}, CurrentEnd={current_end_minutes}, Task={task_duration}, Final={final_minutes}, Max={max_allowed_minutes}, Available={is_available}\n")
     except:
         pass
-
+    
     if not is_available:
-        logger.warning(f"REJECTED: Team='{team_name}', Date={programming.date}, Final={final_minutes} > MaxAllowed={max_allowed_minutes}. (Current: {current_end_minutes}, Task: {task_duration})")
+        logger.warning(f"REJECTED: Team='{team_name}', Date={programming_date}, Final={final_minutes} > MaxAllowed={max_allowed_minutes}. (Current: {current_end_minutes}, Task: {task_duration})")
     else:
         logger.info(f"Availability Check: Team='{team_name}', Rule={team_rule}, Duration={duration_minutes}, "
                     f"MaxAllowed={max_allowed_minutes}, Current={current_end_minutes}, "

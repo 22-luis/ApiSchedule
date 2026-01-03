@@ -1,17 +1,16 @@
-from typing import List, Dict, Any, Optional
-import uuid
 import logging
-from sqlalchemy.orm import Session
+import uuid
 from datetime import datetime, time, timedelta, date
+from typing import List, Dict, Any, Optional
 
-from app.modules.programming.models.order import Order
+from sqlalchemy.orm import Session
+
 from app.modules.codes.models.code import Code
+from app.modules.programming.models.order import Order
 # from app.modules.codes.models.preparation import Preparation
 from app.modules.programming.models.programming import Programming, ProgrammingTask
 from app.modules.programming.models.state import ProgrammingStatus
 from app.modules.programming.models.task import Task
-from app.modules.core.models.team import Team
-from app.shared.utils.business.programming_availability import check_programming_availability
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +29,7 @@ class ProgrammingUtils:
                         f.write(f"  Order {i}: Lote={o.lote}, Code={o.code}, Qty={o.quantity}, Bin={o.bin}\n")
                 else:
                     f.write("  Orders list is empty or None\n")
-        except Exception as e:
+        except ValueError:
             pass
 
         extracted_data = []
@@ -47,7 +46,7 @@ class ProgrammingUtils:
         try:
             with open("debug_extract.log", "a") as f:
                 f.write(f"[{datetime.now()}] extracted_data result: {len(extracted_data)} items\n")
-        except:
+        except ValueError:
             pass
             
         return extracted_data
@@ -62,7 +61,7 @@ class ProgrammingUtils:
             return {"success": False, "message": f"Code {code} not found"}
         
         activities = []
-        # Usamos la información del código directamente ya que Preparation no tiene la info necesaria
+        # Usamos la información del código directamente, ya que Preparation no tiene la info necesaria
         for code_obj in code_objs:
             if code_obj.activity:
                 activities.append({
@@ -99,7 +98,7 @@ class ProgrammingUtils:
         for code in unique_codes:
             result = ProgrammingUtils.get_activities_by_code(code, db)
             if result.get("success"):
-                # Adaptar estructura para que coincida con lo esperado por los servicios
+                # Adaptar estructura para que coincida con lo esperado por los servicios.
                 # Los servicios esperan algo como "weighing_activities" o "fabrication_activities"
                 # Aquí devolvemos una lista genérica y dejamos que el servicio filtre
                 activities_by_code[code] = {
@@ -126,7 +125,7 @@ class ProgrammingUtils:
         if not code_obj:
             return {"success": False, "message": f"Code {code} not found"}
             
-        # For now, using Code model directly as Preparation is commented out
+        # For now, using the Code model directly as Preparation is commented out
         if code_obj.activity == activity_name:
             return {
                 "success": True,
@@ -134,7 +133,7 @@ class ProgrammingUtils:
                     "activity": code_obj.activity,
                     "performance": code_obj.performance,
                     "time": code_obj.time,
-                    "preparation_id": code_obj.id, # Using code_obj.id as reference
+                    "preparation_id": code_obj.id, # Using code_obj.id as a reference
                     "code_id": code_obj.id, # Added code_id for Task creation
                     "people": code_obj.people,
                     "material": code_obj.material,
@@ -191,7 +190,7 @@ class ProgrammingUtils:
                 if creation_result.get("success") and creation_result.get("created"):
                     logger.info(f"Auto-created programming check successful: {creation_result.get('message')}")
                     # Re-ejecutar la query para incluir la nueva programacion
-                    # Re-instanciar query porque SQLAlchemy query objects son mutables pero mejor ir a lo seguro
+                    # Re-instance query porque SQLAlchemy query objects son mutables pero mejor ir a lo seguro
                     query = db.query(Programming).filter(
                         Programming.team_id == team_id,
                         Programming.status == ProgrammingStatus.available
@@ -240,7 +239,7 @@ class ProgrammingUtils:
                 et_dt = pt.end_time
                 
                 if isinstance(et_dt, datetime):
-                    # Si tiene info de zona horaria, convertir a El Salvador
+                    # Sí tiene info de zona horaria, convertir a El Salvador
                     if et_dt.tzinfo is not None:
                         et_dt = et_dt.astimezone(sv_tz)
                     et = et_dt.time()
@@ -273,7 +272,9 @@ class ProgrammingUtils:
                     "success": False,
                     "message": "Programming not found"
                 }
-            programming_date = programming.date
+            
+            # Asegurar que programming_date sea de tipo date para evitar warnings de tipo
+            programming_date: date = programming.date
 
             # Calcular hora de inicio basada en tareas existentes
             # Nota: calculate_current_programming_time usa la fecha solo para logs o lógica interna, 

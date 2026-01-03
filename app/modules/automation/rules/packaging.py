@@ -1,11 +1,13 @@
-from typing import Dict, Any, Optional, Set, List
-from sqlalchemy.orm import Session
 import datetime
+from typing import Dict, Any, Optional, Set, List
 
+from sqlalchemy.orm import Session
+
+from app.modules.automation.rules.base_rule import BaseAutomationRule
+from app.modules.automation.services.config import ServiceType
 from app.modules.automation.services.utils.team_selection_service import TeamSelectionService
 from app.shared.core.enums import PackagingActivities
-from app.modules.automation.services.config import ServiceType, ServiceConfig
-from app.modules.automation.rules.base_rule import BaseAutomationRule
+
 
 class PackagingRule(BaseAutomationRule):
     
@@ -20,7 +22,7 @@ class PackagingRule(BaseAutomationRule):
     @property
     def excluded_types(self) -> Set[str]:
         # Excluimos M9, M10, M11. 
-        # M12, M13, M15 se agregaron a permitidos segun requerimiento "Resto".
+        # M12, M13, M15 se agregaron a permitidos según requerimiento "Resto".
         return {"M9", "M10", "M11"}
 
     @property
@@ -37,12 +39,13 @@ class PackagingRule(BaseAutomationRule):
             [PackagingActivities.EMP_MEZCLA.value]
         ]
 
-    def _log_debug(self, message: str):
+    @staticmethod
+    def _log_debug(message: str):
         try:
             with open("debug_rules.log", "a") as f:
                 timestamp = datetime.datetime.now().isoformat()
                 f.write(f"[{timestamp}] {message}\n")
-        except:
+        except (PermissionError, IOError):
             pass
 
     def get_most_suitable_team(self, db: Session, order_data: Dict = None, activity_type: Optional[str] = None) -> Dict[str, Any]:
@@ -176,18 +179,21 @@ class PackagingRule(BaseAutomationRule):
             "rule_applied": "no_teams_available"
         }
 
-    def _find_team_by_name(self, teams_dict, name_part):
+    @staticmethod
+    def _find_team_by_name(teams_dict, name_part):
         for t in teams_dict.values():
             if name_part in t.name.upper():
                 return t
         return None
 
-    def get_packaging_teams(self, db: Session) -> Dict[str, Any]:
+    @staticmethod
+    def get_packaging_teams(db: Session) -> Dict[str, Any]:
         return TeamSelectionService.get_packaging_teams(db)
 
     # Obtiene el equipo específico para una actividad de empaque según las reglas de negocio.
     # Esta función ahora delega a get_most_suitable_team con el tipo de actividad.
-    def get_specific_team_for_activity(self, activity_name: str, activity_description: str, teams_data: Dict, order_data: Dict = None) -> Dict[str, Any]:
+    @staticmethod
+    def get_specific_team_for_activity(activity_name: str, activity_description: str, teams_data: Dict) -> Dict[str, Any]:
 
         # Extraer el tipo de actividad del nombre o descripción
         activity_type = None
@@ -219,7 +225,6 @@ class PackagingRule(BaseAutomationRule):
         Devuelve una lista de equipos candidatos en orden de prioridad para la asignación de empaque.
         """
         candidates = []
-        code = order_data.get("code", "") if order_data else ""
         quantity = order_data.get("quantity", 0) if order_data else 0
         
         # Obtener todos los equipos disponibles
@@ -261,9 +266,6 @@ class PackagingRule(BaseAutomationRule):
         # 3. M4 / M2 (< 800) -> EMPAQUE 2
         if activity_type in ["M4", "M2"] and quantity < 800:
             add_candidate(teams_by_type.get("empaque2"), f"{activity_type.lower()}_low_empaque2", f"Actividad {activity_type} < 800")
-            # Podríamos agregar desborde a Empaque 1 si Empaque 2 se llena?
-            # Regla original no lo menciona explícitamente, pero el usuario quiere desbordes.
-            # Agregamos Empaque 1 como backup lógico.
             add_candidate(teams_by_type.get("empaque1"), "overflow_empaque1", "Desborde a Empaque 1")
             return candidates
 

@@ -3,17 +3,17 @@ Clase base abstracta para servicios de tareas.
 Define la interfaz común que deben implementar todos los servicios de tareas.
 """
 
-from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Optional
-from sqlalchemy.orm import Session
-from datetime import time, timedelta, date, datetime
 import math
+from abc import ABC, abstractmethod
+from datetime import time, timedelta, date, datetime
+from typing import List, Dict, Any, Optional
 
-from app.modules.automation.services.utils.programming_utils import ProgrammingUtils
-from app.shared.utils.business.order_status_service import OrderStatusService
+from sqlalchemy.orm import Session
+
 from app.modules.automation.rules.schedule import ScheduleRule
 from app.modules.automation.services.utils.auto_create_programming import create_programming_if_not_exists
-from app.modules.programming.models.state import ProgrammingStatus
+from app.modules.automation.services.utils.programming_utils import ProgrammingUtils
+from app.shared.utils.business.order_status_service import OrderStatusService
 from app.shared.utils.business.programming_availability import restore_programmings_availability
 
 
@@ -37,20 +37,25 @@ class BaseTaskService(ABC):
     @abstractmethod
     def get_activity_for_order(self, order_data: Dict, activities_data: Dict) -> Optional[Dict]:
         pass
-    
-    def extract_order_data(self, orders: List) -> List[Dict[str, Any]]:
+
+    @staticmethod
+    def extract_order_data(orders: List) -> List[Dict[str, Any]]:
         return ProgrammingUtils.extract_order_data(orders)
-    
-    def get_activities_by_code(self, code: str, db: Session) -> Dict[str, Any]:
+
+    @staticmethod
+    def get_activities_by_code(code: str, db: Session) -> Dict[str, Any]:
         return ProgrammingUtils.get_activities_by_code(code, db)
-    
-    def get_activities_for_orders(self, extracted_orders: List[Dict], db: Session) -> Dict[str, Any]:
+
+    @staticmethod
+    def get_activities_for_orders(extracted_orders: List[Dict], db: Session) -> Dict[str, Any]:
         return ProgrammingUtils.get_activities_for_orders(extracted_orders, db)
-    
-    def get_activity_details_by_code_and_activity(self, code: str, activity: str, db: Session) -> Dict[str, Any]:
+
+    @staticmethod
+    def get_activity_details_by_code_and_activity(code: str, activity: str, db: Session) -> Dict[str, Any]:
         return ProgrammingUtils.get_activity_details_by_code_and_activity(code, activity, db)
-    
-    def get_available_programmings_for_team(self, team_id: str, db: Session, start_date: Optional[date] = None) -> List[Dict[str, Any]]:
+
+    @staticmethod
+    def get_available_programmings_for_team(team_id: str, db: Session, start_date: Optional[date] = None) -> List[Dict[str, Any]]:
         return ProgrammingUtils.get_available_programmings_for_team(team_id, db, start_date=start_date)
     
     def get_service_config(self) -> Dict[str, Any]:
@@ -82,13 +87,14 @@ class BaseTaskService(ABC):
                 "activity_keywords": [],
                 "team_priorities": []
             }
-    
-    def calculate_minutes_from_performance_and_quantity(self, performance: float, quantity: int, time: float = None) -> int:
+
+    @staticmethod
+    def calculate_minutes_from_performance_and_quantity(performance: float, quantity: int, time: float = None) -> int:
         if quantity is None:
             return 0
         
         if performance is not None:
-                # performance se interpreta como UNIDADES por HORA (throughput).
+                # Performance se interpreta como UNIDADES por HORA (throughput).
                 # Tiempo por unidad (en horas) = 1 / performance.
                 # Minutos totales = quantity * (1 / performance) * 60
                 try:
@@ -99,7 +105,7 @@ class BaseTaskService(ABC):
                 except Exception:
                     return 0
         elif time is not None:
-            # Usar time directamente como minutos
+            # Usar, time directamente como minutos
             return math.ceil(time)
         else:
             return 30
@@ -176,7 +182,7 @@ class BaseTaskService(ABC):
                     task_minutes = activity.get("minutes_calculation", {}).get("calculated_minutes", 0)
                 else:
                     activity_details = activity
-                    # Si no vienen precalculados, intentar calcularlos
+                    # Si no vienen pre-calculados, intentar calcularlos
                     performance = activity.get("performance")
                     quantity = order_data.get("quantity")
                     time_val = activity.get("time")
@@ -199,7 +205,7 @@ class BaseTaskService(ABC):
                 from app.modules.programming.models.programming import ProgrammingTask
                 
                 if target_lote and (activity_type or activity_name):
-                    # Check for existing task for this lote and type/activity
+                    # Check for an existing task for this lote and type/activity
                     existing_task = db.query(Task).filter(Task.lote == str(target_lote)).filter(
                         (Task.type == activity_type) if activity_type else (Task.activity == activity_name)
                     ).first()
@@ -212,13 +218,13 @@ class BaseTaskService(ABC):
                          logger = get_logger(__name__)
                          logger.info(f"Existing task found for order {target_lote} type {activity_type or activity_name}. SKIPPING CREATION.")
                          
-                         # Update order status to 'programmed' even if task already exists
+                         # Update order status to 'programmed' even if a task already exists
                          try:
                              OrderStatusService.update_order_status_for_task_creation(db, existing_task)
                          except Exception as e:
                              logger.error(f"Error updating order status for existing task: {e}")
 
-                         # Add to successfully "processed" list for notifications
+                         # Add to a successfully "processed" list for notifications
                          prog_date = None
                          team_name = None
                          if pt:

@@ -3,12 +3,11 @@ Servicio refactorizado para manejar la creación de tareas de fabricación.
 Hereda de BaseTaskService para reutilizar funcionalidad común.
 """
 
-from typing import List, Dict, Any, Optional
-from sqlalchemy.orm import Session
-from sqlalchemy import or_
-from datetime import date, time, datetime, timedelta
 import logging
-import math
+from datetime import date, datetime, timedelta
+from typing import List, Dict, Any, Optional
+
+from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 
@@ -227,7 +226,7 @@ class FabricationTaskService(BaseTaskService):
                          # Log retrieval of existing task
                          logger.info(f"Existing task found for order {target_lote} type {activity_type}. SKIPPING CREATION.")
                          
-                         # Update order status to 'programmed' even if task already exists
+                         # Update order status to 'programmed' even if a task already exists
                          try:
                              from app.shared.utils.business.order_status_service import OrderStatusService
                              OrderStatusService.update_order_status_for_task_creation(db, existing_task)
@@ -235,7 +234,7 @@ class FabricationTaskService(BaseTaskService):
                          except Exception as e:
                              logger.error(f"Error updating order status for existing task: {e}")
 
-                         # Get team name for the notification
+                         # Get the team name for the notification
                          team_name = None
                          programming_date = None
                          if pt:
@@ -335,7 +334,7 @@ class FabricationTaskService(BaseTaskService):
                     if task_created:
                          break # Break date loop
                     
-                    # Move to next valid day
+                    # Move to the next valid day
                     last_fail_reason = f"Full capacity on {current_date} for all candidates."
                     current_date += timedelta(days=1)
                     if current_date.weekday() == 6: # Skip Sunday
@@ -363,7 +362,7 @@ class FabricationTaskService(BaseTaskService):
             import traceback
             print(f"Error during fabrication task creation: {str(e)}\n{traceback.format_exc()}")
             
-            # Rollback the transaction to avoid inconsistent state
+            # Roll back the transaction to avoid an inconsistent state
             db.rollback()
             
             # Re-raise the exception so it's not silent

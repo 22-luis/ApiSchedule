@@ -1,12 +1,14 @@
-from typing import Dict, Any, Optional, Set, List
-from sqlalchemy.orm import Session
 from datetime import date
+from typing import Dict, Any, Optional, Set, List
 
-from app.modules.automation.services.utils.team_selection_service import TeamSelectionService
-from app.modules.automation.services.utils.capacity_verification_service import CapacityVerificationService
-from app.shared.core.enums import ManufacturingActivities
-from app.modules.automation.services.config import ServiceType, ServiceConfig
+from sqlalchemy.orm import Session
+
 from app.modules.automation.rules.base_rule import BaseAutomationRule
+from app.modules.automation.services.config import ServiceType
+from app.modules.automation.services.utils.capacity_verification_service import CapacityVerificationService
+from app.modules.automation.services.utils.team_selection_service import TeamSelectionService
+from app.shared.core.enums import ManufacturingActivities
+
 
 class ManufacturedRule(BaseAutomationRule):
     
@@ -111,14 +113,8 @@ class ManufacturedRule(BaseAutomationRule):
 
         # --- B. REGLAS POR TIPO DE ACTIVIDAD (PRIORIDAD MEDIA) ---
 
-        # Regla Global para Líquidos: JARABE, ESEM, ESENCIA, DESINFECTANTE SOLUCION, LIQUIDO o unidad GL/LT
-        description = order_data.get("description", "").upper()
-        unit = order_data.get("unit", "").upper()
-        liquid_keywords = ["JARABE", "ESEM", "ESENCIA", "DESINFECTANTE SOLUCION", "LIQUIDO"]
-        is_liquid = any(k in description for k in liquid_keywords) or unit in ["GL", "LT"]
-
         # M13 (Mezclas Líquidas) o Productos Líquidos -> FABRICADO 3
-        if activity_type == "M13" or is_liquid:
+        if activity_type == "M13" or self.is_liquid_product(order_data):
             fabricado3_team = teams_by_type.get("fabricado3")
             if fabricado3_team:
                 reason = "Actividad M13 (Líquidos)" if activity_type == "M13" else "Producto Identificado como Líquido"
@@ -311,7 +307,7 @@ class ManufacturedRule(BaseAutomationRule):
             weighing_team_info = TeamSelectionService.get_weighing_team(db)
             if weighing_team_info.get("success"):
                 weighing_team = weighing_team_info.get("most_suitable_team")
-                # Construir el objeto candidato manualmente para pesado ya que viene de otro helper
+                # Construir el objeto candidato manualmente para pesado, ya que viene de otro helper
                 candidates.append({
                     "id": weighing_team["id"],
                     "name": weighing_team["name"],
@@ -335,13 +331,7 @@ class ManufacturedRule(BaseAutomationRule):
 
         # --- 3. REGLAS POR TIPO DE ACTIVIDAD ---
 
-        # Líquidos -> FABRICADO 3
-        description = order_data.get("description", "").upper()
-        unit = order_data.get("unit", "").upper()
-        liquid_keywords = ["JARABE", "ESEM", "ESENCIA", "DESINFECTANTE SOLUCION", "LIQUIDO"]
-        is_liquid = any(k in description for k in liquid_keywords) or unit in ["GL", "LT"]
-
-        if activity_type == "M13" or is_liquid:
+        if activity_type == "M13" or self.is_liquid_product(order_data):
             add_candidate(teams_by_type.get("fabricado3"), "fabricado3_liquids", "Actividad M13 o Líquido")
             return candidates
 

@@ -1,9 +1,11 @@
 from typing import Dict, Any, Optional, List
+
 from sqlalchemy.orm import Session
 
-from app.modules.automation.services.utils.team_selection_service import TeamSelectionService
-from app.modules.automation.services.config import ServiceType, ServiceConfig
 from app.modules.automation.rules.base_rule import BaseAutomationRule
+from app.modules.automation.services.config import ServiceType
+from app.modules.automation.services.utils.team_selection_service import TeamSelectionService
+
 
 class WeighingRule(BaseAutomationRule):
     
@@ -19,7 +21,8 @@ class WeighingRule(BaseAutomationRule):
     def priority_keywords_groups(self) -> List[List[str]]:
         return [["PESADO"]]
 
-    def get_most_suitable_team(self, db: Session, order_data: Dict = None, activity_type: Optional[str] = None) -> Dict[str, Any]:
+    @staticmethod
+    def get_most_suitable_team(db: Session, activity_type: Optional[str] = None) -> Dict[str, Any]:
         # Restriction removed: Weighing tasks should be created regardless of quantity.
         pass
 

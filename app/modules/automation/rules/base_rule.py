@@ -1,4 +1,4 @@
-from typing import Dict, Any, Optional, List, Set, Union
+from typing import Dict, Any, Optional, List, Set
 from abc import ABC, abstractmethod
 from app.modules.automation.services.config import ServiceType, ServiceConfig
 
@@ -25,6 +25,19 @@ class BaseAutomationRule(ABC):
     @property
     def priority_keywords_groups(self) -> List[List[str]]:
         return []
+
+    @staticmethod
+    def is_liquid_product(order_data: dict) -> bool:
+        """
+        Determina si un producto es líquido basado en su descripción o unidad.
+        Regla Global: JARABE, ESEM, ESENCIA, DESINFECTANTE SOLUCIÓN, LIQUIDO o unidad GL/LT
+        """
+        description = order_data.get("description", "").upper()
+        unit = order_data.get("unit", "").upper()
+
+        liquid_keywords = ["JARABE", "ESEM", "ESENCIA", "DESINFECTANTE SOLUCIÓN", "LIQUIDO"]
+
+        return any(k in description for k in liquid_keywords) or unit in ["GL", "LT"]
 
     def filter_activities(self, activities_data: Dict[str, Any]) -> Dict[str, Any]:
         filtered_activities_by_code = {}
@@ -54,12 +67,12 @@ class BaseAutomationRule(ABC):
 
                 # Para Manufactured, la lógica era: excluir M1/M7 -> luego check keywords.
                 # Para Weighing: check keywords.
-                # Para Packaging: excluir manf -> check inclusion or keywords.
+                # Para Packaging: excluir manufactured -> check inclusion or keywords.
                 
                 # Unificamos:
                 # Si hay allowed_types definido, se usa como condición OR con matches_keyword.
                 # Si allowed_types está vacío (ej. Weighing/Manufactured), solo depende de matches_keyword.
-                
+
                 should_include = False
                 if self.allowed_types and is_allowed_type:
                     should_include = True
@@ -114,13 +127,14 @@ class BaseAutomationRule(ABC):
         
         return None
 
-    def response(self, team_id, name, type, reason, rule):
+    @staticmethod
+    def response(team_id, name, type_, reason, rule):
         return {
             "success": True,
             "selected_team": {
                 "id": str(team_id),
                 "name": name,
-                "type": type
+                "type": type_
             },
             "reason": reason,
             "rule_applied": rule

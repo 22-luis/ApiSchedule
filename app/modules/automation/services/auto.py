@@ -28,7 +28,7 @@ def create_tasks_for_lotes(lotes: List[int], username: str):
         programmable_bins = [10, 100]
         other_orders = [o for o in orders if o.bin in programmable_bins]
         
-        # Process Bin 8 orders - pass fabrication orders from same batch for linking
+        # Process Bin 8 orders - pass fabrication orders from the same batch for linking
         processed_bin_8 = []
         if bin_8_orders:
             bin_8_result = OrderFlowService.process_bin_8_orders(
@@ -51,7 +51,7 @@ def create_tasks_for_lotes(lotes: List[int], username: str):
         # For bin 8 orders, replace the lote with the fabrication order's lote
         for i, extracted in enumerate(extracted_orders):
             original_order = orders_to_extract[i]
-            if hasattr(original_order, '_usar_lote_fabricacion'):
+            if hasattr(original_order, '_usar_lote_fabricación'):
                 logger.info(
                     f"Using fabrication lote {original_order._usar_lote_fabricacion} "
                     f"instead of packaging lote {extracted['lote']} for task creation"
@@ -168,7 +168,7 @@ def create_tasks_for_lotes(lotes: List[int], username: str):
                                         except Exception as e:
                                             logger.error(f"Error resolving team name for {prog_id}: {e}")
                                     
-                                    # Include only if we have a valid ID (or at least track it)
+                                    # Include it only if we have a valid ID (or at least track it)
                                     if prog_id and str(prog_id).lower() != "none":
                                         programming_info.append({
                                             "programming_id": str(prog_id),

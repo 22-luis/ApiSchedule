@@ -468,7 +468,7 @@ async def reorder_programming_tasks(
         else:
             # Solo recalcula si NO se envían los valores
             if current_time is None:
-                programming_date = programming.date
+                programming_date: date = programming.date
                 weekday = programming_date.weekday()
                 if base_time:
                     base_hour, base_minute = map(int, base_time.split(":"))
@@ -1195,9 +1195,10 @@ def get_next_available_time_for_programming(
     )
     
     # Calcular el siguiente horario disponible
+    programming_date: date = programming.date
     if not programming_tasks:
         # Programación vacía - siguiente horario disponible es 7:00
-        next_available_time = datetime.combine(programming.date, time(7, 0))
+        next_available_time = datetime.combine(programming_date, time(7, 0))
         message = "Programación vacía - siguiente horario disponible: 7:00"
     else:
         # Obtener la última tarea
@@ -1208,7 +1209,7 @@ def get_next_available_time_for_programming(
             message = f"Siguiente horario disponible después de la última tarea: {last_task.end_time.strftime('%H:%M')}"
         else:
             # Si la última tarea no tiene end_time, usar 7:00
-            next_available_time = datetime.combine(programming.date, time(7, 0))
+            next_available_time = datetime.combine(programming_date, time(7, 0))
             message = "Última tarea sin horario - siguiente horario disponible: 7:00"
     
     # Obtener información del equipo

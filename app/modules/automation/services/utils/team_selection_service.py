@@ -159,7 +159,7 @@ class TeamSelectionService:
         }
 
     @staticmethod
-    def get_specific_packaging_team_for_activity(activity_name: str, activity_description: str, teams_data: Dict) -> Dict[str, Any]:
+    def get_specific_packaging_team_for_activity(activity_name: str, teams_data: Dict) -> Dict[str, Any]:
         """
         Selecciona el equipo específico basado en la actividad.
         """

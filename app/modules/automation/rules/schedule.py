@@ -1,14 +1,15 @@
-from typing import List, Dict, Any, Optional
-from sqlalchemy.orm import Session
-from datetime import date, time, timedelta, datetime
+from datetime import date, time
+from typing import List, Dict, Any, Optional, cast
 
-from app.modules.programming.models.programming import Programming, ProgrammingStatus, ProgrammingTask
-from app.modules.core.models.team import Team
-from app.shared.utils.business.order_status_service import OrderStatusService
+from sqlalchemy.orm import Session
+
 from app.modules.automation.services.utils.programming_utils import ProgrammingUtils
+from app.modules.programming.models.programming import Programming, ProgrammingStatus, ProgrammingTask
 from app.modules.programming.models.task import Task
+from app.shared.utils.business.order_status_service import OrderStatusService
+from app.shared.utils.business.programming_availability import get_programming_availability, get_team_rule, \
+    STANDARD_DURATION_MINUTES
 from app.shared.utils.core.logging import get_logger
-from app.shared.utils.business.programming_availability import get_programming_availability, get_team_rule, STANDARD_DURATION_MINUTES
 
 logger = get_logger(__name__)
 
@@ -17,16 +18,22 @@ class ScheduleRule:
         self.tolerance_minutes = tolerance_minutes
         self.time_limit = time_limit
 
-    def get_team_duration(self, team_name: str) -> Optional[int]:
+    @staticmethod
+    def get_team_duration(team_name: str) -> Optional[int]:
         team_rule = get_team_rule(team_name)
         if team_rule and "duration" in team_rule:
             return team_rule["duration"]
         # Fallback a una regla por defecto si no se encuentra el equipo
         return STANDARD_DURATION_MINUTES
 
-    def verify_programming_time_limit(self, programmings: List[Dict], task_minutes: int, db: Session, 
-                                    order_data: Optional[Dict] = None, 
-                                    activity_details: Optional[Dict] = None) -> Dict[str, Any]:
+    def verify_programming_time_limit(
+        self,
+        programmings: List[Dict],
+        task_minutes: int,
+        db: Session,
+        order_data: Optional[Dict] = None,
+        activity_details: Optional[Dict] = None
+    ) -> Dict[str, Any]:
         current_date = date.today()
 
         def safe_date_from_iso(d: Any) -> date:
@@ -37,7 +44,7 @@ class ScheduleRule:
                 try:
                     return date.fromisoformat(d)
                 except ValueError:
-                    pass  # Fallback a date.max si el string no es válido
+                    pass  # Fallback date.max si el string no es válido
             return date.max
 
         # Asegurar que las programaciones estén ordenadas por fecha
@@ -46,7 +53,10 @@ class ScheduleRule:
             key=lambda p: (safe_date_from_iso(p.get("date")) - current_date).days
         )
         
-        logger.debug(f"Iniciando verificación de {len(sorted_programmings)} programaciones para una tarea de {task_minutes} minutos.")
+        logger.debug(
+            f"Iniciando verificación de {len(sorted_programmings)} programaciones "
+            f"para una tarea de {task_minutes} minutos."
+        )
 
         # Evaluar cada programación secuencialmente
         for programming in sorted_programmings:
@@ -74,11 +84,16 @@ class ScheduleRule:
             
             # Verificar que la programación esté disponible
             if programming_obj.status != ProgrammingStatus.available:
-                logger.warning(f"REJECTED {programming_id}: Status is {programming_obj.status} (expected available).")
+                logger.warning(
+                    f"REJECTED {programming_id}: Status is {programming_obj.status} "
+                    f"(expected available)."
+                )
                 continue
 
             # Verificar disponibilidad usando la nueva función centralizada
-            availability_result = get_programming_availability(db, str(programming_id), task_minutes)
+            availability_result = get_programming_availability(
+                db, str(programming_id), task_minutes
+            )
             
             if availability_result["available"]:
                 # Obtener datos del resultado
@@ -98,16 +113,22 @@ class ScheduleRule:
                     dm_int = int(duration_minutes)
                     time_limit_iso = time(dm_int // 60, dm_int % 60).isoformat()
 
-                logger.info(f"Programación {programming_id} seleccionada. Final: {final_minutes} <= Máx: {max_allowed_minutes}.")
+                logger.info(
+                    f"Programación {programming_id} seleccionada. "
+                    f"Final: {final_minutes} <= Máx: {max_allowed_minutes}."
+                )
                 
                 # Obtener las tareas de la programación para el reporte (y creación de tarea)
-                programming_tasks = db.query(ProgrammingTask).filter(
+                programming_tasks = cast(List[ProgrammingTask], cast(Any, db.query(ProgrammingTask).filter(
                     ProgrammingTask.programming_id == programming_id
-                ).all()
+                ).all()))
 
                 result = {
                     "success": True,
-                    "message": f"Programación seleccionada: {programming_date_obj.isoformat()} - Cumple con límite de tiempo",
+                    "message": (
+                        f"Programación seleccionada: {programming_date_obj.isoformat()} - "
+                        f"Cumple con límite de tiempo"
+                    ),
                     "selected_programming": {
                         "id": programming_id,
                         "date": programming_date_obj.isoformat(),
@@ -123,7 +144,11 @@ class ScheduleRule:
                     "verification_details": {
                         "current_end_minutes": current_end_minutes,
                         "final_minutes": final_minutes,
-                        "max_allowed_minutes": max_allowed_minutes if max_allowed_minutes != float('inf') else "No limit",
+                        "max_allowed_minutes": (
+                            max_allowed_minutes
+                            if max_allowed_minutes != float('inf')
+                            else "No limit"
+                        ),
                         "within_limit": True,
                         "programming_date": programming_date_obj.isoformat(),
                         "total_existing_tasks": len(programming_tasks)
@@ -146,9 +171,13 @@ class ScheduleRule:
                             # Obtener la tarea creada para actualizar el estado de la orden
                             task_id = task_result.get("task_data", {}).get("task_id")
                             if task_id:
-                                task_obj = db.query(Task).filter(Task.id == task_id).first()
+                                task_obj: Optional[Task] = db.query(Task).filter(
+                                    Task.id == task_id
+                                ).first()
                                 if task_obj:
-                                    OrderStatusService.update_order_status_for_task_creation(db, task_obj)
+                                    OrderStatusService.update_order_status_for_task_creation(
+                                        db, task_obj
+                                    )
                         except Exception as e:
                             # Si hay un error al actualizar el estado, no fallar la creación de la tarea
                             # Solo registrar el error en el resultado
@@ -161,7 +190,10 @@ class ScheduleRule:
                 return result
         
         if sorted_programmings:
-            logger.warning(f"No se encontró ninguna programación que cumpla con los requisitos entre {len(sorted_programmings)} evaluadas.")
+            logger.warning(
+                f"No se encontró ninguna programación que cumpla con los requisitos "
+                f"entre {len(sorted_programmings)} evaluadas."
+            )
         else:
             logger.warning("No se proporcionaron programaciones para evaluar.")
             

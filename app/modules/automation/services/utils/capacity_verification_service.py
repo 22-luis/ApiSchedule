@@ -1,4 +1,4 @@
-from typing import Dict, Any
+from typing import Dict, Any, List, cast
 from sqlalchemy.orm import Session
 from datetime import date
 from app.modules.programming.models.programming import Programming, ProgrammingTask
@@ -113,9 +113,9 @@ class CapacityVerificationService:
         
         # Calcular el total de minutos de todas las tareas en la programación
         total_minutes = 0
-        programming_tasks = db.query(ProgrammingTask).filter(
+        programming_tasks = cast(List[ProgrammingTask], cast(Any, db.query(ProgrammingTask).filter(
             ProgrammingTask.programming_id == programming.id
-        ).all()
+        ).all()))
         
         for prog_task in programming_tasks:
             task = db.query(Task).filter(Task.id == prog_task.task_id).first()

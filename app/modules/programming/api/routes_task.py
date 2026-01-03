@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
-from typing import List, Dict, Any
+from typing import List, Dict, Any, cast
 from pydantic import BaseModel
 import datetime
 from pytz import timezone
@@ -94,7 +94,9 @@ def _create_task_logic(db: Session, task_data: Dict[str, Any], teams: List[Team]
 
     # Post-commit side effects
     if current_user.role in [UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR]:
-        replicate_task_to_pesado_if_needed(db, db_task, programming.date)
+        # Asegurar que programming_date sea de tipo date para evitar warnings de tipo
+        programming_date: datetime.date = programming.date
+        replicate_task_to_pesado_if_needed(db, db_task, programming_date)
         pass
     update_programming_availability_by_task(db, str(db_task.id))
 
@@ -207,7 +209,7 @@ def update_task(
     
     if updating_times:
         sv_tz = timezone("America/El_Salvador")
-        programming_tasks = db.query(ProgrammingTask).filter(ProgrammingTask.task_id == task_id).all()
+        programming_tasks = cast(List[ProgrammingTask], cast(Any, db.query(ProgrammingTask).filter(ProgrammingTask.task_id == task_id).all()))
         for pt in programming_tasks:
             if 'start_time' in update_data:
                 st = update_data['start_time']
