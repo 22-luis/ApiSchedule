@@ -1,3 +1,5 @@
+import re
+import unicodedata
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.shared.db.session import get_db
@@ -55,9 +57,7 @@ def get_section(
     
     # 2. Si falla, intento de búsqueda normalizada (slug/insensible a mayúsculas)
     if section_content is None:
-        import unicodedata
-        import re
-
+        
         def slugify(text):
             # Normalizar y quitar acentos
             text = unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode('ascii')
