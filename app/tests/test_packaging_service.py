@@ -10,9 +10,9 @@ from typing import Dict, Any, List
 # Agregar el directorio raíz al path para imports
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from app.services.factory import TaskServiceFactory
-from app.services.config import ServiceType, ServiceConfig
-from app.core.enums import PackagingActivities, PackagingTeams
+from app.modules.automation.services.factory import TaskServiceFactory
+from app.modules.automation.services.config import ServiceType, ServiceConfig
+from app.shared.core.enums import PackagingActivities, PackagingTeams
 
 
 def test_packaging_service_creation():
