@@ -60,9 +60,9 @@ async def lifespan(_app: FastAPI):
 
     try:
         start_system_metrics_collector()
-        logger.info("Sistema de metricas inicializado")
+        logger.info("Sistema de métricas inicializado")
     except Exception as e:
-        logger.error(f"Error inicializando metricas: {e}")
+        logger.error(f"Error inicializando métricas: {e}")
 
     yield  #funcion que maneja el ciclo de vida del servidor
 
