@@ -1,5 +1,4 @@
 from fastapi import APIRouter, HTTPException
-from typing import Dict, Any
 
 from app.shared.core.config import settings
 from app.shared.db.session import get_database_info

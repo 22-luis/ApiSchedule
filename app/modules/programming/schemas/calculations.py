@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Extra, Field
+from pydantic import BaseModel, ConfigDict, Field
 from datetime import date, datetime
 from typing import Dict, Any, List, Optional
 
@@ -26,9 +26,7 @@ class WorkingHoursResponse(BaseModel):
 
 class TaskWithMinutes(BaseModel):
     minutes: int
-
-    class Config:
-        extra = Extra.allow 
+    model_config = ConfigDict(extra='allow')
 
 class SequentialTimesRequest(BaseModel):
     base_date: date

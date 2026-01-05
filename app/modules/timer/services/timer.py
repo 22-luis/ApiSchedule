@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+from typing import Optional
 from app.modules.programming.models.task import Task
 from app.modules.timer.models.stopwatch import Stopwatch
 from app.modules.timer.models.record_stopwatch import RecordStopwatch
@@ -101,7 +102,7 @@ class TimerService:
         if stopwatch.status == TimerStatus.STOPPED:
             raise ValueError("Stopwatch is already stopped")
 
-        accumulated_duration = stopwatch.accumulated_duration
+        accumulated_duration: float = float(stopwatch.accumulated_duration)
 
         if stopwatch.status == TimerStatus.RUNNING:
             last_start_time = (stopwatch.update_at or stopwatch.created_at).astimezone(timezone.utc)
@@ -109,46 +110,48 @@ class TimerService:
             elapsed_time = time_difference.total_seconds() / 3600  # Convert to hours
             accumulated_duration += elapsed_time
 
-        record = None
+        _record: Optional[RecordStopwatch | ProgrammingTask] = None
         # Create a record in record_stopwatch or update ProgrammingTask
-        if stopwatch.is_from_programming is False:
+        if not stopwatch.is_from_programming:
+            accumulated_duration_value: float = accumulated_duration
             record = RecordStopwatch(
                 task_id=task_id,
                 quantity=real_quantity,
-                accumulated_duration=accumulated_duration
+                accumulated_duration=accumulated_duration_value
             )
             self.db.add(record)
         else:
-            record = self.db.query(ProgrammingTask).filter(ProgrammingTask.task_id == task_id).first()
-            if not record:
+            prog_task: Optional[ProgrammingTask] = self.db.query(ProgrammingTask).filter(ProgrammingTask.task_id == task_id).first()
+            if not prog_task:
                 raise ValueError(f"ProgrammingTask with task_id {task_id} not found.")
-            
-            task = self.db.query(Task).filter(Task.id == task_id).first()
+
+            record = prog_task
+            task: Optional[Task] = self.db.query(Task).filter(Task.id == task_id).first()
             if not task:
                 raise ValueError(f"Task with id {task_id} not found.")
 
-            record.real_start_time = stopwatch.created_at
-            record.real_end_time = now
-            record.real_quantity = real_quantity
-            record.duration_in_hours = accumulated_duration
-            record.completed_by_user_id = user_id
-            
+            prog_task.real_start_time = stopwatch.created_at
+            prog_task.real_end_time = now
+            prog_task.real_quantity = real_quantity
+            prog_task.duration_in_hours = accumulated_duration
+            prog_task.completed_by_user_id = user_id
+
             if is_completed is not None:
-                record.is_completed = is_completed
-            elif record.real_quantity is not None and task.quantity is not None:
-                record.is_completed = record.real_quantity >= task.quantity
+                prog_task.is_completed = is_completed
+            elif prog_task.real_quantity is not None and task.quantity is not None:
+                prog_task.is_completed = prog_task.real_quantity >= task.quantity
             else:
-                record.is_completed = False
-            
+                prog_task.is_completed = False
+
             # IMPORTANT: Update order status and fabricated_quantity
             from app.shared.utils.business.order_status_service import OrderStatusService
             try:
-                OrderStatusService.update_order_status_for_task_completion(self.db, record)
+                OrderStatusService.update_order_status_for_task_completion(self.db, prog_task)
                 logger.info(f"Order status updated for task {task_id}")
             except Exception as e:
                 logger.error(f"Error updating order status for task {task_id}: {e}")
 
-        # Delete from stopwatch
+        # Delete it from the stopwatch
         self.db.delete(stopwatch)
 
         self.db.commit()
@@ -183,7 +186,7 @@ class TimerService:
 
         # Add completed tasks from ProgrammingTask (is_from_programming = True)
         for result in programming_completed_tasks:
-            # result is a Row object or a tuple depending on sqlalchemy version/query style. 
+            # the result is a Row object or a tuple depending on sqlalchemy version/query style.
             # Since we only queried one column, it might be a single value or a tuple with one element.
             # safely accessing task_id
             task_id_prog_completed = result.task_id if hasattr(result, 'task_id') else result[0]
@@ -207,11 +210,30 @@ class TimerService:
             "comments": record.comments
         }
 
+    @staticmethod
+    def _format_record_stopwatch_result(query_results):
+        result = []
+        for record_stopwatch, task_code, task_description, task_type, task_activity, task_people, code_activity, code_type in query_results:
+            result.append({
+                "id": record_stopwatch.id,
+                "task_id": record_stopwatch.task_id,
+                "quantity": record_stopwatch.quantity,
+                "accumulated_duration": record_stopwatch.accumulated_duration,
+                "creation_date": record_stopwatch.creation_date,
+                "code_code": task_code,
+                "task_description": task_description,
+                "task_type": task_type or code_type,
+                "task_activity": task_activity or code_activity,
+                "task_people": task_people,
+                "comments": record_stopwatch.comments,
+            })
+        return result
+
     def get_daily_record_stopwatches(self):
         # Get current UTC datetime, adjust by 6 hours, then extract the date part
         current_datetime_adjusted = datetime.now(timezone.utc) - timedelta(hours=6)
         today = current_datetime_adjusted.date()
-        
+
         daily_records_query = self.db.query(
             RecordStopwatch,
             Code.code,
@@ -225,22 +247,7 @@ class TimerService:
             func.date(RecordStopwatch.creation_date) == today
         ).all()
 
-        result = []
-        for record_stopwatch, task_code, task_description, task_type, task_activity, task_people, code_activity, code_type in daily_records_query:
-            result.append({
-                "id": record_stopwatch.id,
-                "task_id": record_stopwatch.task_id,
-                "quantity": record_stopwatch.quantity,
-                "accumulated_duration": record_stopwatch.accumulated_duration,
-                "creation_date": record_stopwatch.creation_date,
-                "code_code": task_code,
-                "task_description": task_description,
-                "task_type": task_type or code_type,
-                "task_activity": task_activity or code_activity,
-                "task_people": task_people,
-                "comments": record_stopwatch.comments,
-            })
-        return result
+        return self._format_record_stopwatch_result(daily_records_query)
 
     def get_all_record_stopwatches(self):
         all_records_query = self.db.query(
@@ -254,22 +261,7 @@ class TimerService:
             Code.type.label("code_type")
         ).join(Task, RecordStopwatch.task_id == Task.id).join(Code, Task.code_id == Code.id).all()
 
-        result = []
-        for record_stopwatch, task_code, task_description, task_type, task_activity, task_people, code_activity, code_type in all_records_query:
-            result.append({
-                "id": record_stopwatch.id,
-                "task_id": record_stopwatch.task_id,
-                "quantity": record_stopwatch.quantity,
-                "accumulated_duration": record_stopwatch.accumulated_duration,
-                "creation_date": record_stopwatch.creation_date,
-                "code_code": task_code,
-                "task_description": task_description,
-                "task_type": task_type or code_type,
-                "task_activity": task_activity or code_activity,
-                "task_people": task_people,
-                "comments": record_stopwatch.comments,
-            })
-        return result
+        return self._format_record_stopwatch_result(all_records_query)
 
     def get_tasks_status_not_programmed(self, task_ids: list[uuid.UUID]):
         logger.info(f"get_tasks_status_not_programmed called for task_ids: {task_ids}")

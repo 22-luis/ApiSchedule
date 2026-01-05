@@ -1,5 +1,5 @@
 import uuid
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import List, Optional
 from datetime import date
 
@@ -19,8 +19,7 @@ class TeamCreate(BaseModel):
     supervisorId: Optional[uuid.UUID] = None
     members: Optional[List[TeamMemberConfig]] = []
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class TeamUpdate(BaseModel):
     name: Optional[str] = None
@@ -37,5 +36,4 @@ class TeamOut(BaseModel):
     supervisorUsername: Optional[str] = None
     members: List[TeamMemberOut]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

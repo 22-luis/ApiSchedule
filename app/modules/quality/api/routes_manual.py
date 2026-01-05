@@ -44,7 +44,7 @@ def create_qc_manual(
 def get_section(
     section_name: str,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    _current_user = Depends(get_current_user)
 ):
     # Traemos el último registro (versión más reciente)
     manual = db.query(QcManual).order_by(QcManual.id.desc()).first()

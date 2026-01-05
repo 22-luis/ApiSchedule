@@ -1,5 +1,5 @@
 import uuid
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 from typing import Optional, List
 from datetime import date, datetime
 from decimal import Decimal
@@ -26,7 +26,8 @@ class CompareInputItem(BaseModel):
     compareDate: Optional[datetime] = Field(None, alias="compareDate")
     numeroPersonas: Optional[int] = Field(None, alias="numeroPersonas")
     
-    @validator('compareDate', pre=True)
+    @field_validator('compareDate', mode='before')
+    @classmethod
     def parse_date(cls, v):
         if isinstance(v, str):
             try:
@@ -79,8 +80,7 @@ class CompareInputItem(BaseModel):
             compare_date=compare_date
         )
     
-    class Config:
-        allow_population_by_field_name = True
+    model_config = ConfigDict(validate_by_name=True)
 
 class CompareUpdate(BaseModel):
     code: Optional[str] = None
@@ -102,6 +102,5 @@ class CompareOut(BaseModel):
     compare_date: Optional[date] = None
     numero_personas: Optional[int] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 

@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from datetime import datetime
 import uuid
 from app.modules.programming.models.state import TaskStatus
@@ -15,5 +15,4 @@ class TaskStatusLogOut(TaskStatusLogBase):
     id: uuid.UUID
     task_id: uuid.UUID
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

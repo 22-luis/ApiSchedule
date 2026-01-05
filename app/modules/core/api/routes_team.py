@@ -1,6 +1,6 @@
 import uuid
 from datetime import date, timedelta
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
@@ -41,11 +41,11 @@ def _build_team_out(db: Session, team: Team, target_date: date) -> TeamOut:
 
 @router.get("/", response_model=List[TeamOut])
 def get_teams(
-    target_date: date = Query(default_factory=date.today),
+    target_date: date = Query(default=date.today()),
     db: Session = Depends(get_db),
     _current_user: User = Depends(get_current_active_user)
 ):
-    teams = db.query(Team).all()
+    teams: List[Team] = db.query(Team).all()
     return [_build_team_out(db, team, target_date) for team in teams]
 
 @router.post("/", response_model=TeamOut)
@@ -86,7 +86,7 @@ def update_team(
     db: Session = Depends(get_db),
     _current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
 ):
-    team = db.query(Team).filter(Team.id == team_id).first()
+    team: Optional[Team] = db.query(Team).filter(Team.id == team_id).first()
     if not team:
         raise HTTPException(status_code=404, detail="Team not found")
     
@@ -106,7 +106,7 @@ def update_team_members(
     db: Session = Depends(get_db),
     _current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
 ):
-    team = db.query(Team).filter(Team.id == team_id).first()
+    team: Optional[Team] = db.query(Team).filter(Team.id == team_id).first()
     if not team:
         raise HTTPException(status_code=404, detail="Team not found")
         
@@ -135,11 +135,12 @@ def update_team_members(
                 
     for user_id in new_member_ids:
         if user_id not in current_member_ids:
+            end_date_value: Optional[date] = None
             new_assoc = UserTeam(
                 user_id=user_id,
                 team_id=team.id,
                 start_date=target_date,
-                end_date=None
+                end_date=end_date_value
             )
             db.add(new_assoc)
             
@@ -154,7 +155,7 @@ def delete_team(
     db: Session = Depends(get_db),
     _current_user: User = Depends(require_roles(UserRole.ADMIN))
 ):
-    team = db.query(Team).filter(Team.id == team_id).first()
+    team: Optional[Team] = db.query(Team).filter(Team.id == team_id).first()
     if not team:
         raise HTTPException(status_code=404, detail="Team not found")
     

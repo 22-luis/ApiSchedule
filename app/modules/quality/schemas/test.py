@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional, Dict, Any
 from uuid import UUID
 from datetime import datetime
@@ -27,5 +27,4 @@ class TestUpdate(BaseModel):
 class TestOut(TestBase):
     id: UUID
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

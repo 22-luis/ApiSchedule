@@ -12,7 +12,7 @@ router = APIRouter(prefix="/qctest", tags=["qctest"])
 def create_test_record(
     test_data: TestCreate, 
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    _current_user = Depends(get_current_user)
 ):
     try:
         new_test = Test(**test_data.model_dump())
@@ -36,7 +36,7 @@ def update_test_record(
     test_id: str,
     test_data: TestUpdate,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    _current_user = Depends(get_current_user)
 ):
     test_record = db.query(Test).filter(Test.id == test_id).first()
     if not test_record:
@@ -62,7 +62,7 @@ def update_test_record(
 def get_test_record_by_lote(
     lote: int,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    _current_user = Depends(get_current_user)
 ):
     test_record = db.query(Test).filter(Test.lote == lote).first()
     if not test_record:

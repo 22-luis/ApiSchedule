@@ -1,5 +1,5 @@
 import uuid
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import List, Optional
 from app.modules.codes.schemas.catalog_test import CatalogTestOut
 
@@ -18,8 +18,7 @@ class CodeCreate(BaseModel):
     fabricationCode: Optional[str] = None
     usefulLife: Optional[str] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class CodeUpdate(BaseModel):
     code: Optional[str] = None
@@ -53,12 +52,10 @@ class CodeOut(BaseModel):
     usefulLife: Optional[str] = None
     tests: Optional[List[CatalogTestOut]] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class CodePageOut(BaseModel):
     codes: List[CodeOut]
     total: int
 
-    class Config:
-        from_attributes = True 
+    model_config = ConfigDict(from_attributes=True)

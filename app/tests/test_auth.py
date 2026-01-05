@@ -4,10 +4,10 @@ Tests for authentication endpoints.
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
-from app.models.user import User
-from app.models.role import UserRole
-from app.models.state import UserState
-from app.utils.security.security import get_password_hash
+from app.modules.core.models.user import User
+from app.modules.core.models.role import UserRole
+from app.modules.core.models.state import UserState
+from app.shared.utils.security.security import hash_password
 
 class TestAuth:
     """Test authentication endpoints."""
@@ -15,7 +15,7 @@ class TestAuth:
     def test_login_success(self, client: TestClient, db: Session, test_user: User):
         """Test successful login."""
         # Hash the password for the test user
-        test_user.password = get_password_hash("testpassword123")
+        test_user.password = hash_password("testpassword123")
         db.commit()
         
         response = client.post("/api/v1/auth/login", data={
@@ -35,7 +35,7 @@ class TestAuth:
     def test_login_invalid_credentials(self, client: TestClient, db: Session, test_user: User):
         """Test login with invalid credentials."""
         # Hash the password for the test user
-        test_user.password = get_password_hash("testpassword123")
+        test_user.password = hash_password("testpassword123")
         db.commit()
         
         response = client.post("/api/v1/auth/login", data={

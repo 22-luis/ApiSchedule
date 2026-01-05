@@ -1,5 +1,5 @@
 import uuid
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional, List
 from datetime import datetime
 from app.modules.core.schemas.team import TeamOut
@@ -77,5 +77,4 @@ class TaskOut(BaseModel):
     is_completed: Optional[bool] = None
     real_quantity: Optional[float] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

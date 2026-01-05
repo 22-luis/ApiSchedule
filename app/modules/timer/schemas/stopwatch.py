@@ -1,5 +1,5 @@
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 import uuid
 from datetime import datetime
 from app.modules.timer.models.state import TimerStatus
@@ -24,8 +24,7 @@ class StopwatchInDBBase(StopwatchBase):
     update_at: datetime | None = None
     is_from_programming: bool
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class Stopwatch(StopwatchInDBBase):
     pass

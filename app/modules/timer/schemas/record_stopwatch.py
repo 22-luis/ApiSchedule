@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 import uuid
 from datetime import datetime
 
@@ -18,8 +18,7 @@ class RecordStopwatchInDBBase(RecordStopwatchBase):
     id: uuid.UUID
     creation_date: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class RecordStopwatch(RecordStopwatchInDBBase):
     pass

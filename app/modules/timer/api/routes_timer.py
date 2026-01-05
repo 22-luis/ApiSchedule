@@ -4,9 +4,7 @@ from sqlalchemy.orm import Session
 from app.shared.db.session import get_db
 from app.modules.timer.services.timer import TimerService
 from app.modules.timer.schemas.stopwatch import Stopwatch as StopwatchSchema
-from pydantic import BaseModel
-from datetime import datetime
-from typing import Optional, List, Union
+from typing import List, Union
 
 from app.modules.timer.schemas.record_stopwatch import RecordStopwatch as RecordStopwatchSchema
 from app.modules.programming.schemas.programming import ProgrammingTaskOrderOut as ProgrammingTaskSchema

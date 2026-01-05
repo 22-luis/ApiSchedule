@@ -4,10 +4,10 @@ Tests for user management endpoints.
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
-from app.models.user import User
-from app.models.team import Team
-from app.models.role import UserRole
-from app.models.state import UserState
+from app.modules.core.models.user import User
+from app.modules.core.models.team import Team
+from app.modules.core.models.role import UserRole
+from app.modules.core.models.state import UserState
 
 class TestUsers:
     """Test user management endpoints."""

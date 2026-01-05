@@ -185,8 +185,7 @@ def test_code_data() -> Dict[str, Any]:
         "material": "Test Material",
         "presentation": "Test Presentation",
         "fabricationCode": "FAB001",
-        "usefulLife": "30 days",
-        "related_code_team": "TEAM001"
+        "usefulLife": "30 days"
     }
 
 @pytest.fixture
@@ -283,6 +282,23 @@ def test_task_data() -> Dict[str, Any]:
         "activity": "manufacturing",
         "description": "Test task description"
     }
+
+@pytest.fixture
+def test_task(db: Session, test_task_data: Dict[str, Any], test_code: Code, test_programming: Programming) -> Task:
+    """Create a test task."""
+    task_data = test_task_data.copy()
+    task_data["code_id"] = test_code.id
+    # Remove fields not in model
+    if "teamIds" in task_data:
+        del task_data["teamIds"]
+    if "programming_id" in task_data:
+        del task_data["programming_id"]
+    
+    task = Task(**task_data)
+    db.add(task)
+    db.commit()
+    db.refresh(task)
+    return task
 
 @pytest.fixture
 def auth_headers(test_user: User) -> Dict[str, str]:

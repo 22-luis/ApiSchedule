@@ -31,7 +31,7 @@ try:
 
     CACHE_AVAILABLE = True
 except ImportError:
-    logger.warning("Módulo de caché no encontrado. El caché estará deshabilitado.")
+    logger.info("Módulo de caché no encontrado. El caché estará deshabilitado.")
     CACHE_AVAILABLE = False
 
 
@@ -236,7 +236,7 @@ def get_lotes_by_code(code: str, db: Session = Depends(get_db), _current_user: U
 
 # --- Endpoints de Carga Masiva y Debug ---
 
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, ValidationError, ConfigDict
 from typing import Optional, Any
 
 class CodeBulkItem(BaseModel):
@@ -254,8 +254,7 @@ class CodeBulkItem(BaseModel):
     fabricationCode: Optional[str] = None
     usefulLife: Optional[str] = None
 
-    class Config:
-        extra = "allow" # Permitir otros campos que puedan venir del Excel
+    model_config = ConfigDict(extra='allow') # Permitir otros campos que puedan venir del Excel
 
 @router.post("/bulk_upload")
 @invalidate_cache(pattern="codes")

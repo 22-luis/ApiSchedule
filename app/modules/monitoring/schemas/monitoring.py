@@ -17,31 +17,23 @@ class AppInfoOut(BaseModel):
     working_hours: WorkingHours
 
 class HealthAppInfo(BaseModel):
-    name: str = Field(..., alias="app_name")
+    name: str
     version: str
     environment: str
 
 class HealthStatusOut(BaseModel):
     status: str
     timestamp: str
-    uptime: float
+    uptime_seconds: float
     app_info: HealthAppInfo
 
 class DetailsHealthStatusOut(BaseModel):
     status: str
-    message: str
-    cached: Optional[bool] = None
-    version: Optional[str] = None
-    response_time: Optional[float] = None
-    used_percentage: Optional[float] = None
-    total_gb: Optional[float] = None
-    available_gb: Optional[float] = None
-    free_gb: Optional[float] = None
-    enabled: Optional[bool] = None
-    stats: Optional[Dict[str, Any]] = None
-    missing_vars: Optional[List[str]] = None
-    environment: Optional[str] = None
-    debugging: Optional[bool] = None
+    timestamp: str
+    uptime_seconds: float
+    response_time_ms: float
+    checks: Dict[str, Any]
+    app_info: HealthAppInfo
 
 class SystemStatusOut(BaseModel):
     status: str = "ok"

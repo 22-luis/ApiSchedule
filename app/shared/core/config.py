@@ -1,7 +1,7 @@
 import os
 from typing import List, Optional
-from pydantic import Field, validator
-from pydantic_settings import BaseSettings
+from pydantic import Field, field_validator, ConfigDict
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -94,7 +94,8 @@ class Settings(BaseSettings):
         """Convierte el string de CORS_ALLOW_HEADERS en lista"""
         return [header.strip() for header in self.CORS_ALLOW_HEADERS_STR.split(",")]
     
-    @validator("SECRET_KEY")
+    @field_validator("SECRET_KEY")
+    @classmethod
     def validate_secret_key(cls, v):
         # Verificar longitud mínima
         if len(v) < 32:
@@ -110,7 +111,8 @@ class Settings(BaseSettings):
         
         return v
     
-    @validator("POSTGRES_PASSWORD")
+    @field_validator("POSTGRES_PASSWORD")
+    @classmethod
     def validate_postgres_password(cls, v):
         # Verificar que no esté vacía
         if not v:
@@ -126,12 +128,12 @@ class Settings(BaseSettings):
         
         return v
     
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = True
-        # Permitir campos extra para evitar errores con variables de entorno no definidas
-        extra = "ignore"
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=True,
+        extra="ignore"
+    )
 
 
 # Instancia global de configuración

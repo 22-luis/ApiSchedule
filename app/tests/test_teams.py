@@ -4,10 +4,10 @@ Tests for team management endpoints.
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
-from app.models.team import Team
-from app.models.user import User
-from app.models.task import Task
-from app.models.code import Code
+from app.modules.core.models.team import Team
+from app.modules.core.models.user import User
+from app.modules.programming.models.task import Task
+from app.modules.codes.models.code import Code
 
 class TestTeams:
     """Test team management endpoints."""
