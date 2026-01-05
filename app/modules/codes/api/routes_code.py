@@ -58,7 +58,7 @@ router = APIRouter(prefix="/codes", tags=["codes"])
 @invalidate_cache(pattern="codes")
 def create_code(code: CodeCreate, db: Session = Depends(get_db),
                 _current_user: User = Depends(require_roles(UserRole.ADMIN))):
-    db_code = Code(**code.dict())
+    db_code = Code(**code.model_dump())
     db.add(db_code)
     db.commit()
     db.refresh(db_code)
@@ -157,7 +157,7 @@ def update_code(code_id: uuid.UUID, code_update: CodeUpdate, db: Session = Depen
     if not db_code:
         raise HTTPException(status_code=404, detail="Code not found")
     
-    update_data = code_update.dict(exclude_unset=True)
+    update_data = code_update.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(db_code, field, value)
     
@@ -272,12 +272,12 @@ def bulk_upload_codes(codes: List[dict], db: Session = Depends(get_db), _current
     
     for idx, item_data in enumerate(codes):
         try:
-            item = CodeBulkItem.parse_obj(item_data)
+            item = CodeBulkItem.model_validate(item_data)
         except ValidationError as e:
             errors.append({"row": idx + 2, "error": e.errors()})
             continue
 
-        code_data = item.dict(exclude_unset=True) 
+        code_data = item.model_dump(exclude_unset=True)
         code_str = code_data.get("code")
         
         if not code_str: 

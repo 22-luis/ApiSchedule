@@ -17,7 +17,7 @@ def create_preparation(
     db: Session = Depends(get_db),
     _current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))
 ):
-    db_preparation = Preparation(**preparation.dict())
+    db_preparation = Preparation(**preparation.model_dump())
     db.add(db_preparation)
     db.commit()
     db.refresh(db_preparation)
@@ -96,7 +96,7 @@ def update_preparation(
     db_preparation = db.query(Preparation).filter(Preparation.id == preparation_id).first()
     if not db_preparation:
         raise HTTPException(status_code=404, detail="Preparation not found")
-    for field, value in preparation_update.dict(exclude_unset=True).items():
+    for field, value in preparation_update.model_dump(exclude_unset=True).items():
         setattr(db_preparation, field, value)
     db.commit()
     db.refresh(db_preparation)
