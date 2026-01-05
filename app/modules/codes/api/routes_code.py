@@ -123,7 +123,7 @@ def get_production_codes(
     
     subquery = subquery.group_by(Code.code).subquery()
 
-    query = db.query(Code).filter(Code.id.in_(subquery))
+    query = db.query(Code).filter(Code.id.in_(db.query(subquery.c.min_id)))
     
     total = query.count()
     codes = query.order_by(Code.code).offset(skip).limit(limit).all()
