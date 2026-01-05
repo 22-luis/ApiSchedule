@@ -1,28 +1,26 @@
 import logging
-import re
 import uuid
-from typing import List, Optional, Any
+from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from sqlalchemy import func, cast, String
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Session
 
-from app.shared.db.session import get_db
+from app.modules.codes.models.catalog_test import CatalogTest
 from app.modules.codes.models.code import Code
-from app.modules.programming.models.order import Order
+from app.modules.codes.models.code_test import CodeTest
+from app.modules.codes.schemas.code import CodeCreate, CodeOut, CodePageOut, CodeUpdate
 from app.modules.core.models.role import UserRole
 from app.modules.core.models.user import User
-from app.modules.codes.schemas.code import CodeCreate, CodeOut, CodePageOut, CodeUpdate
-from app.modules.codes.models.code_test import CodeTest
-from app.modules.codes.models.catalog_test import CatalogTest
-from app.shared.utils.business.data_cleaning import clean_float, clean_str, clean_str_preserve_case
-from app.shared.utils.core.dependencies import require_roles
+from app.modules.programming.models.order import Order
 from app.shared.core.enums import (
-    WeighingActivities, 
+    WeighingActivities,
     ManufacturingActivities
 )
-from sqlalchemy import func, distinct, cast, String
-from sqlalchemy.dialects.postgresql import UUID
+from app.shared.db.session import get_db
+from app.shared.utils.business.data_cleaning import clean_float, clean_str, clean_str_preserve_case
+from app.shared.utils.core.dependencies import require_roles
 
 # Configurar logger
 logger = logging.getLogger(__name__)
@@ -38,16 +36,16 @@ except ImportError:
 
 
     # Decoradores dummy si el caché no está disponible
-    def cache_response(*args, **kwargs):
-        def decorator(func):
-            return func
+    def cache_response(*_args, **_kwargs):
+        def decorator(fn):
+            return fn
 
         return decorator
 
 
-    def invalidate_cache(*args, **kwargs):
-        def decorator(func):
-            return func
+    def invalidate_cache(*_args, **_kwargs):
+        def decorator(fn):
+            return fn
 
         return decorator
 
@@ -100,7 +98,7 @@ def get_production_codes(
     search: str = Query(None, description="Buscar por código o descripción"),
     _current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.QC_COORDINATOR, UserRole.QC_ASSISTANT))
 ):
-    PRODUCTION_ACTIVITIES = [
+    production_activities = [
         WeighingActivities.PESADO,
         ManufacturingActivities.FABRICACION,
         ManufacturingActivities.MOL_PASTA,
@@ -113,7 +111,7 @@ def get_production_codes(
     subquery = db.query(
         func.min(cast(Code.id, String)).cast(UUID).label("min_id")
     ).filter(
-        Code.activity.in_(PRODUCTION_ACTIVITIES)
+        Code.activity.in_(production_activities)
     )
 
     if search:

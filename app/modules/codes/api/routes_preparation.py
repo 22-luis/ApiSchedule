@@ -15,7 +15,7 @@ router = APIRouter(prefix="/preparations", tags=["preparations"])
 def create_preparation(
     preparation: PreparationCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))
+    _current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))
 ):
     db_preparation = Preparation(**preparation.dict())
     db.add(db_preparation)
@@ -24,7 +24,7 @@ def create_preparation(
     return db_preparation
 
 @router.post("/bulk_upload")
-def bulk_upload_preparations(preparations: list[dict], db: Session = Depends(get_db), current_user=Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))):
+def bulk_upload_preparations(preparations: list[dict], db: Session = Depends(get_db), _current_user=Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))):
     created = 0
     updated = 0
     errors = []
@@ -70,7 +70,7 @@ def bulk_upload_preparations(preparations: list[dict], db: Session = Depends(get
 @router.get("/", response_model=List[PreparationOut])
 def get_preparations(
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))
+    _current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))
 ):
     preparations = db.query(Preparation).all()
     return [PreparationOut.model_validate(p) for p in preparations]
@@ -79,7 +79,7 @@ def get_preparations(
 def get_preparation(
     preparation_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
+    _current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
 ):
     preparation = db.query(Preparation).filter(Preparation.id == preparation_id).first()
     if not preparation:
@@ -91,7 +91,7 @@ def update_preparation(
     preparation_id: str,
     preparation_update: PreparationCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))
+    _current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))
 ):
     db_preparation = db.query(Preparation).filter(Preparation.id == preparation_id).first()
     if not db_preparation:
@@ -106,7 +106,7 @@ def update_preparation(
 def delete_preparation(
     preparation_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))
+    _current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))
 ):
     db_preparation = db.query(Preparation).filter(Preparation.id == preparation_id).first()
     if not db_preparation:

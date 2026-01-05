@@ -101,7 +101,7 @@ def enrich_tests_with_manual_content(db: Session, tests: List[CatalogTest]) -> L
                 
                 content = slug_map.get(target_slug) or slug_map.get(clean_target_slug)
                 
-                # Búsqueda por subcadena si aún no hay nada (fallback robuso)
+                # Búsqueda por subcadena si aún no hay nada
                 if content is None:
                     for s_slug, s_content in slug_map.items():
                         if s_slug in clean_target_slug or clean_target_slug in s_slug:
