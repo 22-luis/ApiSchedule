@@ -29,6 +29,18 @@ API REST para optimización de programación y asignación de tareas en producci
 - **Métricas de rendimiento** y eficiencia
 - **Exportación de datos** para análisis externos
 
+### Gestión de Calidad (Quality)
+- **Manuales de Calidad Interactivos**: Carga y consulta de manuales HTML versionados
+- **Seccionamiento Automático**: División inteligente de documentos largos
+- **Tests de Lotes**: Registro y trazabilidad de pruebas de calidad por lote
+- **Integración con Producción**: Validación de parámetros en tiempo real
+
+### Códigos y Catálogos
+- **Maestro de Artículos**: Gestión centralizada de códigos de producto
+- **Carga Masiva**: Importación optimizada desde Excel/JSON con validación
+- **Búsqueda Avanzada**: Filtrado por actividad, código o descripción
+- **Gestión de Disponibilidad**: Control de inventario y estados (Available)
+
 ## ✨ Funcionalidades Automáticas
 
 ### Tarea de Preparación Automática
@@ -97,14 +109,27 @@ app/
 │   │   ├── api/          # Endpoints de reportes
 │   │   └── services/     # Generación de reportes
 │   │
-│   └── automation/        # Tareas automatizadas
-│       ├── services/     # Servicios de automatización
-│       └── rules/        # Reglas de negocio automáticas
-│           ├── base_rule.py    # Clase base para reglas
-│           ├── Manufactured.py # Reglas de fabricación
-│           ├── weighning.py    # Reglas de pesado
-│           ├── packaging.py    # Reglas de empaque
-│           └── schedule.py     # Reglas de programación
+│   ├── automation/        # Tareas automatizadas
+│   │   ├── services/     # Servicios de automatización
+│   │   └── rules/        # Reglas de negocio automáticas
+│   │       ├── base_rule.py    # Clase base para reglas
+│   │       ├── Manufactured.py # Reglas de fabricación
+│   │       ├── weighning.py    # Reglas de pesado
+│   │       ├── packaging.py    # Reglas de empaque
+│   │       └── schedule.py     # Reglas de programación
+│   │
+│   ├── quality/           # Control de calidad
+│   │   ├── api/          # Endpoints de manuales y tests
+│   │   ├── models/       # QcManual, Test
+│   │   └── services/     # Procesamiento de secciones
+│   │
+│   ├── codes/             # Catálogos y códigos
+│   │   ├── api/          # Endpoints de códigos
+│   │   └── models/       # Code, CatalogTest
+│   │
+│   └── monitoring/        # Monitoreo y health
+│       ├── api/          # Endpoints de estado
+│       └── services/     # Servicios de monitoreo
 │
 ├── shared/                # Recursos compartidos
 │   ├── core/             # Configuración y seguridad
@@ -281,6 +306,22 @@ GET    /api/v1/reports/productivity    # Reporte de productividad
 GET    /api/v1/reports/efficiency      # Reporte de eficiencia
 ```
 
+### Calidad y Manuales
+```http
+POST   /api/v1/manual         # Crear manual (HTML)
+GET    /api/v1/manual/section/{name} # Obtener sección específica
+GET    /api/v1/qctest/{lote}  # Ver tests de un lote
+POST   /api/v1/qctest         # Registrar resultado de test
+```
+
+### Códigos y Pruebas
+```http
+GET    /api/v1/codes          # Listar códigos (paginado)
+POST   /api/v1/codes/bulk_upload # Carga masiva
+GET    /api/v1/codes/by_code_and_activity # Búsqueda específica
+GET    /api/v1/available      # Listar items disponibles
+```
+
 ## 🔐 Autenticación
 
 La API utiliza autenticación JWT. Para acceder a endpoints protegidos:
@@ -310,6 +351,11 @@ curl -X GET "http://localhost:8000/api/v1/users" \
 | **planner** | Gestión de órdenes, equipos, programación y asignación de tareas |
 | **supervisor** | Supervisión de equipos, aprobación de tareas y visualización de reportes |
 | **user** | Ejecución de tareas asignadas, uso de cronómetro y visualización de su programación |
+| **timekeeper** | Gestión y corrección de registros de tiempo y cronómetros |
+| **warehouse** | Gestión de inventario y disponibilidad de materiales |
+| **accounting** | Visualización de reportes financieros y costos |
+| **qc_coordinator** | Coordinación de calidad, gestión de manuales y configuración de tests |
+| **qc_assistant** | Ejecución de pruebas de calidad y registro de resultados |
 
 ## 🧪 Desarrollo y Testing
 
