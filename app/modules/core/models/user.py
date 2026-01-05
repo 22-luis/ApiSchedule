@@ -12,7 +12,7 @@ class User(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
     username = Column(String, unique=True, index=True, nullable=False)
     password = Column(String, nullable=False)
-    role = Column(Enum(UserRole))
+    role = Column(Enum(UserRole, values_callable=lambda obj: [e.value for e in obj]))
     state = Column(Enum(UserState), default=UserState.ACTIVE)
     signature = Column(LargeBinary, nullable=True)
     document_name = Column(String, nullable=True)
