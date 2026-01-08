@@ -7,9 +7,9 @@ from sqlalchemy import func, cast, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Session
 
-from app.modules.codes.models.catalog_test import CatalogTest
+from app.modules.quality.models.catalog_test import CatalogTest
 from app.modules.codes.models.code import Code
-from app.modules.codes.models.code_test import CodeTest
+from app.modules.quality.models.code_test import CodeTest
 from app.modules.codes.schemas.code import CodeCreate, CodeOut, CodePageOut, CodeUpdate
 from app.modules.core.models.role import UserRole
 from app.modules.core.models.user import User

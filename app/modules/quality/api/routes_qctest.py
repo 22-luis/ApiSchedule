@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.shared.db.session import get_db
 from app.shared.utils.core.dependencies import get_current_user
-from app.modules.quality.models.test_record import Test
+from app.modules.quality.models.test_record import TestRecord as Test
 from app.modules.quality.schemas.test_record import TestCreate, TestUpdate, TestOut
 from sqlalchemy.exc import IntegrityError
 

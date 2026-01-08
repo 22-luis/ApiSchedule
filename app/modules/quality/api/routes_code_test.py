@@ -7,8 +7,8 @@ from app.shared.db.session import get_db
 from app.modules.quality.models.code_test import CodeTest
 from app.modules.codes.models.code import Code
 from app.modules.quality.models.catalog_test import CatalogTest
-from app.modules.codes.schemas.code_test import CodeTestLink, CodeTestOut
-from app.modules.codes.schemas.catalog_test import CatalogTestOut
+from app.modules.quality.schemas.code_test import CodeTestLink, CodeTestOut
+from app.modules.quality.schemas.catalog_test import CatalogTestOut
 from app.modules.core.models.role import UserRole
 from app.shared.utils.core.dependencies import require_roles
 from app.modules.quality.models.qc_manual import QcManual
@@ -90,25 +90,26 @@ def enrich_tests_with_manual_content(db: Session, tests: List[CatalogTest]) -> L
     result = []
     for t in tests:
         test_data = CatalogTestOut.model_validate(t).model_dump()
-        if t.manual_section_id:
-            # Intentar búsqueda exacta
-            content = content_dict.get(t.manual_section_id)
-            
-            # Si falla, intentar búsqueda normalizada
-            if content is None:
-                target_slug = slugify(t.manual_section_id)
-                clean_target_slug = re.sub(r'^section-\d+-', '', target_slug)
-                
-                content = slug_map.get(target_slug) or slug_map.get(clean_target_slug)
-                
-                # Búsqueda por subcadena si aún no hay nada
-                if content is None:
-                    for s_slug, s_content in slug_map.items():
-                        if s_slug in clean_target_slug or clean_target_slug in s_slug:
-                            content = s_content
-                            break
-            
-            test_data["manual_content"] = content
+        # manual_section_id has been removed from CatalogTest model in recent migrations
+        # if t.manual_section_id:
+        #     # Intentar búsqueda exacta
+        #     content = content_dict.get(t.manual_section_id)
+        #     
+        #     # Si falla, intentar búsqueda normalizada
+        #     if content is None:
+        #         target_slug = slugify(t.manual_section_id)
+        #         clean_target_slug = re.sub(r'^section-\d+-', '', target_slug)
+        #         
+        #         content = slug_map.get(target_slug) or slug_map.get(clean_target_slug)
+        #         
+        #         # Búsqueda por subcadena si aún no hay nada
+        #         if content is None:
+        #             for s_slug, s_content in slug_map.items():
+        #                 if s_slug in clean_target_slug or clean_target_slug in s_slug:
+        #                     content = s_content
+        #                     break
+        #     
+        #     test_data["manual_content"] = content
         result.append(test_data)
     
     return result

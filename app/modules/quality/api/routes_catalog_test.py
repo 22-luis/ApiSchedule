@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.modules.quality.models.catalog_test import CatalogTest
 from app.modules.quality.models.question_type import QuestionType
-from app.modules.codes.schemas.catalog_test import CatalogTestBase, CatalogTestOut
+from app.modules.quality.schemas.catalog_test import CatalogTestBase, CatalogTestOut
 from app.modules.core.models.role import UserRole
 from app.shared.db.session import get_db
 from app.shared.utils.core.dependencies import require_roles
@@ -27,18 +27,11 @@ def create(
         test_data: CatalogTestBase,
         db: Session = Depends(get_db),
 ):
-    if test_data.type in [QuestionType.close, QuestionType.both] and not test_data.options:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Tests of type '{test_data.type}' must have allowed options defined."
-        )
-
     try:
         new_test = CatalogTest(
-            test=test_data.test,
-            type=test_data.type,
-            options=test_data.options,
-            manual_section_id=test_data.manual_section_id
+            name=test_data.name,
+            chapter=test_data.chapter,
+            status=test_data.status
         )
         db.add(new_test)
         db.commit()
@@ -57,13 +50,8 @@ def get_all(db: Session = Depends(get_db)):
 def update_catalog_test(test_id: UUID, test_data: CatalogTestBase, db: Session = Depends(get_db)):
     db_test = get_catalog_test_or_404(db, test_id)
 
-    if test_data.type in [QuestionType.close, QuestionType.both] and not test_data.options:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Tests of type '{test_data.type}' must have allowed options defined."
-        )
-
-    for key, value in test_data.model_dump().items():
+    update_data = test_data.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
         setattr(db_test, key, value)
 
     db.commit()
