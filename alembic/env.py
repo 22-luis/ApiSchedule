@@ -31,7 +31,7 @@ from app.modules.programming.models.programming import Programming, ProgrammingT
 from app.modules.programming.models.task import Task
 from app.modules.programming.models.task_creation_notification import TaskCreationNotification
 from app.modules.programming.models.task_status_log import TaskStatusLog
-from app.modules.quality.models.test import Test
+from app.modules.quality.models.test_record import Test
 from app.modules.quality.models.qc_manual import QcManual
 from app.modules.reports.models.compare import ProductionReport
 from app.modules.reports.models.historico_comparacion_fechas import HistoricoComparacionFechas

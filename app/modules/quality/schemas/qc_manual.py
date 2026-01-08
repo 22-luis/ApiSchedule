@@ -1,8 +1,8 @@
 from pydantic import BaseModel, ConfigDict
-from typing import Any, Optional
+from typing import Any
 
 class QcManualBase(BaseModel):
-    content: Optional[Any] = None
+    content: Any | None
 
 class QcManualCreate(QcManualBase):
     pass

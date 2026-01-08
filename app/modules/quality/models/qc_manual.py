@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 import pytz
-from sqlalchemy import Column, Integer, JSON, DateTime, String
+from sqlalchemy import Integer, JSON, DateTime, String
+from sqlalchemy.orm import Mapped, mapped_column
 from app.shared.db.database import Base
 
 def get_time():
@@ -10,8 +11,8 @@ def get_time():
 
 class QcManual(Base):
     __tablename__ = "qc_manual"
-    id = Column(Integer, primary_key=True, index=True)
-    version = Column(Integer, nullable=False)
-    content = Column(JSON, nullable=False)
-    createdAt = Column(DateTime(timezone=True), default=get_time, nullable=False)
-    created_by = Column(String, nullable=False)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    content: Mapped[dict] = mapped_column(JSON, nullable=False)
+    createdAt: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=get_time, nullable=False)
+    created_by: Mapped[str] = mapped_column(String, nullable=False)

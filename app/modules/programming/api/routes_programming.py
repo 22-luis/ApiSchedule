@@ -22,7 +22,7 @@ from app.shared.utils.business.programming_availability import update_programmin
 from app.modules.programming.models.order import Order as OrderModel
 from app.modules.programming.models.state import OrderStatus
 from app.modules.timer.services.timer import TimerService
-from app.modules.quality.models.test import Test
+from app.modules.quality.models.test_record import Test
 
 router = APIRouter(prefix="/programmings", tags=["programmings"])
 

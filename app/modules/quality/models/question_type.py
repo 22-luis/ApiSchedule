@@ -1,6 +1,6 @@
 import enum
 
-class Type(str, enum.Enum):
+class QuestionType(str, enum.Enum):
     open = 'open'
     close = 'close'
     both = 'both'

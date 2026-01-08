@@ -11,9 +11,9 @@ from sqlalchemy.exc import SQLAlchemyError
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.modules.available.api.routes_available import router as available_router
-from app.modules.codes.api.routes_catalog_test import router as catalog_test_router
+from app.modules.quality.api.routes_catalog_test import router as catalog_test_router
 from app.modules.codes.api.routes_code import router as code_router
-from app.modules.codes.api.routes_code_test import router as code_test_router
+from app.modules.quality.api.routes_code_test import router as code_test_router
 from app.modules.codes.api.routes_preparation import router as preparation_router
 # Import Routers
 from app.modules.core.api.routes_auth import router as auth_router

@@ -4,9 +4,9 @@ from sqlalchemy.orm import Session
 from typing import List
 
 from app.shared.db.session import get_db
-from app.modules.codes.models.code_test import CodeTest
+from app.modules.quality.models.code_test import CodeTest
 from app.modules.codes.models.code import Code
-from app.modules.codes.models.catalog_test import CatalogTest
+from app.modules.quality.models.catalog_test import CatalogTest
 from app.modules.codes.schemas.code_test import CodeTestLink, CodeTestOut
 from app.modules.codes.schemas.catalog_test import CatalogTestOut
 from app.modules.core.models.role import UserRole

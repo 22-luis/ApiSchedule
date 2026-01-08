@@ -4,8 +4,8 @@ from fastapi import APIRouter, HTTPException
 from fastapi.params import Depends
 from sqlalchemy.orm import Session
 
-from app.modules.codes.models.catalog_test import CatalogTest
-from app.modules.codes.models.type import Type
+from app.modules.quality.models.catalog_test import CatalogTest
+from app.modules.quality.models.question_type import QuestionType
 from app.modules.codes.schemas.catalog_test import CatalogTestBase, CatalogTestOut
 from app.modules.core.models.role import UserRole
 from app.shared.db.session import get_db
@@ -27,7 +27,7 @@ def create(
         test_data: CatalogTestBase,
         db: Session = Depends(get_db),
 ):
-    if test_data.type in [Type.close, Type.both] and not test_data.options:
+    if test_data.type in [QuestionType.close, QuestionType.both] and not test_data.options:
         raise HTTPException(
             status_code=400,
             detail=f"Tests of type '{test_data.type}' must have allowed options defined."
@@ -57,7 +57,7 @@ def get_all(db: Session = Depends(get_db)):
 def update_catalog_test(test_id: UUID, test_data: CatalogTestBase, db: Session = Depends(get_db)):
     db_test = get_catalog_test_or_404(db, test_id)
 
-    if test_data.type in [Type.close, Type.both] and not test_data.options:
+    if test_data.type in [QuestionType.close, QuestionType.both] and not test_data.options:
         raise HTTPException(
             status_code=400,
             detail=f"Tests of type '{test_data.type}' must have allowed options defined."
