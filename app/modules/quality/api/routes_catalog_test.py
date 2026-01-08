@@ -22,7 +22,7 @@ def get_catalog_test_or_404(db: Session, test_id: UUID) -> type[CatalogTest]:
 @router.post("/",
              response_model=CatalogTestOut,
              status_code=201,
-             dependencies =[Depends(require_roles(UserRole.ADMIN,UserRole.QC_COORDINATOR))])
+             dependencies =[Depends(require_roles(UserRole.ADMIN,UserRole.QC_ENGINEER))])
 def create(
         test_data: CatalogTestBase,
         db: Session = Depends(get_db),

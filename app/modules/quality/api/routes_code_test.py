@@ -22,7 +22,7 @@ def link_tests_to_code(
     code_id: UUID, 
     link_data: CodeTestLink, 
     db: Session = Depends(get_db),
-    _current_user = Depends(require_roles(UserRole.ADMIN, UserRole.QC_COORDINATOR))
+    _current_user = Depends(require_roles(UserRole.ADMIN, UserRole.QC_ENGINEER))
 ):
     # Verify code exists
     code = db.query(Code).filter(Code.id == code_id).first()
@@ -119,7 +119,7 @@ def unlink_test_from_code(
     code_id: UUID, 
     test_id: UUID, 
     db: Session = Depends(get_db),
-    _current_user = Depends(require_roles(UserRole.ADMIN, UserRole.QC_COORDINATOR))
+    _current_user = Depends(require_roles(UserRole.ADMIN, UserRole.QC_ENGINEER))
 ):
     link = db.query(CodeTest).filter(
         CodeTest.code_id == code_id, 

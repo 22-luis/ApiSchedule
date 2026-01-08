@@ -1,12 +1,12 @@
 import enum
 
 class UserRole(str, enum.Enum):
-    ADMIN = "admin"
-    PLANNER = "planner"
-    SUPERVISOR = "supervisor"
-    TIMEKEEPER = "timekeeper"
-    USER = "user"
-    WAREHOUSE = "warehouse"
-    ACCOUNTING = "accounting"
-    QC_COORDINATOR = "qc_coordinator"
-    QC_ASSISTANT = "qc_assistant"
+    ADMIN = "ADMIN"
+    PLANNER = "PLANNER"
+    SUPERVISOR = "SUPERVISOR"
+    TIMEKEEPER = "TIMEKEEPER"
+    USER = "USER"
+    WAREHOUSE = "WAREHOUSE"
+    ACCOUNTING = "ACCOUNTING"
+    QC_ENGINEER = "QC_ENGINEER"
+    QC_TECHNICIAN = "QC_TECHNICIAN"

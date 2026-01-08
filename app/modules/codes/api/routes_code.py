@@ -96,7 +96,7 @@ def get_production_codes(
     skip: int = Query(0, ge=0, description="Cuántos registros omitir"),
     limit: int = Query(20, ge=1, le=100, description="Cantidad máxima de registros a devolver"),
     search: str = Query(None, description="Buscar por código o descripción"),
-    _current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.QC_COORDINATOR, UserRole.QC_ASSISTANT))
+    _current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.QC_ENGINEER, UserRole.QC_TECHNICIAN))
 ):
     production_activities = [
         WeighingActivities.PESADO,
