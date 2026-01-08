@@ -1,0 +1,454 @@
+alembic : INFO  [alembi
+c.runtime.migration] 
+Context impl 
+PostgresqlImpl.
+At line:1 char:1
++ alembic upgrade head 
+> migration_output.txt 
+2>&1
++ ~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
+~~~~
+    + CategoryInfo     
+         : NotSpecifi  
+  ed: (INFO  [alembi   
+ c....PostgresqlImp    
+l.:String) [], Rem    
+oteException
+    + FullyQualifiedEr 
+   rorId : NativeComm  
+  andError
+ 
+INFO  [alembic.runtime.
+migration] Will assume 
+transactional DDL.
+INFO  [alembic.runtime.
+migration] Running 
+upgrade dc283877710f 
+-> ebe052fa06aa, 
+quality test workflow
+Traceback (most recent 
+call last):
+  File "C:\Users\PC IT\
+AppData\Local\Programs\
+Python\Python313\Lib\si
+te-packages\sqlalchemy\
+engine\base.py", line 
+1967, in 
+_exec_single_context
+    self.dialect.do_exe
+cute(
+    ~~~~~~~~~~~~~~~~~~~
+~~~~^
+        cursor, 
+str_statement, 
+effective_parameters, 
+context
+        ^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\PC IT\
+AppData\Local\Programs\
+Python\Python313\Lib\si
+te-packages\sqlalchemy\
+engine\default.py", 
+line 951, in do_execute
+    cursor.execute(stat
+ement, parameters)
+    ~~~~~~~~~~~~~~^^^^^
+^^^^^^^^^^^^^^^^^^
+psycopg2.errors.NotNull
+Violation: column 
+"name" of relation 
+"catalog_test" 
+contains null values
+
+
+The above exception 
+was the direct cause 
+of the following 
+exception:
+
+Traceback (most recent 
+call last):
+  File "<frozen 
+runpy>", line 198, in 
+_run_module_as_main
+  File "<frozen 
+runpy>", line 88, in 
+_run_code
+  File "C:\Users\PC IT\
+AppData\Local\Programs\
+Python\Python313\Script
+s\alembic.exe\__main__.
+py", line 7, in 
+<module>
+    sys.exit(main())
+             ~~~~^^
+  File "C:\Users\PC IT\
+AppData\Local\Programs\
+Python\Python313\Lib\si
+te-packages\alembic\con
+fig.py", line 1016, in 
+main
+    CommandLine(prog=pr
+og).main(argv=argv)
+    ~~~~~~~~~~~~~~~~~~~
+~~~~~~~~^^^^^^^^^^^
+  File "C:\Users\PC IT\
+AppData\Local\Programs\
+Python\Python313\Lib\si
+te-packages\alembic\con
+fig.py", line 1006, in 
+main
+    self.run_cmd(cfg, 
+options)
+    ~~~~~~~~~~~~^^^^^^^
+^^^^^^^
+  File "C:\Users\PC IT\
+AppData\Local\Programs\
+Python\Python313\Lib\si
+te-packages\alembic\con
+fig.py", line 940, in 
+run_cmd
+    fn(
+    ~~^
+        config,
+        ^^^^^^^
+        
+*[getattr(options, k, 
+None) for k in 
+positional],
+        ^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^
+        **{k: 
+getattr(options, k, 
+None) for k in kwarg},
+        ^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\PC IT\
+AppData\Local\Programs\
+Python\Python313\Lib\si
+te-packages\alembic\com
+mand.py", line 483, in 
+upgrade
+    script.run_env()
+    ~~~~~~~~~~~~~~^^
+  File "C:\Users\PC IT\
+AppData\Local\Programs\
+Python\Python313\Lib\si
+te-packages\alembic\scr
+ipt\base.py", line 
+549, in run_env
+    util.load_python_fi
+le(self.dir, "env.py")
+    ~~~~~~~~~~~~~~~~~~~
+~~^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\PC IT\
+AppData\Local\Programs\
+Python\Python313\Lib\si
+te-packages\alembic\uti
+l\pyfiles.py", line 
+116, in 
+load_python_file
+    module = load_modul
+e_py(module_id, path)
+  File "C:\Users\PC IT\
+AppData\Local\Programs\
+Python\Python313\Lib\si
+te-packages\alembic\uti
+l\pyfiles.py", line 
+136, in load_module_py
+    spec.loader.exec_mo
+dule(module)  # type: 
+ignore
+    ~~~~~~~~~~~~~~~~~~~
+~~~~^^^^^^^^
+  File "<frozen importl
+ib._bootstrap_external>
+", line 1026, in 
+exec_module
+  File "<frozen importl
+ib._bootstrap>", line 
+488, in _call_with_fram
+es_removed
+  File "C:\Users\PC IT\
+Desktop\Aplicaciones\Pr
+ogramaciones\backend\Ap
+iSchedule\alembic\env.p
+y", line 106, in 
+<module>
+    
+run_migrations_online()
+    
+~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\PC IT\
+Desktop\Aplicaciones\Pr
+ogramaciones\backend\Ap
+iSchedule\alembic\env.p
+y", line 100, in 
+run_migrations_online
+    context.run_migrati
+ons()
+    ~~~~~~~~~~~~~~~~~~~
+~~~^^
+  File "<string>", 
+line 8, in 
+run_migrations
+  File "C:\Users\PC IT\
+AppData\Local\Programs\
+Python\Python313\Lib\si
+te-packages\alembic\run
+time\environment.py", 
+line 946, in 
+run_migrations
+    self.get_context().
+run_migrations(**kw)
+    ~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~^^^^^^
+  File "C:\Users\PC IT\
+AppData\Local\Programs\
+Python\Python313\Lib\si
+te-packages\alembic\run
+time\migration.py", 
+line 627, in 
+run_migrations
+    
+step.migration_fn(**kw)
+    
+~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Users\PC IT\
+Desktop\Aplicaciones\Pr
+ogramaciones\backend\Ap
+iSchedule\alembic\versi
+ons\ebe052fa06aa_qualit
+y_test_workflow.py", 
+line 86, in upgrade
+    op.add_column('cata
+log_test', 
+sa.Column('name', 
+sa.String(), 
+nullable=False))
+    ~~~~~~~~~~~~~^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^
+  File "<string>", 
+line 8, in add_column
+  File "<string>", 
+line 3, in add_column
+  File "C:\Users\PC IT\
+AppData\Local\Programs\
+Python\Python313\Lib\si
+te-packages\alembic\ope
+rations\ops.py", line 
+2186, in add_column
+    return 
+operations.invoke(op)
+           
+~~~~~~~~~~~~~~~~~^^^^
+  File "C:\Users\PC IT\
+AppData\Local\Programs\
+Python\Python313\Lib\si
+te-packages\alembic\ope
+rations\base.py", line 
+441, in invoke
+    return fn(self, 
+operation)
+  File "C:\Users\PC IT\
+AppData\Local\Programs\
+Python\Python313\Lib\si
+te-packages\alembic\ope
+rations\toimpl.py", 
+line 175, in add_column
+    operations.impl.add
+_column(
+    ~~~~~~~~~~~~~~~~~~~
+~~~~~~~^
+        table_name,
+        ^^^^^^^^^^^
+    ...<3 lines>...
+        **kw,
+        ^^^^^
+    )
+    ^
+  File "C:\Users\PC IT\
+AppData\Local\Programs\
+Python\Python313\Lib\si
+te-packages\alembic\ddl
+\impl.py", line 378, 
+in add_column
+    self._exec(
+    ~~~~~~~~~~^
+        base.AddColumn(
+        ^^^^^^^^^^^^^^^
+    ...<4 lines>...
+DEBUG: Starting robust ENUM creation
+DEBUG: questiontype checked/created
+DEBUG: teststatus checked/created
+DEBUG: dropping table test
+DEBUG: creating catalog_test_question
+DEBUG: catalog_test_question created
+DEBUG: creating test_record
+DEBUG: test_record created
+DEBUG: creating test_results
+DEBUG: test_results created
+        )
+        ^
+    )
+    ^
+  File "C:\Users\PC IT\
+AppData\Local\Programs\
+Python\Python313\Lib\si
+te-packages\alembic\ddl
+\impl.py", line 246, 
+in _exec
+    return conn.execute
+(construct, params)
+           ~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\PC IT\
+AppData\Local\Programs\
+Python\Python313\Lib\si
+te-packages\sqlalchemy\
+engine\base.py", line 
+1419, in execute
+    return meth(
+        self,
+        
+distilled_parameters,
+        
+execution_options or 
+NO_OPTIONS,
+    )
+  File "C:\Users\PC IT\
+AppData\Local\Programs\
+Python\Python313\Lib\si
+te-packages\sqlalchemy\
+sql\ddl.py", line 187, 
+in 
+_execute_on_connection
+    return connection._
+execute_ddl(
+           ~~~~~~~~~~~~
+~~~~~~~~~~~^
+        self, 
+distilled_params, 
+execution_options
+        ^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^
+^^^
+    )
+    ^
+  File "C:\Users\PC IT\
+AppData\Local\Programs\
+Python\Python313\Lib\si
+te-packages\sqlalchemy\
+engine\base.py", line 
+1530, in _execute_ddl
+    ret = 
+self._execute_context(
+        dialect,
+    ...<4 lines>...
+        compiled,
+    )
+  File "C:\Users\PC IT\
+AppData\Local\Programs\
+Python\Python313\Lib\si
+te-packages\sqlalchemy\
+engine\base.py", line 
+1846, in 
+_execute_context
+    return self._exec_s
+ingle_context(
+           ~~~~~~~~~~~~
+~~~~~~~~~~~~~^
+        dialect, 
+context, statement, 
+parameters
+        ^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^
+^
+    )
+    ^
+  File "C:\Users\PC IT\
+AppData\Local\Programs\
+Python\Python313\Lib\si
+te-packages\sqlalchemy\
+engine\base.py", line 
+1986, in 
+_exec_single_context
+    self._handle_dbapi_
+exception(
+    ~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~^
+        e, 
+str_statement, 
+effective_parameters, 
+cursor, context
+        ^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\PC IT\
+AppData\Local\Programs\
+Python\Python313\Lib\si
+te-packages\sqlalchemy\
+engine\base.py", line 
+2355, in 
+_handle_dbapi_exception
+    raise sqlalchemy_ex
+ception.with_traceback(
+exc_info[2]) from e
+  File "C:\Users\PC IT\
+AppData\Local\Programs\
+Python\Python313\Lib\si
+te-packages\sqlalchemy\
+engine\base.py", line 
+1967, in 
+_exec_single_context
+    self.dialect.do_exe
+cute(
+    ~~~~~~~~~~~~~~~~~~~
+~~~~^
+        cursor, 
+str_statement, 
+effective_parameters, 
+context
+        ^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\PC IT\
+AppData\Local\Programs\
+Python\Python313\Lib\si
+te-packages\sqlalchemy\
+engine\default.py", 
+line 951, in do_execute
+    cursor.execute(stat
+ement, parameters)
+    ~~~~~~~~~~~~~~^^^^^
+^^^^^^^^^^^^^^^^^^
+sqlalchemy.exc.Integrit
+yError: (psycopg2.error
+s.NotNullViolation) 
+column "name" of 
+relation 
+"catalog_test" 
+contains null values
+
+[SQL: ALTER TABLE 
+catalog_test ADD 
+COLUMN name VARCHAR 
+NOT NULL]
+(Background on this 
+error at: https://sqlal
+che.me/e/20/gkpj)

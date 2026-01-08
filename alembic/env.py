@@ -22,22 +22,23 @@ from app.shared.db.database import Base
 # Import all models here so Alembic can see them
 from app.modules.codes.models.code import Code
 from app.modules.codes.models.preparation import Preparation
-from app.modules.codes.models.catalog_test import CatalogTest
-from app.modules.codes.models.code_test import CodeTest
 from app.modules.core.models.user import User
-from app.modules.core.models.team import Team
+from app.modules.core.models.team import Team, UserTeam, task_team_association
 from app.modules.programming.models.order import Order
 from app.modules.programming.models.programming import Programming, ProgrammingTask
 from app.modules.programming.models.task import Task
 from app.modules.programming.models.task_creation_notification import TaskCreationNotification
 from app.modules.programming.models.task_status_log import TaskStatusLog
-from app.modules.quality.models.test_record import Test
+from app.modules.quality.models.test_record import TestRecord
+from app.modules.quality.models.catalog_test import CatalogTest
+from app.modules.quality.models.code_test import CodeTest
+from app.modules.quality.models.catalog_test_question import CatalogTestQuestion
+from app.modules.quality.models.test_results import TestResults
 from app.modules.quality.models.qc_manual import QcManual
 from app.modules.reports.models.compare import ProductionReport
 from app.modules.reports.models.historico_comparacion_fechas import HistoricoComparacionFechas
 from app.modules.timer.models.stopwatch import Stopwatch
 from app.modules.timer.models.record_stopwatch import RecordStopwatch
-# from app.modules.timer.models.stopwatch_timer import StopwatchTimer # Import if needed
 
 target_metadata = Base.metadata
 
