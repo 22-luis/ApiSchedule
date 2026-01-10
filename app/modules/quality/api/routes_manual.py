@@ -2,10 +2,12 @@ import re
 import unicodedata
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+
+from app.modules.quality.services.find_chapters import find_chapters
 from app.shared.db.session import get_db
 from app.shared.utils.core.dependencies import get_current_user
 from app.modules.quality.models.qc_manual import QcManual
-from app.modules.quality.schemas.qc_manual import QcManualCreate, QcManualOut, SectionOut
+from app.modules.quality.schemas.qc_manual import QcManualCreate, QcManualOut, SectionOut, Chapters
 from app.modules.quality.services.Split_sections import split_html_into_sections
 
 router = APIRouter(prefix="/manual", tags=["manual"])
@@ -39,6 +41,24 @@ def create_qc_manual(
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/chapters", response_model=Chapters, description="Devuelve una lista de secciones del manual")
+def get_chapters(
+        db: Session = Depends(get_db),
+        _current_user = Depends(get_current_user)
+):
+    manual = db.query(QcManual).order_by(QcManual.id.desc()).first()
+
+    if not manual:
+        raise HTTPException(status_code=404, detail="Manual no encontrado")
+
+    chapters = find_chapters(manual.content)
+
+    return {
+        "manual_id": manual.id,
+        "chapters": chapters
+    }
+
 
 @router.get("/section/{section_name}", response_model=SectionOut)
 def get_section(
