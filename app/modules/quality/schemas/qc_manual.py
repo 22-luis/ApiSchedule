@@ -16,3 +16,7 @@ class QcManualOut(QcManualBase):
     version: int
 
     model_config = ConfigDict(from_attributes=True)
+
+class Chapters(BaseModel):
+    manual_id: int
+    chapters: list[str]
