@@ -50,3 +50,13 @@ def delete_available(db: Session, available_id) -> bool:
     db.delete(db_item)
     db.commit()
     return True
+
+
+def delete_all_available(db: Session) -> int:
+    """
+    Delete all Available records.
+    Returns the number of deleted rows.
+    """
+    deleted = db.query(Available).delete(synchronize_session=False)
+    db.commit()
+    return deleted

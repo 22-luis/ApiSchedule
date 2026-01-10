@@ -15,6 +15,7 @@ from app.modules.available.service.available import (
     get_available_list,
     update_available,
     delete_available,
+    delete_all_available,
 )
 
 router = APIRouter(prefix="/available", tags=["available"])
@@ -63,3 +64,10 @@ def delete_available_item(item_id: uuid.UUID, db: Session = Depends(get_db), _cu
     if not ok:
         raise HTTPException(status_code=404, detail="Available item not found")
     return {"message": "Available item deleted successfully"}
+
+
+@router.delete("/")
+def delete_all_available_items(db: Session = Depends(get_db), _current_user: User = Depends(require_roles(UserRole.ADMIN))):
+    """Delete all Available records. Requires ADMIN role."""
+    deleted = delete_all_available(db)
+    return {"message": f"{deleted} Available items deleted successfully"}
