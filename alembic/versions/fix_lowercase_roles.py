@@ -35,7 +35,7 @@ def upgrade() -> None:
     
     for old_val, new_val in role_mappings:
         op.execute(
-            sa.text(f"UPDATE users SET role = '{new_val}' WHERE role = '{old_val}'")
+            sa.text(f"UPDATE users SET role = '{new_val}' WHERE role::text = '{old_val}'")
         )
 
 
