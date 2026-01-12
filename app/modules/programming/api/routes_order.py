@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Body, BackgroundTasks
 from sqlalchemy.orm import Session
 from app.modules.programming.schemas.order import OrderCreate, OrderOut, OrderStatusUpdate, OrderPageOut, OrderWarehouseUpdate, OrderWarehouseOut, OrderDeliver
+from app.modules.warehouse.models.history import WarehouseHistory, WarehouseHistoryType
 from app.modules.programming.models import order as order_model
 from app.shared.db.session import get_db
 from typing import List, Union, Optional
@@ -709,6 +710,17 @@ def receive_order(
             # Fallback by default
             db_order.status = OrderStatus.completed
             status_message = "completada"
+
+    # Record history
+    history = WarehouseHistory(
+        lote=db_order.lote,
+        code=db_order.code,
+        quantity=db_order.received_quantity if db_order.received_quantity is not None else 0,
+        type=WarehouseHistoryType.RECEIVED,
+        user=current_user.username,
+        observations=f"Orden recibida. Estado: {status_message}"
+    )
+    db.add(history)
     
     db.commit()
     db.refresh(db_order)
@@ -766,6 +778,17 @@ def deliver_order(
     # Cambiar estado a delivered (independientemente de la cantidad)
     # El estado solo cambiará a completed cuando se reciba en almacén
     db_order.status = OrderStatus.delivered
+    
+    # Record history
+    history = WarehouseHistory(
+        lote=db_order.lote,
+        code=db_order.code,
+        quantity=delivered_quantity,
+        type=WarehouseHistoryType.SENT,
+        user=current_user.username,
+        observations=submitted_observations
+    )
+    db.add(history)
     
     db.commit()
     db.refresh(db_order)
@@ -1018,5 +1041,27 @@ def transfer_surplus_to_order(
     
     # No cambiamos el estado de la orden origen: la transferencia no debe alterar su estado
     
+    # Record history for source
+    history_source = WarehouseHistory(
+        lote=source_order.lote,
+        code=source_order.code,
+        quantity=transfer_quantity,
+        type=WarehouseHistoryType.TRANSFER_SOURCE,
+        user=current_user.username,
+        observations=f"Sobrante transferido al lote {target_order.lote}"
+    )
+    db.add(history_source)
+
+    # Record history for target
+    history_target = WarehouseHistory(
+        lote=target_order.lote,
+        code=target_order.code,
+        quantity=transfer_quantity,
+        type=WarehouseHistoryType.TRANSFER_TARGET,
+        user=current_user.username,
+        observations=f"Sobrante recibido del lote {source_order.lote}"
+    )
+    db.add(history_target)
+
     db.commit()
     db.refresh(source_order)

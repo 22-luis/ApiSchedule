@@ -31,6 +31,7 @@ from app.modules.quality.api.routes_qctest import router as qc_router
 from app.modules.reports.api.routes_report import router as report_router
 from app.modules.timer.api.routes_record_stopwatch import router as record_stopwatch_router
 from app.modules.timer.api.routes_timer import router as timer_router
+from app.modules.warehouse.api.routes_history import router as warehouse_history_router
 from app.shared.core.config import settings, validate_critical_settings
 from app.shared.utils.core.exception_handlers import (
     http_exception_handler,
@@ -165,5 +166,6 @@ api_router.include_router(monitoring_router)
 api_router.include_router(notification_router, tags=["notifications"])
 api_router.include_router(manual_router, tags=["manual"])
 api_router.include_router(qc_router, tags=["qctest"])
+api_router.include_router(warehouse_history_router, tags=["warehouse"])
 
 app.include_router(api_router)

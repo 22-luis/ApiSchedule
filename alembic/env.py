@@ -39,6 +39,7 @@ from app.modules.reports.models.compare import ProductionReport
 from app.modules.reports.models.historico_comparacion_fechas import HistoricoComparacionFechas
 from app.modules.timer.models.stopwatch import Stopwatch
 from app.modules.timer.models.record_stopwatch import RecordStopwatch
+from app.modules.warehouse.models.history import WarehouseHistory
 
 target_metadata = Base.metadata
 
