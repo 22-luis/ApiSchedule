@@ -34,7 +34,8 @@ def user_belongs_to_team(user, team_id):
 # Listar programaciones (admin/planner: todas, user: solo su equipo)
 @router.get("/", response_model=List[ProgrammingRead])
 def list_programmings(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
-    if current_user.role.value in ("admin", "planner", "supervisor", "timekeeper", "qc_coordinator", "qc_assistant"):
+    privileged_roles = (UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.TIMEKEEPER, UserRole.QC_ENGINEER, UserRole.QC_TECHNICIAN)
+    if current_user.role in privileged_roles:
         programmings = db.query(Programming).all()
     else:
         team_ids = [team.id for team in getattr(current_user, "teams", [])]
@@ -70,7 +71,8 @@ def get_programming_by_team_date(team_id: str, date: str, db: Session = Depends(
             print(f"DEBUG: No programming found for team {team_id} on date {date_obj}")
         if not programming:
             # Si no existe la programación, verificar si el usuario puede crearla
-            if current_user.role.value not in ("admin", "planner", "supervisor", "timekeeper", "qc_coordinator", "qc_assistant") and not user_belongs_to_team(current_user, team_id):
+            privileged_roles = (UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.TIMEKEEPER, UserRole.QC_ENGINEER, UserRole.QC_TECHNICIAN)
+            if current_user.role not in privileged_roles and not user_belongs_to_team(current_user, team_id):
                 raise HTTPException(status_code=403, detail="Not authorized")
             # Crear la programación automáticamente para usuarios autorizados
             programming = Programming(date=date_obj, team_id=team_id)
@@ -79,7 +81,8 @@ def get_programming_by_team_date(team_id: str, date: str, db: Session = Depends(
             db.refresh(programming)
         else:
             # Si existe la programación, verificar permisos de acceso
-            if current_user.role.value not in ("admin", "planner", "supervisor", "timekeeper", "qc_coordinator", "qc_assistant") and not user_belongs_to_team(current_user, team_id):
+            privileged_roles = (UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.TIMEKEEPER, UserRole.QC_ENGINEER, UserRole.QC_TECHNICIAN)
+            if current_user.role not in privileged_roles and not user_belongs_to_team(current_user, team_id):
                 raise HTTPException(status_code=403, detail="Not authorized")
 
         # Construir la respuesta con los datos ya cargados (sin consultas adicionales)
@@ -135,7 +138,8 @@ def get_programming_summary(team_id: str, date: str, db: Session = Depends(get_d
             raise HTTPException(status_code=404, detail="Programming not found")
 
         # Verificar permisos
-        if current_user.role.value not in ("admin", "planner", "supervisor", "timekeeper", "qc_coordinator", "qc_assistant") and not user_belongs_to_team(current_user, team_id):
+        privileged_roles = (UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.TIMEKEEPER, UserRole.QC_ENGINEER, UserRole.QC_TECHNICIAN)
+        if current_user.role not in privileged_roles and not user_belongs_to_team(current_user, team_id):
             raise HTTPException(status_code=403, detail="Not authorized")
 
         # Obtener estados de calidad
@@ -200,7 +204,8 @@ def get_dashboard_data(date: str, db: Session = Depends(get_db), current_user=De
         date_obj = datetime.strptime(date, "%Y-%m-%d").date()
         
         # Determinar qué programaciones puede ver el usuario
-        if current_user.role.value in ("admin", "planner", "supervisor", "timekeeper", "qc_coordinator", "qc_assistant"):
+        privileged_roles = (UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.TIMEKEEPER, UserRole.QC_ENGINEER, UserRole.QC_TECHNICIAN)
+        if current_user.role in privileged_roles:
             # Usuarios privilegiados ven todas las programaciones
             programmings_query = db.query(Programming)
         else:
@@ -292,7 +297,8 @@ def get_programming(programming_id: UUID, db: Session = Depends(get_db), current
     programming = db.query(Programming).get(programming_id)
     if not programming:
         raise HTTPException(status_code=404, detail="Programming not found")
-    if current_user.role.value not in ("admin", "planner", "supervisor", "timekeeper") and not user_belongs_to_team(current_user, programming.team_id):
+    privileged_roles = (UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.TIMEKEEPER, UserRole.QC_ENGINEER, UserRole.QC_TECHNICIAN)
+    if current_user.role not in privileged_roles and not user_belongs_to_team(current_user, programming.team_id):
         raise HTTPException(status_code=403, detail="Not authorized")
     return {
         "id": programming.id,
@@ -353,7 +359,7 @@ def ensure_programming_by_team_date(team_id: str = Query(...), date: date = Quer
             "tasks": [t.id for t in programming.tasks]
         }
     # Solo admin/planner/supervisor pueden crear
-    if current_user.role.value not in ("admin", "planner", "supervisor"):
+    if current_user.role not in (UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR):
         raise HTTPException(status_code=403, detail="Not authorized to create programming")
     programming = Programming(date=date, team_id=team_id)
     db.add(programming)
@@ -376,7 +382,7 @@ def add_task_to_programming(
     programming = db.query(Programming).get(programming_id)
     if not programming:
         raise HTTPException(status_code=404, detail="Programming not found")
-    if current_user.role.value not in ("admin", "planner", "supervisor"):
+    if current_user.role not in (UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR):
         raise HTTPException(status_code=403, detail="Not authorized")
     task = db.query(Task).get(task_id)
     if not task:
@@ -406,7 +412,7 @@ def remove_task_from_programming(
     programming = db.query(Programming).get(programming_id)
     if not programming:
         raise HTTPException(status_code=404, detail="Programming not found")
-    if current_user.role.value not in ("admin", "planner", "supervisor"):
+    if current_user.role not in (UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR):
         raise HTTPException(status_code=403, detail="Not authorized")
     task = db.query(Task).get(task_id)
     if not task:
@@ -728,7 +734,8 @@ def add_task_comment(programming_id: str, task_id: str, data: ProgrammingTaskRep
     if not programming:
         raise HTTPException(status_code=404, detail="Programming not found")
 
-    if current_user.role.value not in ("admin", "planner", "supervisor", "timekeeper") and not user_belongs_to_team(current_user, programming.team_id):
+    privileged_roles = (UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.TIMEKEEPER, UserRole.QC_ENGINEER, UserRole.QC_TECHNICIAN)
+    if current_user.role not in privileged_roles and not user_belongs_to_team(current_user, programming.team_id):
         raise HTTPException(status_code=403, detail="Not authorized to comment on this task")
     
     pt.comment = data.comment
@@ -762,10 +769,10 @@ def toggle_task_status(programming_id: str, task_id: str, data: Optional[ToggleT
         print(f"DEBUG - Real end time: {pt.real_end_time}")
         
         # Roles que pueden modificar cualquier tarea
-        privileged_roles = ("admin", "planner", "supervisor")
+        privileged_roles = (UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR)
         
         # Verificar que el usuario tenga permisos para modificar esta tarea
-        if current_user.role.value not in privileged_roles:
+        if current_user.role not in privileged_roles:
             if pt.completed_by_user_id and pt.completed_by_user_id != current_user.id:
                 print(f"DEBUG - Authorization check failed:")
                 print(f"DEBUG - User role: {current_user.role.value}")
