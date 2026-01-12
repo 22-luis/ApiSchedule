@@ -34,7 +34,7 @@ def user_belongs_to_team(user, team_id):
 # Listar programaciones (admin/planner: todas, user: solo su equipo)
 @router.get("/", response_model=List[ProgrammingRead])
 def list_programmings(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
-    privileged_roles = (UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.TIMEKEEPER, UserRole.QC_ENGINEER, UserRole.QC_TECHNICIAN)
+    privileged_roles = (UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.TIMEKEEPER, UserRole.QC_COORDINATOR, UserRole.QC_ASSISTANT)
     if current_user.role in privileged_roles:
         programmings = db.query(Programming).all()
     else:
@@ -71,7 +71,7 @@ def get_programming_by_team_date(team_id: str, date: str, db: Session = Depends(
             print(f"DEBUG: No programming found for team {team_id} on date {date_obj}")
         if not programming:
             # Si no existe la programación, verificar si el usuario puede crearla
-            privileged_roles = (UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.TIMEKEEPER, UserRole.QC_ENGINEER, UserRole.QC_TECHNICIAN)
+            privileged_roles = (UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.TIMEKEEPER, UserRole.QC_COORDINATOR, UserRole.QC_ASSISTANT)
             if current_user.role not in privileged_roles and not user_belongs_to_team(current_user, team_id):
                 raise HTTPException(status_code=403, detail="Not authorized")
             # Crear la programación automáticamente para usuarios autorizados
@@ -81,7 +81,7 @@ def get_programming_by_team_date(team_id: str, date: str, db: Session = Depends(
             db.refresh(programming)
         else:
             # Si existe la programación, verificar permisos de acceso
-            privileged_roles = (UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.TIMEKEEPER, UserRole.QC_ENGINEER, UserRole.QC_TECHNICIAN)
+            privileged_roles = (UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.TIMEKEEPER, UserRole.QC_COORDINATOR, UserRole.QC_ASSISTANT)
             if current_user.role not in privileged_roles and not user_belongs_to_team(current_user, team_id):
                 raise HTTPException(status_code=403, detail="Not authorized")
 
@@ -138,7 +138,7 @@ def get_programming_summary(team_id: str, date: str, db: Session = Depends(get_d
             raise HTTPException(status_code=404, detail="Programming not found")
 
         # Verificar permisos
-        privileged_roles = (UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.TIMEKEEPER, UserRole.QC_ENGINEER, UserRole.QC_TECHNICIAN)
+        privileged_roles = (UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.TIMEKEEPER, UserRole.QC_COORDINATOR, UserRole.QC_ASSISTANT)
         if current_user.role not in privileged_roles and not user_belongs_to_team(current_user, team_id):
             raise HTTPException(status_code=403, detail="Not authorized")
 
@@ -204,7 +204,7 @@ def get_dashboard_data(date: str, db: Session = Depends(get_db), current_user=De
         date_obj = datetime.strptime(date, "%Y-%m-%d").date()
         
         # Determinar qué programaciones puede ver el usuario
-        privileged_roles = (UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.TIMEKEEPER, UserRole.QC_ENGINEER, UserRole.QC_TECHNICIAN)
+        privileged_roles = (UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.TIMEKEEPER, UserRole.QC_COORDINATOR, UserRole.QC_ASSISTANT)
         if current_user.role in privileged_roles:
             # Usuarios privilegiados ven todas las programaciones
             programmings_query = db.query(Programming)
@@ -297,7 +297,7 @@ def get_programming(programming_id: UUID, db: Session = Depends(get_db), current
     programming = db.query(Programming).get(programming_id)
     if not programming:
         raise HTTPException(status_code=404, detail="Programming not found")
-    privileged_roles = (UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.TIMEKEEPER, UserRole.QC_ENGINEER, UserRole.QC_TECHNICIAN)
+    privileged_roles = (UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.TIMEKEEPER, UserRole.QC_COORDINATOR, UserRole.QC_ASSISTANT)
     if current_user.role not in privileged_roles and not user_belongs_to_team(current_user, programming.team_id):
         raise HTTPException(status_code=403, detail="Not authorized")
     return {
