@@ -5,7 +5,6 @@ from fastapi.params import Depends
 from sqlalchemy.orm import Session
 
 from app.modules.quality.models.catalog_test import CatalogTest
-from app.modules.quality.models.question_type import QuestionType
 from app.modules.quality.schemas.catalog_test import CatalogTestBase, CatalogTestOut
 from app.modules.core.models.role import UserRole
 from app.shared.db.session import get_db
