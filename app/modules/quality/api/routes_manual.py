@@ -110,7 +110,9 @@ def get_section(
         "content": section_content
     }
 
-@router.get("/latest", response_model=QcManualOut)
+@router.get("/latest", 
+             response_model=QcManualOut, 
+             dependencies=[Depends(require_roles(UserRole.ADMIN, UserRole.QC_COORDINATOR, UserRole.QC_ASSISTANT))])
 def get_latest_qc_manual(db: Session = Depends(get_db)):
     manual = db.query(QcManual).order_by(QcManual.id.desc()).first()
     if not manual:

@@ -17,12 +17,13 @@ import re
 
 router = APIRouter(prefix="/codes/{code_id}/tests", tags=["codes"])
 
-@router.post("/", response_model=List[CodeTestOut])
+@router.post("/",   
+             response_model=List[CodeTestOut], 
+             dependencies=[Depends(require_roles(UserRole.ADMIN, UserRole.QC_COORDINATOR, UserRole.QC_ASSISTANT))])
 def link_tests_to_code(
     code_id: UUID, 
     link_data: CodeTestLink, 
-    db: Session = Depends(get_db),
-    _current_user = Depends(require_roles(UserRole.ADMIN, UserRole.QC_COORDINATOR))
+    db: Session = Depends(get_db)
 ):
     # Verify code exists
     code = db.query(Code).filter(Code.id == code_id).first()
@@ -56,7 +57,9 @@ def link_tests_to_code(
     
     return new_links
 
-@router.get("/", response_model=List[CatalogTestOut])
+@router.get("/",   
+             response_model=List[CatalogTestOut], 
+             dependencies=[Depends(require_roles(UserRole.ADMIN, UserRole.QC_COORDINATOR, UserRole.QC_ASSISTANT))])
 def get_tests_for_code(code_id: UUID, db: Session = Depends(get_db)):
     # Verify code exists
     code = db.query(Code).filter(Code.id == code_id).first()
@@ -114,7 +117,9 @@ def enrich_tests_with_manual_content(db: Session, tests: List[CatalogTest]) -> L
     
     return result
 
-@router.delete("/{test_id}", status_code=204)
+@router.delete("/{test_id}", 
+               status_code=204, 
+               dependencies=[Depends(require_roles(UserRole.ADMIN, UserRole.QC_COORDINATOR, UserRole.QC_ASSISTANT))])
 def unlink_test_from_code(
     code_id: UUID, 
     test_id: UUID, 
@@ -133,7 +138,9 @@ def unlink_test_from_code(
     db.commit()
     return None
 
-@router.get("/by_code_string/{code}/tests", response_model=List[CatalogTestOut])
+@router.get("/by_code_string/{code}/tests", 
+             response_model=List[CatalogTestOut], 
+             dependencies=[Depends(require_roles(UserRole.ADMIN, UserRole.QC_COORDINATOR, UserRole.QC_ASSISTANT))])
 def get_tests_by_code_string(code: str, db: Session = Depends(get_db)):
     # Find code by string
     code_obj = db.query(Code).filter(Code.code == code).first()

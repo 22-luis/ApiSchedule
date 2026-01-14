@@ -40,12 +40,16 @@ def create(
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/", response_model=list[CatalogTestOut], dependencies=[Depends(require_roles(UserRole.ADMIN, UserRole.QC_COORDINATOR, UserRole.QC_ASSISTANT))])
+@router.get("/", 
+             response_model=list[CatalogTestOut], 
+             dependencies=[Depends(require_roles(UserRole.ADMIN, UserRole.QC_COORDINATOR, UserRole.QC_ASSISTANT))])
 def get_all(db: Session = Depends(get_db)):
     return db.query(CatalogTest).all()
 
 
-@router.patch("/{test_id}", response_model=CatalogTestOut, dependencies=[Depends(require_roles(UserRole.ADMIN, UserRole.QC_COORDINATOR, UserRole.QC_ASSISTANT))])
+@router.patch("/{test_id}", 
+               response_model=CatalogTestOut, 
+               dependencies=[Depends(require_roles(UserRole.ADMIN, UserRole.QC_COORDINATOR, UserRole.QC_ASSISTANT))])
 def update_catalog_test(test_id: UUID, test_data: CatalogTestBase, db: Session = Depends(get_db)):
     db_test = get_catalog_test_or_404(db, test_id)
 
@@ -57,7 +61,9 @@ def update_catalog_test(test_id: UUID, test_data: CatalogTestBase, db: Session =
     db.refresh(db_test)
     return db_test
 
-@router.delete("/{test_id}", status_code=204, dependencies=[Depends(require_roles(UserRole.ADMIN, UserRole.QC_COORDINATOR, UserRole.QC_ASSISTANT))])
+@router.delete("/{test_id}", 
+               status_code=204, 
+               dependencies=[Depends(require_roles(UserRole.ADMIN, UserRole.QC_COORDINATOR, UserRole.QC_ASSISTANT))])
 def delete_catalog_test(test_id: UUID, db: Session = Depends(get_db)):
     db_test = get_catalog_test_or_404(db, test_id)
     db.delete(db_test)
