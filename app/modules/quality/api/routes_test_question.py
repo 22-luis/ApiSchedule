@@ -70,7 +70,7 @@ def update_question(
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.delete("/{question_id}", status_code=204)
+@router.delete("/{question_id}", status_code=204, dependencies=[Depends(require_roles(UserRole.ADMIN, UserRole.QC_COORDINATOR, UserRole.QC_ASSISTANT))])
 def delete_question(question_id: UUID, db: Session = Depends(get_db)):
     db_question = db.query(CatalogTestQuestion).filter(CatalogTestQuestion.id == question_id).first()
     if not db_question:
