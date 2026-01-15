@@ -172,11 +172,23 @@ def get_programming_summary(team_id: str, date: str, db: Session = Depends(get_d
             if not code_str:
                 continue
             
+            # Determine quality status
+            q_status = None
+            if task_obj.code_id:
+                # Try specific match (Lote, CodeID)
+                q_status = quality_map.get((task_obj.lote, task_obj.code_id))
+                # Fallback to (Lote, None) if not found (legacy/shared record)
+                if q_status is None:
+                    q_status = quality_map.get((task_obj.lote, None))
+            else:
+                # If task has no code_id, try fallback match
+                q_status = quality_map.get((task_obj.lote, None))
+
             tasks.append({
                 "lote": task_obj.lote,
                 "code": code_str,
                 "description": task_obj.description or (task_obj.code.description if task_obj.code else None),
-                "quality_status": quality_map.get((task_obj.lote, task_obj.code_id)) if task_obj.code_id else quality_map.get(str(task_obj.lote))
+                "quality_status": q_status
             })
 
         return {

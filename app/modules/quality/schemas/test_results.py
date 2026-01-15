@@ -1,6 +1,5 @@
 from uuid import UUID
-
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 class TestResultsBase(BaseModel):
     test_record_id: UUID | None = None
@@ -16,3 +15,4 @@ class TestResultsUpdate(BaseModel):
 
 class TestResultsOut(TestResultsBase):
     id: UUID
+    model_config = ConfigDict(from_attributes=True)
