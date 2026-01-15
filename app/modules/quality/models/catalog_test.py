@@ -1,7 +1,7 @@
 import uuid
 
 from sqlalchemy import String, Boolean
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID
 from app.shared.db.database import Base
 
@@ -12,3 +12,4 @@ class CatalogTest(Base):
     name: Mapped[str] = mapped_column(String, nullable=False)
     chapter: Mapped[str] = mapped_column(String, nullable=False)
     status: Mapped[bool] = mapped_column(Boolean, default=True)
+    questions: Mapped[list["CatalogTestQuestion"]] = relationship("CatalogTestQuestion", back_populates="catalog_test", cascade="all, delete-orphan")

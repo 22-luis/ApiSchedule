@@ -1,7 +1,5 @@
 from uuid import UUID
-
-
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from app.modules.quality.models.question_type import QuestionType
 
@@ -22,3 +20,4 @@ class CatalogTestQuestionUpdate(BaseModel):
 
 class CatalogTestQuestionOut(CatalogTestQuestionBase):
     id: UUID
+    model_config = ConfigDict(from_attributes=True)

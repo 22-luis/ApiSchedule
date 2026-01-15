@@ -3,12 +3,13 @@ from uuid import UUID
 from pydantic import BaseModel
 
 class TestResultsBase(BaseModel):
-    test_record_id: UUID
+    test_record_id: UUID | None = None
     catalog_test_id: UUID
     answer: dict
 
-class TestResultsCreate(TestResultsBase):
-    pass
+class TestResultsCreate(BaseModel):
+    catalog_test_id: UUID
+    answer: dict
 
 class TestResultsUpdate(BaseModel):
     answer: dict | None

@@ -9,6 +9,8 @@ from app.shared.utils.core.dependencies import get_current_user
 from app.modules.quality.models.qc_manual import QcManual
 from app.modules.quality.schemas.qc_manual import QcManualCreate, QcManualOut, SectionOut, Chapters
 from app.modules.quality.services.Split_sections import split_html_into_sections
+from app.modules.core.models.role import UserRole
+from app.shared.utils.core.dependencies import require_roles
 
 router = APIRouter(prefix="/manual", tags=["manual"])
 

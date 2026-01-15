@@ -1,6 +1,7 @@
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
+from app.modules.quality.schemas.catalog_test_question import CatalogTestQuestionOut, QuestionType
 
 
 class CatalogTestBase(BaseModel):
@@ -8,15 +9,22 @@ class CatalogTestBase(BaseModel):
     chapter: str
     status: bool
 
+class CatalogTestQuestionNested(BaseModel):
+    question: str
+    specification: str | None = None
+    type: QuestionType
+
 class CatalogTestCreate(CatalogTestBase):
-    pass
+    questions: list[CatalogTestQuestionNested] | None = None
 
 class CatalogTestUpdate(BaseModel):
-    name: str | None
-    chapter: str | None
-    status: bool | None
+    name: str | None = None
+    chapter: str | None = None
+    status: bool | None = None
+    questions: list[CatalogTestQuestionNested] | None = None
 
 class CatalogTestOut(CatalogTestBase):
     id: UUID
+    questions: list[CatalogTestQuestionOut] = []
 
     model_config = ConfigDict(from_attributes=True)

@@ -5,14 +5,15 @@ from fastapi.params import Depends
 from sqlalchemy.orm import Session
 
 from app.modules.quality.models.catalog_test import CatalogTest
-from app.modules.quality.schemas.catalog_test import CatalogTestBase, CatalogTestOut
+from app.modules.quality.models.catalog_test_question import CatalogTestQuestion
+from app.modules.quality.schemas.catalog_test import CatalogTestCreate, CatalogTestOut, CatalogTestUpdate
 from app.modules.core.models.role import UserRole
 from app.shared.db.session import get_db
 from app.shared.utils.core.dependencies import require_roles
 
 router = APIRouter(prefix="/catalog_tests", tags=["catalog-tests"])
 
-def get_catalog_test_or_404(db: Session, test_id: UUID) -> type[CatalogTest]:
+def get_catalog_test_or_404(db: Session, test_id: UUID) -> CatalogTest:
     db_test = db.query(CatalogTest).filter(CatalogTest.id == test_id).first()
     if not db_test:
         raise HTTPException(status_code=404, detail="Catalog test not found")
@@ -23,7 +24,7 @@ def get_catalog_test_or_404(db: Session, test_id: UUID) -> type[CatalogTest]:
              status_code=201,
              dependencies =[Depends(require_roles(UserRole.ADMIN,UserRole.QC_COORDINATOR, UserRole.QC_ASSISTANT))])
 def create(
-        test_data: CatalogTestBase,
+        test_data: CatalogTestCreate,
         db: Session = Depends(get_db),
 ):
     try:
@@ -33,6 +34,18 @@ def create(
             status=test_data.status
         )
         db.add(new_test)
+        db.flush() # Get ID for questions
+        
+        if test_data.questions:
+            for q in test_data.questions:
+                new_question = CatalogTestQuestion(
+                    catalog_test_id=new_test.id,
+                    question=q.question,
+                    specification=q.specification,
+                    type=q.type
+                )
+                db.add(new_question)
+        
         db.commit()
         db.refresh(new_test)
         return new_test
@@ -50,12 +63,32 @@ def get_all(db: Session = Depends(get_db)):
 @router.patch("/{test_id}", 
                response_model=CatalogTestOut, 
                dependencies=[Depends(require_roles(UserRole.ADMIN, UserRole.QC_COORDINATOR, UserRole.QC_ASSISTANT))])
-def update_catalog_test(test_id: UUID, test_data: CatalogTestBase, db: Session = Depends(get_db)):
+def update_catalog_test(test_id: UUID, test_data: CatalogTestUpdate, db: Session = Depends(get_db)):
     db_test = get_catalog_test_or_404(db, test_id)
 
     update_data = test_data.model_dump(exclude_unset=True)
+    
+    # Extract questions if present
+    questions_data = update_data.pop("questions", None)
+
+    # Update basic fields
     for key, value in update_data.items():
         setattr(db_test, key, value)
+
+    # Handle questions synchronization
+    if questions_data is not None:
+        # Simplest approach: delete existing and recreate
+        # (Could be optimized to update existing, but this ensures strict sync with frontend state)
+        db.query(CatalogTestQuestion).filter(CatalogTestQuestion.catalog_test_id == test_id).delete()
+        
+        for q in questions_data:
+            new_question = CatalogTestQuestion(
+                catalog_test_id=test_id,
+                question=q["question"],
+                specification=q["specification"],
+                type=q["type"]
+            )
+            db.add(new_question)
 
     db.commit()
     db.refresh(db_test)

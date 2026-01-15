@@ -155,7 +155,7 @@ def get_programming_summary(team_id: str, date: str, db: Session = Depends(get_d
                         continue
                 if lote_ints:
                     tests = db.query(Test).filter(Test.lote.in_(lote_ints)).all()
-                    quality_map = {str(test.lote): test.status.value if hasattr(test.status, 'value') else str(test.status) for test in tests}
+                    quality_map = {(test.lote, test.code_id): test.status.value if hasattr(test.status, 'value') else str(test.status) for test in tests}
             except Exception as qe:
                 print(f"DEBUG: Error fetching quality status for summary: {qe}")
 
@@ -176,7 +176,7 @@ def get_programming_summary(team_id: str, date: str, db: Session = Depends(get_d
                 "lote": task_obj.lote,
                 "code": code_str,
                 "description": task_obj.description or (task_obj.code.description if task_obj.code else None),
-                "quality_status": quality_map.get(str(task_obj.lote))
+                "quality_status": quality_map.get((task_obj.lote, task_obj.code_id)) if task_obj.code_id else quality_map.get(str(task_obj.lote))
             })
 
         return {

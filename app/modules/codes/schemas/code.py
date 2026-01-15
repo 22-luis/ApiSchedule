@@ -34,6 +34,8 @@ class CodeUpdate(BaseModel):
     fabricationCode: Optional[str] = None
     usefulLife: Optional[str] = None
 
+from app.modules.quality.schemas.catalog_test import CatalogTestOut
+
 class CodeOut(BaseModel):
     id: uuid.UUID
     code: str
@@ -49,6 +51,7 @@ class CodeOut(BaseModel):
     presentation: Optional[str] = None
     fabricationCode: Optional[str] = None
     usefulLife: Optional[str] = None
+    tests: List[CatalogTestOut] = []
 
     model_config = ConfigDict(from_attributes=True)
 

@@ -168,7 +168,6 @@ api_router.include_router(notification_router, tags=["notifications"])
 api_router.include_router(manual_router, tags=["manual"])
 api_router.include_router(qc_router, tags=["qctest"])
 api_router.include_router(test_question_router, tags=["test-questions"])
-api_router.include_router(catalog_test_router, tags=["catalog-tests"])
 api_router.include_router(warehouse_history_router, tags=["warehouse"])
 
 app.include_router(api_router)

@@ -21,7 +21,7 @@ def create_test_result(
         db: Session = Depends(get_db)
 ):
     try:
-        new_result = TestResultsCreate(
+        new_result = TestResults(
             test_record_id=result_data.test_record_id,
             catalog_test_id=result_data.catalog_test_id,
             answer=result_data.answer

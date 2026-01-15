@@ -1,7 +1,7 @@
 import uuid
 
 from sqlalchemy import ForeignKey, String, Enum
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID
 from app.shared.db.database import Base
 from app.modules.quality.models.question_type import QuestionType
@@ -14,3 +14,4 @@ class CatalogTestQuestion(Base):
     question: Mapped[str] = mapped_column(String, nullable=False)
     specification: Mapped[str | None] = mapped_column(String, nullable=True)
     type: Mapped[QuestionType] = mapped_column(Enum(QuestionType), nullable=False)
+    catalog_test: Mapped["CatalogTest"] = relationship("CatalogTest", back_populates="questions")

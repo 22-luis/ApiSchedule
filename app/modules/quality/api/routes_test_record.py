@@ -20,7 +20,7 @@ def create_test_record(test_data: TestOut, db: Session = Depends(get_db)):
     try:
         new_record = TestRecord(
             lote=test_data.lote,
-            catalog_test=test_data.catalog_test,
+            code_id=test_data.code_id,
             status=test_data.status,
             performed_by=test_data.performed_by,
             performed_at=test_data.performed_at,
