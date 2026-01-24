@@ -29,6 +29,7 @@ from app.modules.programming.models.programming import Programming, ProgrammingT
 from app.modules.programming.models.task import Task
 from app.modules.programming.models.task_creation_notification import TaskCreationNotification
 from app.modules.programming.models.task_status_log import TaskStatusLog
+from app.modules.programming.models.order_surplus import OrderSurplus
 from app.modules.quality.models.test_record import TestRecord
 from app.modules.quality.models.catalog_test import CatalogTest
 from app.modules.quality.models.code_test import CodeTest
@@ -90,6 +91,7 @@ def run_migrations_online() -> None:
         configuration,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        connect_args={"connect_timeout": 30}
     )
 
     with connectable.connect() as connection:

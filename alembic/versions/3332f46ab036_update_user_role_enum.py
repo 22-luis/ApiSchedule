@@ -21,9 +21,12 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     """Upgrade schema."""
     # Renaming ENUM values requires database-specific commands.
-    # For PostgreSQL (assuming this is the DB based on the code), we need to add the new values first,
-    # then update the table, then (optionally) remove the old ones.
-    # However, a simpler way in Alembic if you use sync is to just update the column.
+    # For PostgreSQL, we need to add the new values first.
+    
+    # We need to execute COMMIT because ALTER TYPE ADD VALUE cannot run in a transaction block
+    op.execute("COMMIT")
+    op.execute("ALTER TYPE userrole ADD VALUE IF NOT EXISTS 'QC_COORDINATOR'")
+    op.execute("ALTER TYPE userrole ADD VALUE IF NOT EXISTS 'QC_ASSISTANT'")
     
     # 1. Update existing data to avoid constraint violations if possible
     op.execute("UPDATE users SET role = 'QC_COORDINATOR' WHERE role = 'QC_ENGINEER'")
