@@ -12,6 +12,7 @@ def get_time():
 class QcManual(Base):
     __tablename__ = "qc_manual"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String, index=True, nullable=True) # Added name for multiple manuals
     version: Mapped[int] = mapped_column(Integer, nullable=False)
     content: Mapped[dict] = mapped_column(JSON, nullable=False)
     createdAt: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=get_time, nullable=False)
