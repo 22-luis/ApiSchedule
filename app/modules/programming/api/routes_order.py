@@ -552,6 +552,7 @@ def get_orders(
     lote: int = Query(None, description="Filtrar por lote"),
     code: str = Query(None, description="Filtrar por código"),
     has_surplus: Optional[bool] = Query(None, description="Filtrar órdenes con sobrantes (missing_quantity < 0)"),
+    is_hidden: Optional[bool] = Query(None, description="Filtrar por visibilidad (is_hidden)"),
     bin_number: Optional[int] = Query(None, description="Filtrar por número de bin"),
     skip: int = Query(0, ge=0, description="Cuántos registros omitir (paginación)"),
     limit: int = Query(10, ge=1, le=1000, description="Cuántos registros devolver (paginación)"),
@@ -570,6 +571,11 @@ def get_orders(
         query = query.filter(order_model.Order.missing_quantity < 0)
     if bin_number is not None:
         query = query.filter(order_model.Order.bin == bin_number)
+    if is_hidden is not None:
+        if is_hidden is False:
+            query = query.filter(or_(order_model.Order.is_hidden == False, order_model.Order.is_hidden == None))
+        else:
+            query = query.filter(order_model.Order.is_hidden == is_hidden)
 
     total = query.count()
     orders = query.offset(skip).limit(limit).all()
@@ -591,7 +597,8 @@ def get_orders(
             "missing_quantity": order.missing_quantity,
             "submitted_user": order.submitted_user,
             "submitted_date": order.submitted_date,
-            "submitted_observations": order.submitted_observations
+            "submitted_observations": order.submitted_observations,
+            "is_hidden": order.is_hidden
         }
         serialized_orders.append(order_dict)
     
@@ -1065,3 +1072,19 @@ def transfer_surplus_to_order(
 
     db.commit()
     db.refresh(source_order)
+@router.patch("/{order_id}/hide")
+def hide_order(
+    order_id: int,
+    is_hidden: bool = Body(..., embed=True),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.WAREHOUSE))
+):
+    db_order = db.query(order_model.Order).filter(order_model.Order.lote == order_id).first()
+    if not db_order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    db_order.is_hidden = is_hidden
+    db.commit()
+    db.refresh(db_order)
+    
+    return {"message": "Visibilidad de la orden actualizada", "is_hidden": db_order.is_hidden}
