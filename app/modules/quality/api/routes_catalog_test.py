@@ -66,6 +66,11 @@ def create(
         
         db.commit()
         db.refresh(new_test)
+        
+        # Populate manual_name for response
+        if new_test.chapter_relation and new_test.chapter_relation.manual and new_test.chapter_relation.manual.quality_manual:
+            new_test.manual_name = new_test.chapter_relation.manual.quality_manual.name
+            
         return new_test
     except Exception as e:
         db.rollback()
@@ -75,7 +80,11 @@ def create(
              response_model=list[CatalogTestOut], 
              dependencies=[Depends(require_roles(UserRole.ADMIN, UserRole.QC_COORDINATOR, UserRole.QC_ASSISTANT))])
 def get_all(db: Session = Depends(get_db)):
-    return db.query(CatalogTest).all()
+    tests = db.query(CatalogTest).all()
+    for t in tests:
+        if t.chapter_relation and t.chapter_relation.manual and t.chapter_relation.manual.quality_manual:
+            t.manual_name = t.chapter_relation.manual.quality_manual.name
+    return tests
 
 
 @router.patch("/{test_id}", 
@@ -118,6 +127,11 @@ def update_catalog_test(test_id: UUID, test_data: CatalogTestUpdate, db: Session
 
     db.commit()
     db.refresh(db_test)
+    
+    # Populate manual_name for response
+    if db_test.chapter_relation and db_test.chapter_relation.manual and db_test.chapter_relation.manual.quality_manual:
+        db_test.manual_name = db_test.chapter_relation.manual.quality_manual.name
+        
     return db_test
 
 @router.delete("/{test_id}", 
