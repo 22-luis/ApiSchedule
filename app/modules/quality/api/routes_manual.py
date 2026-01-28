@@ -7,21 +7,60 @@ from sqlalchemy.orm import Session
 from app.modules.quality.services.find_chapters import find_chapters
 from app.shared.db.session import get_db
 from app.shared.utils.core.dependencies import get_current_user
+from app.modules.quality.models.quality_manual import QualityManual
 from app.modules.quality.models.qc_manual import QcManual
 from app.modules.quality.models.qc_manual_chapter import QcManualChapter
-from app.modules.quality.schemas.qc_manual import QcManualCreate, QcManualOut, SectionOut, Chapters, HierarchyOut, QcManualWithChaptersOut
+from app.modules.quality.schemas.qc_manual import QcManualBase, QcManualCreate, QcManualOut, SectionOut, Chapters, HierarchyOut, QcManualWithChaptersOut
 from app.modules.quality.schemas.qc_manual_chapter import (
     QcManualChapterCreate,
     QcManualChapterUpdate,
     QcManualChapterOut,
     QcManualChapterTree
 )
+from app.modules.quality.models.catalog_test import CatalogTest
 from app.modules.quality.services import qc_manual_chapter_service
 from app.modules.quality.services.Split_sections import split_html_into_sections
 from app.modules.core.models.role import UserRole
 from app.shared.utils.core.dependencies import require_roles
 
 router = APIRouter(prefix="/manual", tags=["manual"])
+
+@router.post("/identity", response_model=QcManualOut, status_code=201)
+def create_manual_identity(
+    manual_data: QcManualBase,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Creates only the manual identity (QualityManual) and an initial audit revision (QcManual)"""
+    try:
+        # 1. Get or Create the Master Manual record (QualityManual)
+        qm = db.query(QualityManual).filter(QualityManual.name == manual_data.name).first()
+        if qm:
+            raise HTTPException(status_code=400, detail="Ya existe un instructivo con ese nombre")
+            
+        qm = QualityManual(
+            name=manual_data.name,
+            created_by=current_user.username
+        )
+        db.add(qm)
+        db.flush()
+        
+        # 2. Create the initial Audit/Link record (QcManual)
+        new_audit = QcManual(
+            quality_manual_id=qm.id,
+            created_by=current_user.username
+        )
+        db.add(new_audit)
+        db.commit()
+        db.refresh(new_audit)
+        
+        new_audit.name = qm.name 
+        return new_audit
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/", response_model=QcManualOut, status_code=201)
 def create_qc_manual(
@@ -30,20 +69,34 @@ def create_qc_manual(
     current_user = Depends(get_current_user)
 ):
     try:
-        # Check if we already have structured content with sections (from updated frontend)
-        final_content = manual_data.content
+        # 1. Get or Create the Master Manual record (QualityManual)
+        qm = db.query(QualityManual).filter(QualityManual.name == manual_data.name).first()
+        if not qm:
+            qm = QualityManual(
+                name=manual_data.name,
+                created_by=current_user.username
+            )
+            db.add(qm)
+            db.flush()
         
-        # Determine if we need to re-split
-        # If 'sections' key is missing or empty, we assume legacy or raw HTML input
+        # 2. Create the Audit/Link record (QcManual)
+        new_audit = QcManual(
+            quality_manual_id=qm.id,
+            created_by=current_user.username
+        )
+        db.add(new_audit)
+        db.flush()
+        
+        # 3. Process Content and Create Chapters
+        final_content = manual_data.content
         needs_split = True
         
         if isinstance(final_content, dict):
-            if "capitulos" in final_content:
-                # Handle new hierarchical format (Spanish keys)
-                # We need to map it to the internal 'hierarchy' format (English keys)
-                
+            if "capitulos" in final_content or "hierarchy" in final_content:
+                needs_split = False
+            
+            if "capitulos" in final_content and not "hierarchy" in final_content:
                 def map_node(node_data):
-                    # Extract basic info
                     node = {
                         "id": str(node_data.get("id", "")),
                         "title": node_data.get("titulo", ""),
@@ -51,118 +104,130 @@ def create_qc_manual(
                         "sub_chapters": [],
                         "tests": [] 
                     }
-                    
                     raw_content_list = node_data.get("contenido", [])
                     text_content_parts = []
-                    
                     for block in raw_content_list:
                         block_type = block.get("tipo", "texto")
                         block_val = block.get("valor", "")
-                        
                         if block_type == "texto":
-                            if block_val:
-                                text_content_parts.append(block_val)
-                        
+                            if block_val: text_content_parts.append(block_val)
                         elif block_type == "sub_capitulo":
-                            sub_node = map_node(block)
-                            node["sub_chapters"].append(sub_node)
-                            
+                            node["sub_chapters"].append(map_node(block))
                         elif block_type == "prueba":
-                            test_node = {
-                                "id": str(block.get("id", "")),
-                                "title": block.get("titulo", ""),
-                                "content": block_val,
-                            }
+                            test_node = {"id": str(block.get("id", "")), "title": block.get("titulo", ""), "content": block_val}
                             if "descripcion" in block:
                                 test_node["content"] = f"<p><strong>{block.get('descripcion')}</strong></p>{test_node['content']}"
-                                
                             node["tests"].append(test_node)
-                    
                     node["content"] = "".join(text_content_parts)
                     return node
 
-                mapped_hierarchy = [map_node(chapter) for chapter in final_content["capitulos"]]
-                
-                # Update final_content to stored format
                 final_content = {
-                    "hierarchy": mapped_hierarchy,
-                    "sections": [] # Legacy support if needed, but keeping empty for now
+                    "hierarchy": [map_node(chapter) for chapter in final_content["capitulos"]],
                 }
-                needs_split = False # Already structured
 
-            elif "sections" in final_content and final_content["sections"]:
-                # Frontend sent structural metadata (Legacy or different format), trust it
-                # We still might want to ensure 'content_html' is there or updated, 
-                # but 'sections' dict is key.
-                needs_split = False
             elif "content_html" in final_content:
-                # Use content_html for splitting
                 content_to_split = final_content["content_html"]
-            else:
-                 # Fallback, treat entire dict or string as content?
-                 # If it's a dict without content_html, we can't easily split it unless we concatenate values.
-                 # Let's assume manual_data.content is what we split if not a dict with 'content_html'
-                 content_to_split = final_content
-        else:
-            content_to_split = final_content
 
         if needs_split:
-            # Procesar el HTML para dividirlo en secciones
-            # Note: split_html_into_sections returns a Dict[str, str], NO valid 'sections' metadata list.
+            # Note: We still use split_html_into_sections for legacy/raw HTML
+            # but we won't store the result in QcManual, only use it to create chapters
             sections = split_html_into_sections(content_to_split)
-            final_content = sections
+            # Convert split sections to flat hierarchy for creation
+            hierarchy = []
+            for title, html in sections.items():
+                hierarchy.append({"title": title, "content": html, "sub_chapters": [], "tests": []})
+            final_content = {"hierarchy": hierarchy}
         
-        new_manual = QcManual(
-            name=manual_data.name,
-            content=final_content,
-            version=0,
-            created_by=current_user.username
-        )
-        db.add(new_manual)
-        db.flush()
-        new_manual.version = new_manual.id
-        
-        # If hierarchy structure exists, create chapters relationally
+        # 4. Create chapters relationally linked to the audit record
         if isinstance(final_content, dict) and "hierarchy" in final_content:
-            hierarchy = final_content["hierarchy"]
             qc_manual_chapter_service.create_chapters_from_hierarchy(
-                db, new_manual.id, hierarchy, current_user.username
+                db, new_audit.id, final_content["hierarchy"], current_user.username
             )
         
+        db.flush()
+        migrate_catalog_tests_to_new_manual(db, new_audit.id)
         db.commit()
-        db.refresh(new_manual)
-        return new_manual
+        db.refresh(new_audit)
+        
+        # Return the audit record (mapping name from QualityManual in the response)
+        # Sincronizamos el nombre para el schema de salida
+        new_audit.name = qm.name 
+        return new_audit
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/chapters", response_model=Chapters, description="Devuelve una lista de secciones del manual")
+def migrate_catalog_tests_to_new_manual(db: Session, new_manual_id: int):
+    """
+    Finds existing catalog tests and attempts to link them to the chapters 
+    of the new manual version based on titles and hierarchical paths.
+    """
+    # 1. Get all current chapters for the new manual
+    new_chapters = db.query(QcManualChapter).filter(QcManualChapter.manual_id == new_manual_id).all()
+    if not new_chapters:
+        return
+
+    # Map for easy lookup by (title, chapter_type, order)
+    # We use a tuple of (title, type) as a basic heuristic
+    # A better heuristic would be the full hierarchical path, but let's start with title+type
+    chapter_map = {(c.title, c.chapter_type): c.id for c in new_chapters}
+
+    # 2. Get all CatalogTests
+    tests = db.query(CatalogTest).all()
+    
+    for test in tests:
+        # Try to find a matching chapter in the new manual
+        # If it was already linked to a chapter, try to find a chapter with same title in new manual
+        match_found = False
+        
+        if test.chapter_id:
+            old_chapter = db.query(QcManualChapter).filter(QcManualChapter.id == test.chapter_id).first()
+            if old_chapter:
+                # Look for a chapter with same title and type in the NEW manual
+                new_chapter_id = chapter_map.get((old_chapter.title, old_chapter.chapter_type))
+                if new_chapter_id:
+                    test.chapter_id = new_chapter_id
+                    match_found = True
+        
+        if not match_found and test.chapter:
+            # Fallback for legacy 'chapter' string linkage
+            # Try to match it to a 'chapter' type chapter in the new manual
+            new_chapter_id = chapter_map.get((test.chapter, 'chapter'))
+            if new_chapter_id:
+                test.chapter_id = new_chapter_id
+                match_found = True
+            else:
+                # Try 'sub_chapter' or 'test' too if name matches
+                for (title, ctype), cid in chapter_map.items():
+                    if title == test.chapter:
+                        test.chapter_id = cid
+                        match_found = True
+                        break
+
+@router.get("/chapters", response_model=Chapters)
 def get_chapters(
         name: str | None = None,
         db: Session = Depends(get_db),
         _current_user = Depends(get_current_user)
 ):
-    """Get chapters for a manual - supports both legacy JSON and new relational structure"""
-    query = db.query(QcManual)
-    if name:
-        query = query.filter(QcManual.name == name)
+    """Get latest chapters for a manual by its master name"""
+    # Join QcManual with QualityManual to find the latest revision for this name
+    query = db.query(QcManual).join(QualityManual).filter(QualityManual.name == name) if name else db.query(QcManual).join(QualityManual)
     
     manual = query.order_by(QcManual.id.desc()).first()
     if not manual:
         raise HTTPException(status_code=404, detail="Manual no encontrado")
 
-    # Try to get chapters from relational structure first
+    # Get root chapters from relational structure
     chapter_records = db.query(QcManualChapter).filter(
         QcManualChapter.manual_id == manual.id,
         QcManualChapter.parent_chapter_id.is_(None)
     ).order_by(QcManualChapter.order).all()
     
-    if chapter_records:
-        # Use relational chapters
-        chapters = [ch.title for ch in chapter_records]
-    else:
-        # Fallback to legacy JSON parsing
-        chapters = find_chapters(manual.content)
+    chapters = [ch.title for ch in chapter_records]
 
     return {
         "manual_id": manual.id,
@@ -174,13 +239,10 @@ def list_manual_names(
     db: Session = Depends(get_db),
     _current_user = Depends(get_current_user)
 ):
-    """
-    Returns a list of unique manual names.
-    """
-    names = db.query(QcManual.name).distinct().all()
-    # names is a list of tuples like [('Manual 1',), (None,)]
-    # Filter out None and return flat list
-    return [n[0] for n in names if n[0] is not None]
+    """Returns a list of unique manual names from the identity table."""
+    # Query QualityManual instead of QcManual
+    names = db.query(QualityManual.name).all()
+    return [n[0] for n in names]
 
 
 
@@ -190,22 +252,34 @@ def get_manual_hierarchy(
     db: Session = Depends(get_db),
     _current_user = Depends(get_current_user)
 ):
-    query = db.query(QcManual)
+    # Join to find latest revision by name
+    query = db.query(QcManual).join(QualityManual)
     if name:
-        query = query.filter(QcManual.name == name)
+        query = query.filter(QualityManual.name == name)
         
     manual = query.order_by(QcManual.id.desc()).first()
     if not manual:
         raise HTTPException(status_code=404, detail="Manual QC no encontrado")
     
-    # Check if 'hierarchy' key exists (from migration)
-    hierarchy = []
-    if isinstance(manual.content, dict) and "hierarchy" in manual.content:
-        hierarchy = manual.content["hierarchy"]
+    # Fetch relational tree
+    chapters = qc_manual_chapter_service.get_chapter_tree(db, manual.id)
+    
+    def map_to_hierarchy(ch):
+        node = {
+            "id": str(ch.id),
+            "title": ch.title,
+            "content": ch.content or "",
+            "sub_chapters": [map_to_hierarchy(sc) for sc in ch.sub_chapters if sc.chapter_type != 'test'],
+            "tests": [{"id": str(t.id), "title": t.title, "content": t.content or ""} 
+                      for t in ch.sub_chapters if t.chapter_type == 'test']
+        }
+        return node
+
+    hierarchy = [map_to_hierarchy(ch) for ch in chapters]
     
     return {
         "manual_id": manual.id,
-        "name": manual.name,
+        "name": manual.quality_manual.name, # Access from relationship
         "hierarchy": hierarchy
     }
 
@@ -217,177 +291,53 @@ def get_section(
     db: Session = Depends(get_db),
     _current_user = Depends(get_current_user)
 ):
-    # Traemos el último registro (versión más reciente)
-    manual = db.query(QcManual).order_by(QcManual.id.desc()).first()
-    
+    # Join to find latest revision
+    manual = db.query(QcManual).join(QualityManual).order_by(QcManual.id.desc()).first()
     if not manual:
         raise HTTPException(status_code=404, detail="Manual QC no encontrado")
     
-    # 1. Intento de búsqueda exacta en estructura antigua (diccionario plano)
-    section_content = None
-    manual_content = manual.content
+    # Search in chapters for this revision
+    chapter = db.query(QcManualChapter).filter(
+        QcManualChapter.manual_id == manual.id,
+        QcManualChapter.title == section_name
+    ).first()
     
-    # Check for new structure: 'sections' list
-    if isinstance(manual_content, dict) and "sections" in manual_content and isinstance(manual_content["sections"], list):
-        sections_list = manual_content["sections"]
+    if chapter:
+        aggregated_content = [chapter.content or ""]
         
-        # Helper for slugify available to both paths
-        def slugify(text):
-            if not text: return ""
-            text = unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode('ascii')
-            text = re.sub(r'[^\w\s-]', '', text).strip().lower()
-            return re.sub(r'[-\s]+', '-', text)
+        def get_all_sub_content(parent_id, level=2):
+            subs = db.query(QcManualChapter).filter(QcManualChapter.parent_chapter_id == parent_id).order_by(QcManualChapter.order).all()
+            parts = []
+            for s in subs:
+                tag = "h2" if s.chapter_type == "sub_chapter" else "h3"
+                parts.append(f"<{tag}>{s.title}</{tag}>")
+                if s.content:
+                    parts.append(s.content)
+                parts.extend(get_all_sub_content(s.id, level + 1))
+            return parts
 
-        target_slug = slugify(section_name)
-        clean_target_slug = re.sub(r'^section-\d+-', '', target_slug)
-
-        # Map header levels to integers for comparison
-        level_map = {'h1': 1, 'h2': 2, 'h3': 3, 'h4': 4, 'h5': 5, 'h6': 6}
-
-        match_index = -1
-        
-        # 1. Find the matching section index
-        for i, section in enumerate(sections_list):
-            title = section.get('title', '')
-            title_slug = slugify(title)
-            sec_id = section.get('id', '')
-            
-            if (section_name == title or 
-                section_name == sec_id or 
-                target_slug == title_slug or 
-                clean_target_slug in title_slug):
-                match_index = i
-                break
-        
-        # 2. If found, aggregate content
-        if match_index != -1:
-            start_section = sections_list[match_index]
-            start_level_str = start_section.get('level', 'h10') # Default to high number if unknown
-            start_level = level_map.get(start_level_str, 99)
-            
-            aggregated_content = []
-            
-            # Add content of the matched section itself
-            # We assume the main title is displayed by the frontend, so we don't add the H tag for the start section
-            # unless it's missing content and we want to be safe, but typically frontend shows title.
-            # However, if the start section *has* content (intro text), add it.
-            if "content" in start_section:
-                aggregated_content.append(start_section["content"])
-            elif "content_html" in start_section:
-                aggregated_content.append(start_section["content_html"])
-            
-            # Iterate through subsequent sections
-            for j in range(match_index + 1, len(sections_list)):
-                current_section = sections_list[j]
-                current_level_str = current_section.get('level', 'h1')
-                current_level = level_map.get(current_level_str, 1)
-                
-                # Stop if we hit a sibling or parent (same level or higher up the hierarchy / lower number)
-                # e.g. if start is H1(1), stop at next H1(1). 
-                # e.g. if start is H2(2), stop at next H2(2) or H1(1).
-                if current_level <= start_level:
-                    break
-                
-                # It is a child (sub-section). Render its title and content.
-                title = current_section.get('title', '')
-                content = current_section.get('content_html') or current_section.get('content', '')
-                
-                # Append formatted HTML with semantic structure
-                # Use Tailwind classes directly or custom classes
-                
-                bg_color = ""
-                border_color = ""
-                header_color = ""
-                padding = "p-4"
-                margin = "mb-6"
-                rounded = "rounded-lg"
-                
-                if current_level == 1: # Chapter (H1)
-                    bg_color = "bg-white"
-                    border_color = "border-l-4 border-blue-600"
-                    header_class = "text-2xl font-bold text-gray-900 border-b pb-2 mb-3"
-                    container_class = f"{bg_color} {border_color} shadow-sm {padding} {margin} {rounded}"
-                
-                elif current_level == 2: # Sub-chapter (H2)
-                    bg_color = "bg-blue-50/50"
-                    border_color = "border-l-4 border-blue-400"
-                    header_class = "text-xl font-semibold text-blue-800 mb-2"
-                    container_class = f"{bg_color} {border_color} {padding} {margin} {rounded}"
-                
-                elif current_level == 3: # Test (H3)
-                    bg_color = "bg-white"
-                    border_color = "border border-gray-100"
-                    header_class = "text-lg font-medium text-gray-800 flex items-center gap-2"
-                    # Add a badge or icon indicator for Test
-                    badge = '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">Prueba</span>'
-                    title = f"{badge} {title}"
-                    container_class = f"{bg_color} {border_color} shadow-sm {padding} mb-4 {rounded} ml-4"
-                else: 
-                     container_class = "pl-4 border-l-2 border-gray-200 mb-4"
-                     header_class = "font-medium text-gray-700"
-
-                section_html = f"""
-                <div class="{container_class}">
-                    <{current_level_str} class="{header_class}">{title}</{current_level_str}>
-                    <div class="prose prose-sm max-w-none text-gray-600">
-                        {content}
-                    </div>
-                </div>
-                """
-                
-                aggregated_content.append(section_html)
-            
-            section_content = "\n".join(aggregated_content)
-                
-    # Fallback to legacy dictionary lookup if not found yet
-    if section_content is None:
-        # 1. Direct lookup
-        section_content = manual.content.get(section_name)
+        aggregated_content.extend(get_all_sub_content(chapter.id))
+        return {
+            "section_name": section_name,
+            "content": "\n".join(aggregated_content)
+        }
     
-        # 2. Si falla, intento de búsqueda normalizada (slug/insensible a mayúsculas)
-        if section_content is None:
-            
-            def slugify(text):
-                text = unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode('ascii')
-                text = re.sub(r'[^\w\s-]', '', text).strip().lower()
-                return re.sub(r'[-\s]+', '-', text)
-
-            target_slug = slugify(section_name)
-            
-            clean_target_slug = re.sub(r'^section-\d+-', '', target_slug)
-
-            if isinstance(manual.content, dict):
-                for key, value in manual.content.items():
-                    # Skip non-content keys if they exist at top level and weren't caught above
-                    if key in ["General", "content_html", "sections"]: 
-                        continue
-                        
-                    key_slug = slugify(key)
-                    if key_slug == target_slug or key_slug == clean_target_slug or key_slug in clean_target_slug:
-                        section_content = value
-                        break
-    
-    if section_content is None:
-        raise HTTPException(
-            status_code=404, 
-            detail=f"Sección '{section_name}' no encontrada."
-        )
-    
-    return {
-        "section_name": section_name,
-        "content": section_content
-    }
+    raise HTTPException(status_code=404, detail=f"Sección '{section_name}' no encontrada.")
 
 @router.get("/latest", 
              response_model=QcManualOut, 
              dependencies=[Depends(require_roles(UserRole.ADMIN, UserRole.QC_COORDINATOR, UserRole.QC_ASSISTANT))])
 def get_latest_qc_manual(name: str | None = None, db: Session = Depends(get_db)):
-    query = db.query(QcManual)
+    # Join to find latest revision
+    query = db.query(QcManual).join(QualityManual)
     if name:
-        query = query.filter(QcManual.name == name)
+        query = query.filter(QualityManual.name == name)
     manual = query.order_by(QcManual.id.desc()).first()
     if not manual:
         raise HTTPException(status_code=404, detail="Manual QC no encontrado")
+    
+    # Synchronize name for schema output
+    manual.name = manual.quality_manual.name
     return manual
 
 @router.delete("/{name}", status_code=204)
@@ -397,15 +347,13 @@ def delete_qc_manual(
     _current_user = Depends(require_roles(UserRole.ADMIN, UserRole.QC_COORDINATOR))
 ):
     """
-    Deletes all records of a manual by its name.
+    Deletes a manual identity and all its audit revisions (cascading).
     """
-    manuals = db.query(QcManual).filter(QcManual.name == name).all()
-    if not manuals:
+    qm = db.query(QualityManual).filter(QualityManual.name == name).first()
+    if not qm:
         raise HTTPException(status_code=404, detail="Manual no encontrado")
         
-    for m in manuals:
-        db.delete(m)
-    
+    db.delete(qm)
     db.commit()
     return None
 

@@ -140,6 +140,10 @@ def create_chapters_from_hierarchy(
         )
         db.add(chapter)
         db.flush()  # Get the ID without committing
+        
+        # Sincronizar ID generado de vuelta a la estructura de la jerarquía
+        chapter_data['id'] = str(chapter.id)
+        
         created_chapters.append(chapter)
         
         # Create sub-chapters recursively
@@ -164,6 +168,10 @@ def create_chapters_from_hierarchy(
             )
             db.add(test_chapter)
             db.flush()
+            
+            # Sincronizar ID de la prueba
+            test_data['id'] = str(test_chapter.id)
+            
             created_chapters.append(test_chapter)
     
     return created_chapters

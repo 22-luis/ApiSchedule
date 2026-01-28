@@ -7,6 +7,7 @@ from app.modules.quality.schemas.catalog_test_question import CatalogTestQuestio
 class CatalogTestBase(BaseModel):
     name: str
     chapter: str
+    chapter_id: UUID | None = None
     status: bool
 
 class CatalogTestQuestionNested(BaseModel):
@@ -20,6 +21,7 @@ class CatalogTestCreate(CatalogTestBase):
 class CatalogTestUpdate(BaseModel):
     name: str | None = None
     chapter: str | None = None
+    chapter_id: UUID | None = None
     status: bool | None = None
     questions: list[CatalogTestQuestionNested] | None = None
 

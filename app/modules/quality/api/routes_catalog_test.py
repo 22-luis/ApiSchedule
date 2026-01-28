@@ -4,9 +4,9 @@ from fastapi import APIRouter, HTTPException
 from fastapi.params import Depends
 from sqlalchemy.orm import Session
 
+from app.modules.quality.models.quality_manual import QualityManual
 from app.modules.quality.models.qc_manual import QcManual
-from app.modules.quality.services.find_chapters import find_chapters
-
+from app.modules.quality.models.qc_manual_chapter import QcManualChapter
 from app.modules.quality.models.catalog_test import CatalogTest
 from app.modules.quality.models.catalog_test_question import CatalogTestQuestion
 from app.modules.quality.schemas.catalog_test import CatalogTestCreate, CatalogTestOut, CatalogTestUpdate
@@ -34,15 +34,19 @@ def create(
         new_test = CatalogTest(
             name=test_data.name,
             chapter=test_data.chapter,
+            chapter_id=test_data.chapter_id,
             status=test_data.status
         )
 
         # Validate chapter exists in current Manual
-        latest_manual = db.query(QcManual).order_by(QcManual.id.desc()).first()
+        # Join with QualityManual to find the latest revision
+        latest_manual = db.query(QcManual).join(QualityManual).order_by(QcManual.id.desc()).first()
         if not latest_manual:
              raise HTTPException(status_code=400, detail="No QC Manual found. Cannot create test without a manual.")
         
-        valid_chapters = find_chapters(latest_manual.content)
+        # Fetch all chapter titles for this manual revision
+        valid_chapters = [c.title for c in db.query(QcManualChapter.title).filter(QcManualChapter.manual_id == latest_manual.id).all()]
+        
         # Normalize for comparison? strict comparison for now as per requirement for reliability
         if test_data.chapter not in valid_chapters:
              raise HTTPException(status_code=400, detail=f"Chapter '{test_data.chapter}' not found in current Manual. Available: {valid_chapters}")
@@ -84,28 +88,31 @@ def update_catalog_test(test_id: UUID, test_data: CatalogTestUpdate, db: Session
     
     # If chapter is being updated, validate it
     if "chapter" in update_data:
-         latest_manual = db.query(QcManual).order_by(QcManual.id.desc()).first()
+         latest_manual = db.query(QcManual).join(QualityManual).order_by(QcManual.id.desc()).first()
          if not latest_manual:
              raise HTTPException(status_code=400, detail="No QC Manual found.")
-         valid_chapters = find_chapters(latest_manual.content)
+         
+         valid_chapters = [c.title for c in db.query(QcManualChapter.title).filter(QcManualChapter.manual_id == latest_manual.id).all()]
+         
          if update_data["chapter"] not in valid_chapters:
              raise HTTPException(status_code=400, detail=f"Chapter '{update_data['chapter']}' not found in current Manual.")
 
     for key, value in update_data.items():
-        setattr(db_test, key, value)
+        if key != "questions":
+            setattr(db_test, key, value)
 
     # Handle questions synchronization
-    if questions_data is not None:
+    if test_data.questions is not None:
         # Simplest approach: delete existing and recreate
         # (Could be optimized to update existing, but this ensures strict sync with frontend state)
         db.query(CatalogTestQuestion).filter(CatalogTestQuestion.catalog_test_id == test_id).delete()
         
-        for q in questions_data:
+        for q in test_data.questions:
             new_question = CatalogTestQuestion(
                 catalog_test_id=test_id,
-                question=q["question"],
-                specification=q["specification"],
-                type=q["type"]
+                question=q.question,
+                specification=q.specification,
+                type=q.type
             )
             db.add(new_question)
 

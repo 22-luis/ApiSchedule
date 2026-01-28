@@ -1,20 +1,23 @@
 from pydantic import BaseModel, ConfigDict
 from typing import Any, List
+import datetime
 
 class QcManualBase(BaseModel):
     name: str | None = None
-    content: Any | None = None
 
 class QcManualCreate(QcManualBase):
-    pass
+    content: Any | None = None # Incoming content for processing
 
 class SectionOut(BaseModel):
     section_name: str
     content: str
 
-class QcManualOut(QcManualBase):
+class QcManualOut(BaseModel):
     id: int
-    version: int
+    quality_manual_id: int
+    name: str | None = None
+    createdAt: datetime.datetime
+    created_by: str
 
 
     model_config = ConfigDict(from_attributes=True)
@@ -50,11 +53,11 @@ class HierarchyOut(BaseModel):
 from app.modules.quality.schemas.qc_manual_chapter import QcManualChapterOut
 
 
-class QcManualWithChaptersOut(QcManualBase):
+class QcManualWithChaptersOut(BaseModel):
     """Schema for manual output with nested chapters from relational structure"""
     id: int
-    version: int
+    quality_manual_id: int
+    name: str | None = None
     chapters: List[QcManualChapterOut] = []
     
     model_config = ConfigDict(from_attributes=True)
-
