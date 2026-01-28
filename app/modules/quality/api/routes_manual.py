@@ -1,4 +1,5 @@
 import re
+import uuid
 import unicodedata
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -7,8 +8,15 @@ from app.modules.quality.services.find_chapters import find_chapters
 from app.shared.db.session import get_db
 from app.shared.utils.core.dependencies import get_current_user
 from app.modules.quality.models.qc_manual import QcManual
-from app.modules.quality.schemas.qc_manual import QcManualCreate, QcManualOut, SectionOut, Chapters, HierarchyOut
-
+from app.modules.quality.models.qc_manual_chapter import QcManualChapter
+from app.modules.quality.schemas.qc_manual import QcManualCreate, QcManualOut, SectionOut, Chapters, HierarchyOut, QcManualWithChaptersOut
+from app.modules.quality.schemas.qc_manual_chapter import (
+    QcManualChapterCreate,
+    QcManualChapterUpdate,
+    QcManualChapterOut,
+    QcManualChapterTree
+)
+from app.modules.quality.services import qc_manual_chapter_service
 from app.modules.quality.services.Split_sections import split_html_into_sections
 from app.modules.core.models.role import UserRole
 from app.shared.utils.core.dependencies import require_roles
@@ -113,6 +121,14 @@ def create_qc_manual(
         db.add(new_manual)
         db.flush()
         new_manual.version = new_manual.id
+        
+        # If hierarchy structure exists, create chapters relationally
+        if isinstance(final_content, dict) and "hierarchy" in final_content:
+            hierarchy = final_content["hierarchy"]
+            qc_manual_chapter_service.create_chapters_from_hierarchy(
+                db, new_manual.id, hierarchy, current_user.username
+            )
+        
         db.commit()
         db.refresh(new_manual)
         return new_manual
@@ -122,20 +138,31 @@ def create_qc_manual(
 
 @router.get("/chapters", response_model=Chapters, description="Devuelve una lista de secciones del manual")
 def get_chapters(
+        name: str | None = None,
         db: Session = Depends(get_db),
         _current_user = Depends(get_current_user)
 ):
+    """Get chapters for a manual - supports both legacy JSON and new relational structure"""
     query = db.query(QcManual)
+    if name:
+        query = query.filter(QcManual.name == name)
     
-    # Optional filtering by name (logic for chapters usually implies a specific manual context)
-    # If no name provided, we can assume the oldest "unnamed" one or the very latest across all.
-    # But usually this is called in context of a specific manual.
     manual = query.order_by(QcManual.id.desc()).first()
-
     if not manual:
         raise HTTPException(status_code=404, detail="Manual no encontrado")
 
-    chapters = find_chapters(manual.content)
+    # Try to get chapters from relational structure first
+    chapter_records = db.query(QcManualChapter).filter(
+        QcManualChapter.manual_id == manual.id,
+        QcManualChapter.parent_chapter_id.is_(None)
+    ).order_by(QcManualChapter.order).all()
+    
+    if chapter_records:
+        # Use relational chapters
+        chapters = [ch.title for ch in chapter_records]
+    else:
+        # Fallback to legacy JSON parsing
+        chapters = find_chapters(manual.content)
 
     return {
         "manual_id": manual.id,
@@ -381,3 +408,80 @@ def delete_qc_manual(
     
     db.commit()
     return None
+
+
+# ============================================================================
+# NEW CHAPTER CRUD ENDPOINTS (Relational Structure)
+# ============================================================================
+
+@router.post("/{manual_id}/chapters", response_model=QcManualChapterOut, status_code=201)
+def create_chapter(
+    manual_id: int,
+    chapter_data: QcManualChapterCreate,
+    db: Session = Depends(get_db),
+    current_user = Depends(require_roles(UserRole.ADMIN, UserRole.QC_COORDINATOR))
+):
+    """Create a new chapter for a manual"""
+    # Verify manual exists
+    manual = db.query(QcManual).filter(QcManual.id == manual_id).first()
+    if not manual:
+        raise HTTPException(status_code=404, detail="Manual no encontrado")
+    
+    # Verify parent chapter exists if specified
+    if chapter_data.parent_chapter_id:
+        parent = qc_manual_chapter_service.get_chapter_by_id(db, chapter_data.parent_chapter_id)
+        if not parent or parent.manual_id != manual_id:
+            raise HTTPException(status_code=404, detail="Parent chapter no encontrado")
+    
+    chapter = qc_manual_chapter_service.create_chapter(
+        db, manual_id, chapter_data, current_user.username
+    )
+    return chapter
+
+
+@router.patch("/chapters/{chapter_id}", response_model=QcManualChapterOut)
+def update_chapter(
+    chapter_id: uuid.UUID,
+    chapter_data: QcManualChapterUpdate,
+    db: Session = Depends(get_db),
+    current_user = Depends(require_roles(UserRole.ADMIN, UserRole.QC_COORDINATOR))
+):
+    """Update a chapter"""
+    chapter = qc_manual_chapter_service.update_chapter(
+        db, chapter_id, chapter_data, current_user.username
+    )
+    if not chapter:
+        raise HTTPException(status_code=404, detail="Chapter no encontrado")
+    return chapter
+
+
+@router.delete("/chapters/{chapter_id}", status_code=204)
+def delete_chapter(
+    chapter_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    _current_user = Depends(require_roles(UserRole.ADMIN, UserRole.QC_COORDINATOR))
+):
+    """Delete a chapter and its sub-chapters"""
+    success = qc_manual_chapter_service.delete_chapter(db, chapter_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Chapter no encontrado")
+    return None
+
+
+@router.get("/{manual_id}/chapters/tree", response_model=QcManualChapterTree)
+def get_chapter_tree(
+    manual_id: int,
+    db: Session = Depends(get_db),
+    _current_user = Depends(get_current_user)
+):
+    """Get full chapter hierarchy for a manual"""
+    # Verify manual exists
+    manual = db.query(QcManual).filter(QcManual.id == manual_id).first()
+    if not manual:
+        raise HTTPException(status_code=404, detail="Manual no encontrado")
+    
+    chapters = qc_manual_chapter_service.get_chapter_tree(db, manual_id)
+    return {
+        "manual_id": manual_id,
+        "chapters": chapters
+    }

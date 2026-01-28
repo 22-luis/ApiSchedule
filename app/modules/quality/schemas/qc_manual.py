@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ConfigDict
-from typing import Any
+from typing import Any, List
 
 class QcManualBase(BaseModel):
     name: str | None = None
@@ -44,3 +44,17 @@ class HierarchyOut(BaseModel):
     manual_id: int
     name: str | None = None
     hierarchy: list[ChapterNode]
+
+
+# Import for new relational structure
+from app.modules.quality.schemas.qc_manual_chapter import QcManualChapterOut
+
+
+class QcManualWithChaptersOut(QcManualBase):
+    """Schema for manual output with nested chapters from relational structure"""
+    id: int
+    version: int
+    chapters: List[QcManualChapterOut] = []
+    
+    model_config = ConfigDict(from_attributes=True)
+

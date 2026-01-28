@@ -6,7 +6,8 @@ from sqlalchemy.orm import Session
 from app.shared.db.session import get_db
 from app.shared.utils.core.dependencies import get_current_user
 from app.modules.quality.models.test_record import TestRecord as Test
-from app.modules.quality.schemas.test_record import TestCreate, TestUpdate, TestOut
+from app.modules.quality.schemas.test_record import TestCreate, TestUpdate, TestOut, TestSessionCreate, TestSessionOut
+from app.modules.quality.models.test_results import TestResults
 from app.modules.core.models.role import UserRole
 from app.modules.quality.models.test_status import TestStatus
 from sqlalchemy.exc import IntegrityError
@@ -83,11 +84,11 @@ def update_session_status(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    test_record = db.query(Test).filter(Test.id == test_id).first()
+    test_record = db.query(Test).filter(Test.id == session_id).first()
     if not test_record:
         raise HTTPException(status_code=404, detail="Registro de calidad no encontrado")
     try:
-        update_data = test_data.model_dump(exclude_unset=True)
+        update_data = status_update.model_dump(exclude_unset=True)
         
         # Security Check: Only QC_COORDINATOR can accept/approve
         if "status" in update_data and update_data["status"] == TestStatus.accepted:

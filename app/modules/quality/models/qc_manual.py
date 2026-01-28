@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 import pytz
 from sqlalchemy import Integer, JSON, DateTime, String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.shared.db.database import Base
 
 def get_time():
@@ -17,3 +17,7 @@ class QcManual(Base):
     content: Mapped[dict] = mapped_column(JSON, nullable=False)
     createdAt: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=get_time, nullable=False)
     created_by: Mapped[str] = mapped_column(String, nullable=False)
+    
+    # Relationships
+    chapters: Mapped[list["QcManualChapter"]] = relationship("QcManualChapter", back_populates="manual", cascade="all, delete-orphan")
+
