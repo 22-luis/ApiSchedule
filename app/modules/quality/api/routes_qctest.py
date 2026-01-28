@@ -6,10 +6,11 @@ from sqlalchemy.orm import Session
 from app.shared.db.session import get_db
 from app.shared.utils.core.dependencies import get_current_user
 from app.modules.quality.models.test_record import TestRecord as Test
-from app.modules.quality.models.test_results import TestResults
+from app.modules.quality.schemas.test_record import TestCreate, TestUpdate, TestOut
+from app.modules.core.models.role import UserRole
 from app.modules.quality.models.test_status import TestStatus
-from app.modules.quality.schemas.test_record import TestSessionCreate, TestSessionOut, TestUpdate
 from sqlalchemy.exc import IntegrityError
+from datetime import datetime
 
 router = APIRouter(prefix="/qctest", tags=["qctest"])
 
@@ -82,22 +83,35 @@ def update_session_status(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    session = db.query(Test).filter(Test.id == session_id).first()
-    if not session:
-        raise HTTPException(status_code=404, detail="Quality session not found")
-    
-    if status_update.status:
-        session.status = status_update.status
-        if status_update.status == TestStatus.accepted:
-            session.approved_by = current_user.username if hasattr(current_user, 'username') else str(current_user.id)
-            session.approved_at = datetime.now()
-    
-    if status_update.comment:
-        session.comment = status_update.comment
+    test_record = db.query(Test).filter(Test.id == test_id).first()
+    if not test_record:
+        raise HTTPException(status_code=404, detail="Registro de calidad no encontrado")
+    try:
+        update_data = test_data.model_dump(exclude_unset=True)
         
-    db.commit()
-    db.refresh(session)
-    return session
+        # Security Check: Only QC_COORDINATOR can accept/approve
+        if "status" in update_data and update_data["status"] == TestStatus.accepted:
+             if _current_user.role != UserRole.QC_COORDINATOR:
+                 raise HTTPException(status_code=403, detail="Only QC Coordinators can approve tests.")
+             
+             # Auto-set approval fields
+             test_record.approved_by = _current_user.username
+             test_record.approved_at = datetime.now()
+
+        for key, value in update_data.items():
+            setattr(test_record, key, value)
+        db.commit()
+        db.refresh(test_record)
+        return test_record
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Error de integridad al actualizar el registro de calidad."
+        )
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))    
 
 @router.get("/{lote}", response_model=TestSessionOut)
 def get_test_record_by_lote(

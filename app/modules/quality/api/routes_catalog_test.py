@@ -4,6 +4,9 @@ from fastapi import APIRouter, HTTPException
 from fastapi.params import Depends
 from sqlalchemy.orm import Session
 
+from app.modules.quality.models.qc_manual import QcManual
+from app.modules.quality.services.find_chapters import find_chapters
+
 from app.modules.quality.models.catalog_test import CatalogTest
 from app.modules.quality.models.catalog_test_question import CatalogTestQuestion
 from app.modules.quality.schemas.catalog_test import CatalogTestCreate, CatalogTestOut, CatalogTestUpdate
@@ -33,6 +36,17 @@ def create(
             chapter=test_data.chapter,
             status=test_data.status
         )
+
+        # Validate chapter exists in current Manual
+        latest_manual = db.query(QcManual).order_by(QcManual.id.desc()).first()
+        if not latest_manual:
+             raise HTTPException(status_code=400, detail="No QC Manual found. Cannot create test without a manual.")
+        
+        valid_chapters = find_chapters(latest_manual.content)
+        # Normalize for comparison? strict comparison for now as per requirement for reliability
+        if test_data.chapter not in valid_chapters:
+             raise HTTPException(status_code=400, detail=f"Chapter '{test_data.chapter}' not found in current Manual. Available: {valid_chapters}")
+
         db.add(new_test)
         db.flush() # Get ID for questions
         
@@ -68,10 +82,15 @@ def update_catalog_test(test_id: UUID, test_data: CatalogTestUpdate, db: Session
 
     update_data = test_data.model_dump(exclude_unset=True)
     
-    # Extract questions if present
-    questions_data = update_data.pop("questions", None)
+    # If chapter is being updated, validate it
+    if "chapter" in update_data:
+         latest_manual = db.query(QcManual).order_by(QcManual.id.desc()).first()
+         if not latest_manual:
+             raise HTTPException(status_code=400, detail="No QC Manual found.")
+         valid_chapters = find_chapters(latest_manual.content)
+         if update_data["chapter"] not in valid_chapters:
+             raise HTTPException(status_code=400, detail=f"Chapter '{update_data['chapter']}' not found in current Manual.")
 
-    # Update basic fields
     for key, value in update_data.items():
         setattr(db_test, key, value)
 
