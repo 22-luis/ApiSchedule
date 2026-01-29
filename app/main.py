@@ -25,6 +25,7 @@ from app.modules.programming.api.routes_order import router as order_router
 from app.modules.programming.api.routes_programming import router as programming_router
 from app.modules.programming.api.routes_task import router as task_router
 from app.modules.programming.api.routes_task_status_log import router as task_status_log_router
+from app.modules.programming.api.routes_surplus import router as surplus_router
 from app.modules.quality.api.routes_manual import router as manual_router
 from app.modules.quality.api.routes_qctest import router as qc_router
 from app.modules.quality.api.routes_test_question import router as test_question_router
@@ -169,5 +170,6 @@ api_router.include_router(manual_router, tags=["manual"])
 api_router.include_router(qc_router, tags=["qctest"])
 api_router.include_router(test_question_router, tags=["test-questions"])
 api_router.include_router(warehouse_history_router, tags=["warehouse"])
+api_router.include_router(surplus_router, tags=["surplus"])
 
 app.include_router(api_router)

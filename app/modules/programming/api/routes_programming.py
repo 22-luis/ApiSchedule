@@ -746,7 +746,7 @@ def add_task_comment(programming_id: str, task_id: str, data: ProgrammingTaskRep
     if not programming:
         raise HTTPException(status_code=404, detail="Programming not found")
 
-    privileged_roles = (UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.TIMEKEEPER, UserRole.QC_ENGINEER, UserRole.QC_TECHNICIAN)
+    privileged_roles = (UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.TIMEKEEPER)
     if current_user.role not in privileged_roles and not user_belongs_to_team(current_user, programming.team_id):
         raise HTTPException(status_code=403, detail="Not authorized to comment on this task")
     
