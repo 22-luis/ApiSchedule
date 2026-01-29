@@ -380,6 +380,66 @@ def get_section(
     
     raise HTTPException(status_code=404, detail=f"Sección '{section_name}' no encontrada.")
 
+@router.get("/{manual_id}/full-content", response_model=SectionOut)
+def get_full_manual_content(
+    manual_id: int,
+    db: Session = Depends(get_db),
+    _current_user = Depends(get_current_user)
+):
+    """
+    Returns the aggregated content of ALL chapters for the latest revision 
+    of the specified QualityManual (by ID).
+    """
+    # 1. Find latest audit for this Quality Manual ID
+    latest_audit = db.query(QcManual).filter(QcManual.quality_manual_id == manual_id).order_by(QcManual.id.desc()).first()
+    
+    if not latest_audit:
+        raise HTTPException(status_code=404, detail="Manual no encontrado")
+        
+    qm = db.query(QualityManual).filter(QualityManual.id == manual_id).first()
+    manual_name = qm.name if qm else "Instructivo Completo"
+
+    # 2. Helper to recursively build content
+    def get_all_content_recursive(parent_id=None, level=1):
+        # Fetch chapters at this level
+        if parent_id is None:
+             chapters = db.query(QcManualChapter).filter(
+                 QcManualChapter.manual_id == latest_audit.id,
+                 QcManualChapter.parent_chapter_id.is_(None)
+             ).order_by(QcManualChapter.order).all()
+        else:
+             chapters = db.query(QcManualChapter).filter(
+                 QcManualChapter.manual_id == latest_audit.id,
+                 QcManualChapter.parent_chapter_id == parent_id
+             ).order_by(QcManualChapter.order).all()
+             
+        parts = []
+        for ch in chapters:
+            # Skip tests in the full manual view usually, but user might want them? 
+            # Request says "contenido de todos los capitulos associated al instructivo".
+            # Let's include everything formatted nicely.
+            
+            # Determine Heading Level
+            # Root = H1 (but inside manual usually H1 is title). Let's use H(level)
+            tag = f"h{min(level, 6)}"
+            parts.append(f"<{tag}>{ch.title}</{tag}>")
+            
+            if ch.content:
+                parts.append(ch.content)
+            
+            # Recurse
+            parts.extend(get_all_content_recursive(ch.id, level + 1))
+            
+        return parts
+
+    # 3. Build Content
+    full_content_parts = get_all_content_recursive(None, 1)
+    
+    return {
+        "section_name": manual_name,
+        "content": "\n<hr/>\n".join(full_content_parts) # Separate major blocks with spacing/lines if needed, or just standard flow
+    }
+
 @router.get("/latest", 
              response_model=QcManualOut, 
              dependencies=[Depends(require_roles(UserRole.ADMIN, UserRole.QC_COORDINATOR, UserRole.QC_ASSISTANT))])
