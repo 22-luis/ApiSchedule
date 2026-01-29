@@ -9,6 +9,7 @@ class CatalogTestQuestionBase(BaseModel):
     question: str
     specification: str | None
     type: QuestionType
+    chapter_id: UUID | None = None
 
 class CatalogTestQuestionCreate(CatalogTestQuestionBase):
     pass

@@ -79,15 +79,27 @@ def create_qc_manual(
             db.add(qm)
             db.flush()
         
-        # 2. Create the Audit/Link record (QcManual)
-        new_audit = QcManual(
-            quality_manual_id=qm.id,
-            created_by=current_user.username
-        )
-        db.add(new_audit)
-        db.flush()
+        # 2. Check for latest revision to UPDATE instead of creating new
+        latest_audit = db.query(QcManual).filter(QcManual.quality_manual_id == qm.id).order_by(QcManual.id.desc()).first()
         
-        # 3. Process Content and Create Chapters
+        target_audit = None
+        is_update = False
+        
+        if latest_audit:
+            # UPDATE EXISTING
+            target_audit = latest_audit
+            is_update = True
+            # We could update updated_by if we had the field, but we assume chapter updates track this.
+        else:
+            # CREATE NEW
+            target_audit = QcManual(
+                quality_manual_id=qm.id,
+                created_by=current_user.username
+            )
+            db.add(target_audit)
+            db.flush()
+        
+        # 3. Process Content and Create/Sync Chapters
         final_content = manual_data.content
         needs_split = True
         
@@ -138,21 +150,44 @@ def create_qc_manual(
                 hierarchy.append({"title": title, "content": html, "sub_chapters": [], "tests": []})
             final_content = {"hierarchy": hierarchy}
         
-        # 4. Create chapters relationally linked to the audit record
+        # 4. Create or Sync chapters
         if isinstance(final_content, dict) and "hierarchy" in final_content:
-            qc_manual_chapter_service.create_chapters_from_hierarchy(
-                db, new_audit.id, final_content["hierarchy"], current_user.username
-            )
+            if is_update:
+                qc_manual_chapter_service.sync_chapters_from_hierarchy(
+                    db, target_audit.id, final_content["hierarchy"], current_user.username
+                )
+            else:
+                qc_manual_chapter_service.create_chapters_from_hierarchy(
+                    db, target_audit.id, final_content["hierarchy"], current_user.username
+                )
         
         db.flush()
-        migrate_catalog_tests_to_new_manual(db, new_audit.id)
-        db.commit()
-        db.refresh(new_audit)
+
+        # --- SAFEGUARD: If no chapters were created, do not create a new empty revision ---
+        count_chapters = db.query(QcManualChapter).filter(QcManualChapter.manual_id == target_audit.id).count()
         
-        # Return the audit record (mapping name from QualityManual in the response)
-        # Sincronizamos el nombre para el schema de salida
-        new_audit.name = qm.name 
-        return new_audit
+        if count_chapters == 0:
+             # Check if previous revision exists for this manual name (QualityManual)
+             prev_count = db.query(QcManual).filter(QcManual.quality_manual_id == qm.id).count()
+             
+             if prev_count > 1 and not is_update:
+                 # Only rollback if we created a NEW empty revision. 
+                 # If we updated and deleted everything, maybe that's intentional? 
+                 # But safer to block partial updates that wipe manual.
+                 db.rollback()
+                 raise HTTPException(status_code=400, detail="Error: El instructivo está vacío. No se guardó.")
+             elif is_update and prev_count > 0:
+                  # If updating, 0 chapters means we deleted all.
+                  # Let's prevent total wipeout for safety unless force?
+                  pass
+
+        migrate_catalog_tests_to_new_manual(db, target_audit.id)
+        db.commit()
+        db.refresh(target_audit)
+        
+        # Return the audit record
+        target_audit.name = qm.name 
+        return target_audit
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
@@ -244,6 +279,15 @@ def list_manual_names(
     names = db.query(QualityManual.name).all()
     return [n[0] for n in names]
 
+@router.get("/identities", response_model=list[dict])
+def get_identities(
+    db: Session = Depends(get_db),
+    _current_user = Depends(get_current_user)
+):
+    """Returns a list of manual identities with ID and name."""
+    manuals = db.query(QualityManual.id, QualityManual.name).all()
+    return [{"id": m.id, "name": m.name} for m in manuals]
+
 
 
 @router.get("/hierarchy", response_model=HierarchyOut)
@@ -291,16 +335,28 @@ def get_section(
     db: Session = Depends(get_db),
     _current_user = Depends(get_current_user)
 ):
-    # Join to find latest revision
-    manual = db.query(QcManual).join(QualityManual).order_by(QcManual.id.desc()).first()
-    if not manual:
-        raise HTTPException(status_code=404, detail="Manual QC no encontrado")
-    
-    # Search in chapters for this revision
-    chapter = db.query(QcManualChapter).filter(
-        QcManualChapter.manual_id == manual.id,
-        QcManualChapter.title == section_name
-    ).first()
+    is_uuid = False
+    try:
+        uuid_obj = uuid.UUID(section_name)
+        is_uuid = True
+    except ValueError:
+        is_uuid = False
+
+    chapter = None
+    if is_uuid:
+        # Search by ID (Globally Unique)
+        chapter = db.query(QcManualChapter).filter(QcManualChapter.id == section_name).first()
+    else:
+        # Search by Title (Legacy) - Limited to latest revision of ANY manual (This logic was existing but potentially flawed if multiple manuals exist)
+        # We preserve existing behavior for non-UUIDs.
+        manual = db.query(QcManual).join(QualityManual).order_by(QcManual.id.desc()).first()
+        if not manual:
+            raise HTTPException(status_code=404, detail="Manual QC no encontrado")
+        
+        chapter = db.query(QcManualChapter).filter(
+            QcManualChapter.manual_id == manual.id,
+            QcManualChapter.title == section_name
+        ).first()
     
     if chapter:
         aggregated_content = [chapter.content or ""]

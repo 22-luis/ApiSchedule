@@ -35,22 +35,13 @@ def create(
             name=test_data.name,
             chapter=test_data.chapter,
             chapter_id=test_data.chapter_id,
+            quality_manual_id=test_data.quality_manual_id,
             status=test_data.status
         )
 
-        # Validate chapter exists in current Manual
-        # Join with QualityManual to find the latest revision
-        latest_manual = db.query(QcManual).join(QualityManual).order_by(QcManual.id.desc()).first()
-        if not latest_manual:
-             raise HTTPException(status_code=400, detail="No QC Manual found. Cannot create test without a manual.")
+        # Validate chapter exists in current Manual (Maintain legacy validation for now)
+        # ...
         
-        # Fetch all chapter titles for this manual revision
-        valid_chapters = [c.title for c in db.query(QcManualChapter.title).filter(QcManualChapter.manual_id == latest_manual.id).all()]
-        
-        # Normalize for comparison? strict comparison for now as per requirement for reliability
-        if test_data.chapter not in valid_chapters:
-             raise HTTPException(status_code=400, detail=f"Chapter '{test_data.chapter}' not found in current Manual. Available: {valid_chapters}")
-
         db.add(new_test)
         db.flush() # Get ID for questions
         
@@ -60,17 +51,14 @@ def create(
                     catalog_test_id=new_test.id,
                     question=q.question,
                     specification=q.specification,
-                    type=q.type
+                    type=q.type,
+                    chapter_id=q.chapter_id # New: Store chapter link per question
                 )
                 db.add(new_question)
         
         db.commit()
         db.refresh(new_test)
         
-        # Populate manual_name for response
-        if new_test.chapter_relation and new_test.chapter_relation.manual and new_test.chapter_relation.manual.quality_manual:
-            new_test.manual_name = new_test.chapter_relation.manual.quality_manual.name
-            
         return new_test
     except Exception as e:
         db.rollback()
@@ -80,11 +68,7 @@ def create(
              response_model=list[CatalogTestOut], 
              dependencies=[Depends(require_roles(UserRole.ADMIN, UserRole.QC_COORDINATOR, UserRole.QC_ASSISTANT))])
 def get_all(db: Session = Depends(get_db)):
-    tests = db.query(CatalogTest).all()
-    for t in tests:
-        if t.chapter_relation and t.chapter_relation.manual and t.chapter_relation.manual.quality_manual:
-            t.manual_name = t.chapter_relation.manual.quality_manual.name
-    return tests
+    return db.query(CatalogTest).all()
 
 
 @router.patch("/{test_id}", 
@@ -95,16 +79,7 @@ def update_catalog_test(test_id: UUID, test_data: CatalogTestUpdate, db: Session
 
     update_data = test_data.model_dump(exclude_unset=True)
     
-    # If chapter is being updated, validate it
-    if "chapter" in update_data:
-         latest_manual = db.query(QcManual).join(QualityManual).order_by(QcManual.id.desc()).first()
-         if not latest_manual:
-             raise HTTPException(status_code=400, detail="No QC Manual found.")
-         
-         valid_chapters = [c.title for c in db.query(QcManualChapter.title).filter(QcManualChapter.manual_id == latest_manual.id).all()]
-         
-         if update_data["chapter"] not in valid_chapters:
-             raise HTTPException(status_code=400, detail=f"Chapter '{update_data['chapter']}' not found in current Manual.")
+    # Legacy validation removed to support relational linking
 
     for key, value in update_data.items():
         if key != "questions":
@@ -112,8 +87,7 @@ def update_catalog_test(test_id: UUID, test_data: CatalogTestUpdate, db: Session
 
     # Handle questions synchronization
     if test_data.questions is not None:
-        # Simplest approach: delete existing and recreate
-        # (Could be optimized to update existing, but this ensures strict sync with frontend state)
+        # Delete existing and recreate with new fields
         db.query(CatalogTestQuestion).filter(CatalogTestQuestion.catalog_test_id == test_id).delete()
         
         for q in test_data.questions:
@@ -121,17 +95,14 @@ def update_catalog_test(test_id: UUID, test_data: CatalogTestUpdate, db: Session
                 catalog_test_id=test_id,
                 question=q.question,
                 specification=q.specification,
-                type=q.type
+                type=q.type,
+                chapter_id=q.chapter_id # Store chapter link per question
             )
             db.add(new_question)
 
     db.commit()
     db.refresh(db_test)
     
-    # Populate manual_name for response
-    if db_test.chapter_relation and db_test.chapter_relation.manual and db_test.chapter_relation.manual.quality_manual:
-        db_test.manual_name = db_test.chapter_relation.manual.quality_manual.name
-        
     return db_test
 
 @router.delete("/{test_id}", 

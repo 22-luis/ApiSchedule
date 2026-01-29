@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import List, Optional
 from sqlalchemy import Integer, String, Text, DateTime, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from app.shared.db.database import Base
 from app.modules.quality.models.qc_manual import get_time
 
@@ -21,7 +21,7 @@ class QcManualChapter(Base):
     )
     
     title: Mapped[str] = mapped_column(String, nullable=False)
-    content: Mapped[str | None] = mapped_column(Text, nullable=True)  # HTML content
+    content: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # HTML content
     chapter_type: Mapped[str] = mapped_column(String, nullable=False)  # 'chapter', 'sub_chapter', 'test'
     order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # Display order within parent
     

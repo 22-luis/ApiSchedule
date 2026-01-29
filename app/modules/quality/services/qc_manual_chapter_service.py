@@ -175,3 +175,107 @@ def create_chapters_from_hierarchy(
             created_chapters.append(test_chapter)
     
     return created_chapters
+
+def sync_chapters_from_hierarchy(
+    db: Session,
+    manual_id: int,
+    hierarchy: List[dict],
+    user: str
+):
+    """
+    Synchronize the database chapters with the incoming hierarchy.
+    - Update existing chapters if ID matches.
+    - Create new chapters if ID is new/missing.
+    - Delete chapters that are no longer in the hierarchy.
+    """
+    # 1. Get all existing chapters to track deletions
+    existing_chapters = db.query(QcManualChapter).filter(QcManualChapter.manual_id == manual_id).all()
+    existing_map = {str(ch.id): ch for ch in existing_chapters}
+    processed_ids = set()
+
+    def process_node(nodes, parent_id=None, base_order=0):
+        for idx, node_data in enumerate(nodes):
+            node_id = str(node_data.get('id', ''))
+            
+            # Check if it's a valid UUID and exists
+            chapter = None
+            if node_id in existing_map:
+                chapter = existing_map[node_id]
+            
+            if chapter:
+                # UPDATE
+                chapter.title = node_data.get('title', chapter.title)
+                chapter.content = node_data.get('content', chapter.content)
+                chapter.order = base_order + idx
+                chapter.parent_chapter_id = parent_id
+                # Only update type if it's not a test (tests are handled separately below usually, but check structure)
+                # The hierarchy passed often has 'sub_chapters' and 'tests'.
+                # A node in 'sub_chapters' is chapter/sub_chapter.
+                chapter.chapter_type = 'chapter' if parent_id is None else 'sub_chapter'
+                chapter.updated_by = user
+                processed_ids.add(str(chapter.id))
+            else:
+                # CREATE
+                # Note: node_id might be a temporary ID from frontend (e.g. "h1-0-title"). 
+                # We ignore it and let DB generate new UUID.
+                chapter = QcManualChapter(
+                    manual_id=manual_id,
+                    parent_chapter_id=parent_id,
+                    title=node_data.get('title', ''),
+                    content=node_data.get('content', ''),
+                    chapter_type='chapter' if parent_id is None else 'sub_chapter',
+                    order=base_order + idx,
+                    created_by=user
+                )
+                db.add(chapter)
+                db.flush() # Get ID
+                processed_ids.add(str(chapter.id))
+            
+            # Recurse for sub-chapters
+            if 'sub_chapters' in node_data and node_data['sub_chapters']:
+                 process_node(node_data['sub_chapters'], chapter.id, 0)
+            
+            # Handle tests (as special chapters)
+            # hierarchy structure usually separates 'tests' list
+            if 'tests' in node_data and node_data['tests']:
+                 for t_idx, t_node in enumerate(node_data['tests']):
+                      t_id = str(t_node.get('id', ''))
+                      t_chapter = None
+                      if t_id in existing_map:
+                           t_chapter = existing_map[t_id]
+                      
+                      if t_chapter:
+                           # Update Test
+                           t_chapter.title = t_node.get('title', t_chapter.title)
+                           t_chapter.content = t_node.get('content', t_chapter.content)
+                           t_chapter.order = t_idx
+                           t_chapter.parent_chapter_id = chapter.id
+                           t_chapter.chapter_type = 'test'
+                           t_chapter.updated_by = user
+                           processed_ids.add(str(t_chapter.id))
+                      else:
+                           # Create Test
+                           t_chapter = QcManualChapter(
+                                manual_id=manual_id,
+                                parent_chapter_id=chapter.id,
+                                title=t_node.get('title', ''),
+                                content=t_node.get('content', ''),
+                                chapter_type='test',
+                                order=t_idx,
+                                created_by=user
+                           )
+                           db.add(t_chapter)
+                           db.flush()
+                           processed_ids.add(str(t_chapter.id))
+
+    process_node(hierarchy, None, 0)
+
+    # Delete unprocessed chapters
+    # Note: We need to be careful about cascade delete. 
+    # If we delete a parent, children are deleted. 
+    # But strictly speaking, if a child was processed, it shouldn't be deleted.
+    # However, if a child was moved to a new parent, it would be processed (updated).
+    # So unprocessed IDs are genuinely removed.
+    for ch_id, ch in existing_map.items():
+        if ch_id not in processed_ids:
+            db.delete(ch)

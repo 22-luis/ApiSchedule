@@ -1,13 +1,13 @@
 import uuid
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, Any
 from pydantic import BaseModel, Field
 
 
 class QcManualChapterBase(BaseModel):
     """Base schema for QcManualChapter"""
     title: str = Field(..., description="Chapter title")
-    content: Optional[str] = Field(None, description="HTML content of the chapter")
+    content: Optional[Any] = Field(None, description="HTML content or JSON structure of the chapter")
     chapter_type: str = Field(..., description="Type: 'chapter', 'sub_chapter', or 'test'")
     order: int = Field(0, description="Display order within parent")
 
@@ -20,7 +20,7 @@ class QcManualChapterCreate(QcManualChapterBase):
 class QcManualChapterUpdate(BaseModel):
     """Schema for updating a chapter"""
     title: Optional[str] = None
-    content: Optional[str] = None
+    content: Optional[Any] = None
     chapter_type: Optional[str] = None
     order: Optional[int] = None
     parent_chapter_id: Optional[uuid.UUID] = None

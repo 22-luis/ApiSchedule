@@ -104,10 +104,6 @@ def enrich_tests_with_manual_content(db: Session, tests: List[CatalogTest]) -> L
 
         result = []
         for t in tests:
-            # Populate manual_name for response
-            if t.chapter_relation and t.chapter_relation.manual and t.chapter_relation.manual.quality_manual:
-                t.manual_name = t.chapter_relation.manual.quality_manual.name
-            
             test_data = CatalogTestOut.model_validate(t).model_dump()
             result.append(test_data)
         

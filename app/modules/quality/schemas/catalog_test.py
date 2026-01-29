@@ -8,12 +8,14 @@ class CatalogTestBase(BaseModel):
     name: str
     chapter: str
     chapter_id: UUID | None = None
+    quality_manual_id: int | None = None
     status: bool
 
 class CatalogTestQuestionNested(BaseModel):
     question: str
     specification: str | None = None
     type: QuestionType
+    chapter_id: UUID | None = None
 
 class CatalogTestCreate(CatalogTestBase):
     questions: list[CatalogTestQuestionNested] | None = None
@@ -22,6 +24,7 @@ class CatalogTestUpdate(BaseModel):
     name: str | None = None
     chapter: str | None = None
     chapter_id: UUID | None = None
+    quality_manual_id: int | None = None
     status: bool | None = None
     questions: list[CatalogTestQuestionNested] | None = None
 
