@@ -41,6 +41,7 @@ from app.modules.reports.models.historico_comparacion_fechas import HistoricoCom
 from app.modules.timer.models.stopwatch import Stopwatch
 from app.modules.timer.models.record_stopwatch import RecordStopwatch
 from app.modules.warehouse.models.history import WarehouseHistory
+from app.modules.available.models.availableModel import Available
 
 target_metadata = Base.metadata
 
