@@ -54,6 +54,7 @@ Gestión del manual instructivo de control de calidad.
 |--------|----------|-------------|-----------------|
 | `POST` | `/manual` | Crear/Actualizar | `manual-service.ts`: Sube contenido HTML para generar el manual. |
 | `GET` | `/manual/latest` | Obtener último | `manual-service.ts`: Descarga la versión más reciente del manual completo. |
+| `GET` | `/manual/chapters` | Listar capítulos | `manual-service.ts`: Obtiene la lista de capítulos y secciones disponibles. |
 | `GET` | `/manual/section/{name}` | Obtener sección | `manual-service.ts`: Recupera una sección específica por su nombre. |
 
 ---

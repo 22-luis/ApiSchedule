@@ -155,7 +155,7 @@ def get_programming_summary(team_id: str, date: str, db: Session = Depends(get_d
                         continue
                 if lote_ints:
                     tests = db.query(Test).filter(Test.lote.in_(lote_ints)).all()
-                    quality_map = {str(test.lote): test.status.value if hasattr(test.status, 'value') else str(test.status) for test in tests}
+                    quality_map = {(test.lote, test.code_id): test.status.value if hasattr(test.status, 'value') else str(test.status) for test in tests}
             except Exception as qe:
                 print(f"DEBUG: Error fetching quality status for summary: {qe}")
 
@@ -172,11 +172,23 @@ def get_programming_summary(team_id: str, date: str, db: Session = Depends(get_d
             if not code_str:
                 continue
             
+            # Determine quality status
+            q_status = None
+            if task_obj.code_id:
+                # Try specific match (Lote, CodeID)
+                q_status = quality_map.get((task_obj.lote, task_obj.code_id))
+                # Fallback to (Lote, None) if not found (legacy/shared record)
+                if q_status is None:
+                    q_status = quality_map.get((task_obj.lote, None))
+            else:
+                # If task has no code_id, try fallback match
+                q_status = quality_map.get((task_obj.lote, None))
+
             tasks.append({
                 "lote": task_obj.lote,
                 "code": code_str,
                 "description": task_obj.description or (task_obj.code.description if task_obj.code else None),
-                "quality_status": quality_map.get(str(task_obj.lote))
+                "quality_status": q_status
             })
 
         return {

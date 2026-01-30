@@ -127,6 +127,10 @@ app/
 │   │   ├── api/          # Endpoints de códigos
 │   │   └── models/       # Code, CatalogTest
 │   │
+│   ├── warehouse/         # Inventario y trazabilidad
+│   │   ├── api/          # Endpoints de historial
+│   │   └── models/       # WarehouseHistory
+│   │
 │   └── monitoring/        # Monitoreo y health
 │       ├── api/          # Endpoints de estado
 │       └── services/     # Servicios de monitoreo
@@ -309,6 +313,8 @@ GET    /api/v1/reports/efficiency      # Reporte de eficiencia
 ### Calidad y Manuales
 ```http
 POST   /api/v1/manual         # Crear manual (HTML)
+GET    /api/v1/manual/latest  # Obtener manual más reciente
+GET    /api/v1/manual/chapters # Listar capítulos/secciones
 GET    /api/v1/manual/section/{name} # Obtener sección específica
 GET    /api/v1/qctest/{lote}  # Ver tests de un lote
 POST   /api/v1/qctest         # Registrar resultado de test
@@ -320,6 +326,8 @@ GET    /api/v1/codes          # Listar códigos (paginado)
 POST   /api/v1/codes/bulk_upload # Carga masiva
 GET    /api/v1/codes/by_code_and_activity # Búsqueda específica
 GET    /api/v1/available      # Listar items disponibles
+GET    /api/v1/warehouse/history # Historial de inventario
+GET    /api/v1/notifications/task-creation/recent # Notificaciones recientes
 ```
 
 ## 🔐 Autenticación
