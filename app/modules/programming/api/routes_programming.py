@@ -174,15 +174,23 @@ def get_programming_summary(team_id: str, date: str, db: Session = Depends(get_d
             
             # Determine quality status
             q_status = None
-            if task_obj.code_id:
-                # Try specific match (Lote, CodeID)
-                q_status = quality_map.get((task_obj.lote, task_obj.code_id))
-                # Fallback to (Lote, None) if not found (legacy/shared record)
-                if q_status is None:
-                    q_status = quality_map.get((task_obj.lote, None))
-            else:
-                # If task has no code_id, try fallback match
-                q_status = quality_map.get((task_obj.lote, None))
+            try:
+                # Convert lote string to int for matching with TestRecord.lote
+                lote_int = int(task_obj.lote) if task_obj.lote else None
+                
+                if lote_int is not None:
+                    if task_obj.code_id:
+                        # Try specific match (Lote, CodeID)
+                        q_status = quality_map.get((lote_int, task_obj.code_id))
+                        # Fallback to (Lote, None) if not found
+                        if q_status is None:
+                            q_status = quality_map.get((lote_int, None))
+                    else:
+                        # Fallback match
+                        q_status = quality_map.get((lote_int, None))
+            except (ValueError, TypeError):
+                # If lote is not numeric, it won't have a TestRecord anyway
+                pass
 
             tasks.append({
                 "lote": task_obj.lote,

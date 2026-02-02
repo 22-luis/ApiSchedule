@@ -11,10 +11,6 @@ from app.modules.quality.schemas.code_test import CodeTestLink, CodeTestOut
 from app.modules.quality.schemas.catalog_test import CatalogTestOut
 from app.modules.core.models.role import UserRole
 from app.shared.utils.core.dependencies import require_roles
-from app.modules.quality.models.qc_manual import QcManual
-import unicodedata
-import re
-
 import logging
 
 logger = logging.getLogger(__name__)
@@ -85,26 +81,17 @@ def get_tests_for_code(code_id: UUID, db: Session = Depends(get_db)):
     # Enrich with manual content if applicable
     return enrich_tests_with_manual_content(db, tests)
 
-def slugify(text: str) -> str:
-    if not text: return ""
-    text = unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode('ascii')
-    text = re.sub(r'[^\w\s-]', '', text).strip().lower()
-    return re.sub(r'[-\s]+', '-', text)
-
 def enrich_tests_with_manual_content(db: Session, tests: List[CatalogTest]) -> List[dict]:
     try:
-        # Obtener el último manual
-        manual = db.query(QcManual).order_by(QcManual.id.desc()).first()
-        if not manual or not manual.content:
-            return [CatalogTestOut.model_validate(t, from_attributes=True).model_dump() for t in tests]
-
-        content_dict = manual.content
-        # Pre-calcular slugs del manual para eficiencia
-        slug_map = {slugify(k): v for k, v in content_dict.items()}
-
         result = []
         for t in tests:
-            test_data = CatalogTestOut.model_validate(t).model_dump()
+            # Validate and convert to dict
+            test_data = CatalogTestOut.model_validate(t, from_attributes=True).model_dump()
+            
+            # Enrich with content from linked chapter if available
+            if t.chapter_relation and t.chapter_relation.content:
+                test_data['instructions'] = t.chapter_relation.content
+                
             result.append(test_data)
         
         return result

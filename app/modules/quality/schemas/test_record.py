@@ -6,6 +6,12 @@ from app.modules.quality.models.test_status import TestStatus
 from typing import List
 from app.modules.quality.schemas.test_results import TestResultsOut, TestResultsCreate
 
+class UserReportOut(BaseModel):
+    username: str
+    full_name: str | None = None
+    cargo: str | None = None
+    signature: str | None = None
+
 class TestBase(BaseModel):
     lote: int
     code_id: UUID
@@ -15,6 +21,7 @@ class TestBase(BaseModel):
     approved_by: str | None = None
     approved_at: datetime | None = None
     comment: str | None = None
+    analysis_number: int | None = None
 
 class TestCreate(TestBase):
     pass
@@ -40,3 +47,5 @@ class TestOut(TestBase):
 
 class TestSessionOut(TestOut):
     results: List[TestResultsOut] = []
+    performer_details: UserReportOut | None = None
+    authorizer_details: UserReportOut | None = None
