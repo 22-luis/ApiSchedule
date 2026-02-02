@@ -12,6 +12,8 @@ class User(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
     username = Column(String, unique=True, index=True, nullable=False)
     password = Column(String, nullable=False)
+    full_name = Column(String, nullable=True)
+    cargo = Column(String, nullable=True)
     role = Column(Enum(UserRole, values_callable=lambda obj: [e.value for e in obj]))
     state = Column(Enum(UserState), default=UserState.ACTIVE)
     signature = Column(LargeBinary, nullable=True)

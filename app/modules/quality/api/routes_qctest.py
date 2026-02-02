@@ -11,16 +11,58 @@ from app.modules.quality.models.test_results import TestResults
 from app.modules.core.models.role import UserRole
 from app.modules.quality.models.test_status import TestStatus
 from sqlalchemy.exc import IntegrityError
-from datetime import datetime
+from sqlalchemy import func, extract
+import base64
+from app.modules.core.models.user import User as UserModel
 
 router = APIRouter(prefix="/qctest", tags=["qctest"])
+
+def get_next_analysis_number(db: Session) -> int:
+    """Gets the next sequential analysis number for the current month."""
+    now = datetime.now()
+    year = now.year
+    month = now.month
+    
+    # Get the maximum analysis_number for the current month and year
+    max_num = db.query(func.max(Test.analysis_number)).filter(
+        extract('year', Test.performed_at) == year,
+        extract('month', Test.performed_at) == month
+    ).scalar()
+    
+    if max_num is None:
+        return 1
+    return max_num + 1
 
 @router.get("/session/{lote}/{code_id}", response_model=TestSessionOut)
 def get_session(lote: int, code_id: UUID, db: Session = Depends(get_db), _current_user = Depends(get_current_user)):
     session = db.query(Test).filter(Test.lote == lote, Test.code_id == code_id).first()
     if not session:
         raise HTTPException(status_code=404, detail="Quality session not found")
+    
+    # Enrich with user details
+    enrich_session_user_details(session, db)
     return session
+
+def enrich_session_user_details(session, db: Session):
+    if session.performed_by:
+        performer = db.query(UserModel).filter(UserModel.username == session.performed_by).first()
+        if performer:
+            session.performer_details = {
+                "username": performer.username,
+                "full_name": performer.full_name,
+                "cargo": performer.cargo,
+                "signature": base64.b64encode(performer.signature).decode('utf-8') if performer.signature else None
+            }
+    
+    if session.approved_by:
+        authorizer = db.query(UserModel).filter(UserModel.username == session.approved_by).first()
+        if authorizer:
+            session.authorizer_details = {
+                "username": authorizer.username,
+                "full_name": authorizer.full_name,
+                "cargo": authorizer.cargo,
+                "signature": base64.b64encode(authorizer.signature).decode('utf-8') if authorizer.signature else None
+            }
 
 @router.post("/session", response_model=TestSessionOut)
 def save_session(
@@ -40,7 +82,8 @@ def save_session(
                 status=TestStatus.pending, # Mark as pending when first saved with results
                 performed_by=current_user.username if hasattr(current_user, 'username') else str(current_user.id),
                 performed_at=datetime.now(),
-                comment=session_data.comment
+                comment=session_data.comment,
+                analysis_number=get_next_analysis_number(db)
             )
             db.add(session)
             db.flush() # Get session ID
@@ -70,6 +113,7 @@ def save_session(
         
         db.commit()
         db.refresh(session)
+        enrich_session_user_details(session, db)
         return session
         
     except Exception as e:
@@ -90,19 +134,20 @@ def update_session_status(
     try:
         update_data = status_update.model_dump(exclude_unset=True)
         
-        # Security Check: Only QC_COORDINATOR can accept/approve
+        # Security Check: Only QC_COORDINATOR or ADMIN can accept/approve
         if "status" in update_data and update_data["status"] == TestStatus.accepted:
-             if _current_user.role != UserRole.QC_COORDINATOR:
-                 raise HTTPException(status_code=403, detail="Only QC Coordinators can approve tests.")
+             if current_user.role not in [UserRole.QC_COORDINATOR, UserRole.ADMIN]:
+                 raise HTTPException(status_code=403, detail="Only QC Coordinators or Admins can approve tests.")
              
              # Auto-set approval fields
-             test_record.approved_by = _current_user.username
+             test_record.approved_by = current_user.username
              test_record.approved_at = datetime.now()
 
         for key, value in update_data.items():
             setattr(test_record, key, value)
         db.commit()
         db.refresh(test_record)
+        enrich_session_user_details(test_record, db)
         return test_record
     except IntegrityError:
         db.rollback()
@@ -124,5 +169,6 @@ def get_test_record_by_lote(
     test_record = db.query(Test).filter(Test.lote == lote).first()
     if not test_record:
         raise HTTPException(status_code=404, detail="Registro de calidad no encontrado")
+    enrich_session_user_details(test_record, db)
     return test_record
 

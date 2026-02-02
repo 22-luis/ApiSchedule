@@ -13,6 +13,8 @@ from app.modules.core.models.state import UserState
 class UserBase(BaseModel):
     username: Optional[str] = None
     password: Optional[str] = None
+    full_name: Optional[str] = None
+    cargo: Optional[str] = None
     role: Optional[UserRole] = None
     state: Optional[UserState] = None
     teamIds: Optional[List[uuid.UUID]] = None
@@ -77,6 +79,8 @@ class UserCreate(UserBase):
 class UserOut(BaseModel):
     id: uuid.UUID = Field(..., description="ID único del usuario")
     username: str = Field(..., description="Nombre de usuario")
+    full_name: Optional[str] = Field(None, description="Nombre completo")
+    cargo: Optional[str] = Field(None, description="Cargo o puesto")
     role: UserRole = Field(..., description="Rol del usuario")
     state: UserState = Field(default=UserState.ACTIVE, description="Estado del usuario")
     teamIds: Optional[List[uuid.UUID]] = Field(default=[], description="IDs de equipos")

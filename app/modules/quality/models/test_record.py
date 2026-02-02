@@ -19,6 +19,7 @@ class TestRecord(Base):
     approved_by: Mapped[str | None] = mapped_column(String, nullable=True)
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     comment: Mapped[str | None] = mapped_column(String, nullable=True)
+    analysis_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # Relationships
     results: Mapped[List["TestResults"]] = relationship("TestResults", back_populates="test_record", cascade="all, delete-orphan")
