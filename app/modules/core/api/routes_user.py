@@ -39,7 +39,9 @@ def create_user(
         username=user.username, 
         password=hash_password(user.password),
         role=user.role,
-        document_name=getattr(user, "document_name", None)
+        full_name=user.full_name,
+        cargo=user.cargo,
+        document_name=user.document_name
     )
     db.add(db_user)
     db.commit()
@@ -72,6 +74,9 @@ def update_user(
         # Si no es admin/planner, eliminar campos restringidos del update_data
         for field in ["role", "state", "teamIds"]:
             update_data.pop(field, None)
+    
+    # Asegurar que campos de perfil siempre se permitan si vienen en el payload
+    profile_fields = ["full_name", "cargo", "document_name"]
 
     # Procesar campos especiales
     if "password" in update_data:
@@ -95,9 +100,9 @@ def update_user(
     if update_data.get("state") == UserState.INACTIVE and past_state == UserState.ACTIVE:
         target_user.teams = []
 
-    # Actualizar el resto de campos (username, role, state, signature)
-    for field, value in update_data.items():
-        setattr(target_user, field, value)
+    # Actualizar campos directamente en la base de datos para asegurar persistencia
+    if update_data:
+        db.query(User).filter(User.id == target_user.id).update(update_data)
 
     db.commit()
     db.refresh(target_user)

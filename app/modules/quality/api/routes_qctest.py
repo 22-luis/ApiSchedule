@@ -51,7 +51,9 @@ def enrich_session_user_details(session, db: Session):
                 "username": performer.username,
                 "full_name": performer.full_name,
                 "cargo": performer.cargo,
-                "signature": base64.b64encode(performer.signature).decode('utf-8') if performer.signature else None
+                "signature": base64.b64encode(performer.signature).decode('utf-8') if performer.signature else None,
+                "document_name": performer.document_name,
+                "role": performer.role.value if hasattr(performer.role, 'value') else str(performer.role)
             }
     
     if session.approved_by:
@@ -61,7 +63,9 @@ def enrich_session_user_details(session, db: Session):
                 "username": authorizer.username,
                 "full_name": authorizer.full_name,
                 "cargo": authorizer.cargo,
-                "signature": base64.b64encode(authorizer.signature).decode('utf-8') if authorizer.signature else None
+                "signature": base64.b64encode(authorizer.signature).decode('utf-8') if authorizer.signature else None,
+                "document_name": authorizer.document_name,
+                "role": authorizer.role.value if hasattr(authorizer.role, 'value') else str(authorizer.role)
             }
 
 @router.post("/session", response_model=TestSessionOut)

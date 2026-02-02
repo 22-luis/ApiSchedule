@@ -11,6 +11,8 @@ class UserReportOut(BaseModel):
     full_name: str | None = None
     cargo: str | None = None
     signature: str | None = None
+    document_name: str | None = None
+    role: str | None = None
 
 class TestBase(BaseModel):
     lote: int
