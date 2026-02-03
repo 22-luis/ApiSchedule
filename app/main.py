@@ -29,6 +29,7 @@ from app.modules.programming.api.routes_surplus import router as surplus_router
 from app.modules.quality.api.routes_manual import router as manual_router
 from app.modules.quality.api.routes_qctest import router as qc_router
 from app.modules.quality.api.routes_test_question import router as test_question_router
+from app.modules.quality.api.routes_test_record import router as test_record_router
 from app.modules.quality.api.routes_catalog_test import router as catalog_test_router
 from app.modules.reports.api.routes_report import router as report_router
 from app.modules.timer.api.routes_record_stopwatch import router as record_stopwatch_router
@@ -169,6 +170,7 @@ api_router.include_router(notification_router, tags=["notifications"])
 api_router.include_router(manual_router, tags=["manual"])
 api_router.include_router(qc_router, tags=["qctest"])
 api_router.include_router(test_question_router, tags=["test-questions"])
+api_router.include_router(test_record_router, tags=["test-record"])
 api_router.include_router(warehouse_history_router, tags=["warehouse"])
 api_router.include_router(surplus_router, tags=["surplus"])
 

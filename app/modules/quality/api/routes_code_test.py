@@ -64,6 +64,12 @@ def link_tests_to_sync(
     
     return enrich_tests_with_manual_content(db, updated_tests)
 
+from sqlalchemy.orm import Session, joinedload
+from app.modules.quality.models.qc_manual_chapter import QcManualChapter
+from app.modules.quality.models.qc_manual import QcManual
+
+# ... imports ...
+
 @router.get("/{code_id}/tests",   
              response_model=List[CatalogTestOut], 
              dependencies=[Depends(require_roles(UserRole.ADMIN, UserRole.QC_COORDINATOR, UserRole.QC_ASSISTANT))])
@@ -76,7 +82,11 @@ def get_tests_for_code(code_id: UUID, db: Session = Depends(get_db)):
     # Get all catalog tests linked to this code
     tests = db.query(CatalogTest).join(
         CodeTest, CatalogTest.id == CodeTest.catalog_test_id
-    ).filter(CodeTest.code_id == code_id).all()
+    ).filter(CodeTest.code_id == code_id).options(
+        joinedload(CatalogTest.chapter_relation).joinedload(QcManualChapter.manual).joinedload(QcManual.quality_manual),
+        joinedload(CatalogTest.quality_manual),
+        joinedload(CatalogTest.questions)
+    ).all()
     
     # Enrich with manual content if applicable
     return enrich_tests_with_manual_content(db, tests)

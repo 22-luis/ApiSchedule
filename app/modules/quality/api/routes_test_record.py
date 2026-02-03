@@ -1,7 +1,7 @@
 from uuid import UUID
 
 from fastapi.params import Depends
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.modules.core.models.role import UserRole
@@ -9,6 +9,7 @@ from app.modules.quality.models.test_record import TestRecord
 from app.modules.quality.schemas.test_record import TestOut, TestUpdate
 from app.shared.db.session import get_db
 from app.shared.utils.core.dependencies import require_roles
+from app.modules.quality.models.test_status import TestStatus
 
 router = APIRouter(prefix="/test_record", tags=["test-record"])
 
@@ -58,3 +59,23 @@ def update_test_record(test_id: UUID, test_data: TestUpdate, db: Session = Depen
 def get_test_record(test_id: UUID, db: Session = Depends(get_db)):
     test_record = db.query(TestRecord).filter(TestRecord.id == test_id).first()
     return test_record
+
+from sqlalchemy import cast, String
+
+# ... existing code ...
+
+@router.get("/", response_model=list[TestOut], status_code=200)
+def list_test_records(
+    status: list[TestStatus] | None = Query(None),
+    lote: str | None = Query(None),
+    db: Session = Depends(get_db)
+):
+    query = db.query(TestRecord)
+    
+    if status:
+        query = query.filter(TestRecord.status.in_(status))
+
+    if lote:
+        query = query.filter(cast(TestRecord.lote, String).ilike(f"%{lote}%"))
+        
+    return query.all()
