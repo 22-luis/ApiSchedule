@@ -242,32 +242,6 @@ def migrate_catalog_tests_to_new_manual(db: Session, new_manual_id: int):
                         match_found = True
                         break
 
-@router.get("/chapters", response_model=Chapters)
-def get_chapters(
-        name: str | None = None,
-        db: Session = Depends(get_db),
-        _current_user = Depends(get_current_user)
-):
-    """Get latest chapters for a manual by its master name"""
-    # Join QcManual with QualityManual to find the latest revision for this name
-    query = db.query(QcManual).join(QualityManual).filter(QualityManual.name == name) if name else db.query(QcManual).join(QualityManual)
-    
-    manual = query.order_by(QcManual.id.desc()).first()
-    if not manual:
-        raise HTTPException(status_code=404, detail="Manual no encontrado")
-
-    # Get root chapters from relational structure
-    chapter_records = db.query(QcManualChapter).filter(
-        QcManualChapter.manual_id == manual.id,
-        QcManualChapter.parent_chapter_id.is_(None)
-    ).order_by(QcManualChapter.order).all()
-    
-    chapters = [ch.title for ch in chapter_records]
-
-    return {
-        "manual_id": manual.id,
-        "chapters": chapters
-    }
 
 @router.get("/list", response_model=list[str])
 def list_manual_names(
@@ -503,49 +477,5 @@ def create_chapter(
     return chapter
 
 
-@router.patch("/chapters/{chapter_id}", response_model=QcManualChapterOut)
-def update_chapter(
-    chapter_id: uuid.UUID,
-    chapter_data: QcManualChapterUpdate,
-    db: Session = Depends(get_db),
-    current_user = Depends(require_roles(UserRole.ADMIN, UserRole.QC_COORDINATOR))
-):
-    """Update a chapter"""
-    chapter = qc_manual_chapter_service.update_chapter(
-        db, chapter_id, chapter_data, current_user.username
-    )
-    if not chapter:
-        raise HTTPException(status_code=404, detail="Chapter no encontrado")
-    return chapter
 
 
-@router.delete("/chapters/{chapter_id}", status_code=204)
-def delete_chapter(
-    chapter_id: uuid.UUID,
-    db: Session = Depends(get_db),
-    _current_user = Depends(require_roles(UserRole.ADMIN, UserRole.QC_COORDINATOR))
-):
-    """Delete a chapter and its sub-chapters"""
-    success = qc_manual_chapter_service.delete_chapter(db, chapter_id)
-    if not success:
-        raise HTTPException(status_code=404, detail="Chapter no encontrado")
-    return None
-
-
-@router.get("/{manual_id}/chapters/tree", response_model=QcManualChapterTree)
-def get_chapter_tree(
-    manual_id: int,
-    db: Session = Depends(get_db),
-    _current_user = Depends(get_current_user)
-):
-    """Get full chapter hierarchy for a manual"""
-    # Verify manual exists
-    manual = db.query(QcManual).filter(QcManual.id == manual_id).first()
-    if not manual:
-        raise HTTPException(status_code=404, detail="Manual no encontrado")
-    
-    chapters = qc_manual_chapter_service.get_chapter_tree(db, manual_id)
-    return {
-        "manual_id": manual_id,
-        "chapters": chapters
-    }

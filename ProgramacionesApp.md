@@ -2,7 +2,7 @@
 
 Este documento detalla **únicamente** los endpoints y flujos del backend que son consumidos actualmente por el proyecto `frontend/programacionesHermel`.
 
-## 🔐 Autenticación y Sesión
+## Autenticación y Sesión
 Manejado principalmente por el hook `useAuth`.
 
 | Método | Endpoint | Descripción | Uso en Frontend |
@@ -12,7 +12,7 @@ Manejado principalmente por el hook `useAuth`.
 
 ---
 
-## 📅 Programación y Dashboard
+## Programación y Dashboard
 Endpoints para visualizar y gestionar la carga de trabajo diaria.
 
 | Método | Endpoint | Descripción | Uso en Frontend |
@@ -22,7 +22,7 @@ Endpoints para visualizar y gestionar la carga de trabajo diaria.
 
 ---
 
-## 📦 Órdenes y Estado
+## Órdenes y Estado
 Gestión de órdenes de producción y sincronización de estados.
 
 | Método | Endpoint | Descripción | Uso en Frontend |
@@ -33,7 +33,7 @@ Gestión de órdenes de producción y sincronización de estados.
 
 ---
 
-## 📝 Tareas (Operaciones y Cronómetro)
+## Tareas (Operaciones y Cronómetro)
 Endpoints utilizados en el formulario de tareas y control de tiempos.
 
 | Método | Endpoint | Descripción | Uso en Frontend |
@@ -46,7 +46,7 @@ Endpoints utilizados en el formulario de tareas y control de tiempos.
 
 ---
 
-## 🏷️ Códigos y Catálogos
+## Códigos y Catálogos
 Búsqueda de productos y validación de actividades.
 
 | Método | Endpoint | Descripción | Uso en Frontend |
@@ -58,7 +58,7 @@ Búsqueda de productos y validación de actividades.
 
 ---
 
-## � Equipos
+## Equipos
 Información de equipos de trabajo.
 
 | Método | Endpoint | Descripción | Uso en Frontend |
@@ -68,7 +68,7 @@ Información de equipos de trabajo.
 
 ---
 
-## ⚙️ Reglas de Negocio Frontend Importantes
+## Reglas de Negocio Frontend Importantes
 
 1. **Cálculo de Tiempos Local vs Backend**:
    - El frontend intenta usar cálculos del backend (`businessCalculations`), pero tiene "fallbacks" locales si falla la red.

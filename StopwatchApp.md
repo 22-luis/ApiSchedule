@@ -2,7 +2,7 @@
 
 Este documento detalla **únicamente** los endpoints y flujos del backend que son consumidos actualmente por el proyecto `frontend/Stopwatch`.
 
-## 🔐 Autenticación
+## Autenticación
 Gestionado por `useAuth.ts`.
 
 | Método | Endpoint | Descripción | Uso en Frontend |
@@ -12,7 +12,7 @@ Gestionado por `useAuth.ts`.
 
 ---
 
-## ⏱️ Cronómetro y Tiempos (Record Stopwatch)
+## Cronómetro y Tiempos (Record Stopwatch)
 Funcionalidades centrales de la aplicación de cronómetro.
 
 | Método | Endpoint | Descripción | Uso en Frontend |
@@ -23,7 +23,7 @@ Funcionalidades centrales de la aplicación de cronómetro.
 
 ---
 
-## 🏷️ Códigos y Catálogos
+## Códigos y Catálogos
 Validación y autocompletado en formularios.
 
 | Método | Endpoint | Descripción | Uso en Frontend |
@@ -34,7 +34,7 @@ Validación y autocompletado en formularios.
 
 ---
 
-## ⚙️ Notas Importantes
+## Notas Importantes
 
 1. **Prefijo de API**:
    - A diferencia de otros proyectos, este frontend llama explícitamente a `/api/v1/...` en la mayoría de sus rutas definidas en `api.ts` y hooks.
