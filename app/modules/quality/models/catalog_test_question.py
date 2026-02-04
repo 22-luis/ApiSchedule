@@ -14,7 +14,11 @@ class CatalogTestQuestion(Base):
     __tablename__ = "catalog_test_question"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    catalog_test_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), sa.ForeignKey("catalog_test.id"), nullable=False)
+    catalog_test_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), 
+        sa.ForeignKey("catalog_test.id", ondelete="CASCADE"), 
+        nullable=False
+    )
     
     chapter_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), 

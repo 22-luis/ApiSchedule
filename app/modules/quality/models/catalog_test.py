@@ -9,6 +9,8 @@ if TYPE_CHECKING:
     from app.modules.quality.models.quality_manual import QualityManual
     from app.modules.quality.models.qc_manual_chapter import QcManualChapter
     from app.modules.quality.models.catalog_test_question import CatalogTestQuestion
+    from app.modules.quality.models.code_test import CodeTest
+    from app.modules.quality.models.test_results import TestResults
 
 class CatalogTest(Base):
     __tablename__ = "catalog_test"
@@ -41,6 +43,8 @@ class CatalogTest(Base):
     quality_manual: Mapped[Optional["QualityManual"]] = relationship("QualityManual")
     chapter_relation: Mapped[Optional["QcManualChapter"]] = relationship("QcManualChapter", back_populates="catalog_tests")
     questions: Mapped[list["CatalogTestQuestion"]] = relationship("CatalogTestQuestion", back_populates="catalog_test", cascade="all, delete-orphan")
+    code_associations: Mapped[list["CodeTest"]] = relationship("CodeTest", back_populates="catalog_test", cascade="all, delete-orphan")
+    results: Mapped[list["TestResults"]] = relationship("TestResults", back_populates="catalog_test", cascade="all, delete-orphan")
     @property
     def manual_name(self) -> Optional[str]:
         if self.quality_manual:
