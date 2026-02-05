@@ -20,11 +20,19 @@ class QcManualOut(BaseModel):
     id: int
     quality_manual_id: int
     name: str | None = None
+    order: int = 0
     createdAt: datetime.datetime
     created_by: str
 
 
     model_config = ConfigDict(from_attributes=True)
+
+class ReorderItem(BaseModel):
+    id: str | int
+    order: int
+
+class ReorderPayload(BaseModel):
+    orders: List[ReorderItem]
 
 class TestNode(BaseModel):
     id: str | None = None
@@ -50,6 +58,7 @@ class Chapters(BaseModel):
 class HierarchyOut(BaseModel):
     manual_id: int
     name: str | None = None
+    order: int = 0
     hierarchy: list[ChapterNode]
 
 

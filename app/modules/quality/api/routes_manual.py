@@ -10,7 +10,7 @@ from app.shared.utils.core.dependencies import get_current_user
 from app.modules.quality.models.quality_manual import QualityManual
 from app.modules.quality.models.qc_manual import QcManual
 from app.modules.quality.models.qc_manual_chapter import QcManualChapter
-from app.modules.quality.schemas.qc_manual import QcManualBase, QcManualCreate, QcManualOut, SectionOut, Chapters, HierarchyOut, QcManualWithChaptersOut, QcManualRename
+from app.modules.quality.schemas.qc_manual import QcManualBase, QcManualCreate, QcManualOut, SectionOut, Chapters, HierarchyOut, QcManualWithChaptersOut, QcManualRename, ReorderPayload
 from app.modules.quality.schemas.qc_manual_chapter import (
     QcManualChapterCreate,
     QcManualChapterUpdate,
@@ -276,7 +276,7 @@ def list_manual_names(
 ):
     """Returns a list of unique manual names from the identity table."""
     # Query QualityManual instead of QcManual
-    names = db.query(QualityManual.name).all()
+    names = db.query(QualityManual.name).order_by(QualityManual.order).all()
     return [n[0] for n in names]
 
 @router.get("/identities", response_model=list[dict])
@@ -285,8 +285,8 @@ def get_identities(
     _current_user = Depends(get_current_user)
 ):
     """Returns a list of manual identities with ID and name."""
-    manuals = db.query(QualityManual.id, QualityManual.name).all()
-    return [{"id": m.id, "name": m.name} for m in manuals]
+    manuals = db.query(QualityManual.id, QualityManual.name, QualityManual.order).order_by(QualityManual.order).all()
+    return [{"id": m.id, "name": m.name, "order": m.order} for m in manuals]
 
 
 
@@ -324,6 +324,7 @@ def get_manual_hierarchy(
     return {
         "manual_id": manual.id,
         "name": manual.quality_manual.name, # Access from relationship
+        "order": manual.quality_manual.order,
         "hierarchy": hierarchy
     }
 
@@ -478,6 +479,41 @@ def delete_qc_manual(
 # NEW CHAPTER CRUD ENDPOINTS (Relational Structure)
 # ============================================================================
 
+@router.patch("/reorder", status_code=204)
+def reorder_manuals(
+    payload: ReorderPayload,
+    db: Session = Depends(get_db),
+    _current_user = Depends(require_roles(UserRole.ADMIN, UserRole.QC_COORDINATOR))
+):
+    """Update display order for multiple manuals"""
+    # Convert payload to list of dicts for service
+    orders = [{"id": int(item.id), "order": item.order} for item in payload.orders]
+    success = qc_manual_chapter_service.reorder_manuals(db, orders)
+    if not success:
+        raise HTTPException(status_code=500, detail="Error al reordenar instructivos")
+    return None
+
+@router.patch("/{manual_id}/chapters/reorder", status_code=204)
+def reorder_chapters(
+    manual_id: int,
+    payload: ReorderPayload,
+    db: Session = Depends(get_db),
+    current_user = Depends(require_roles(UserRole.ADMIN, UserRole.QC_COORDINATOR))
+):
+    """Update display order for multiple chapters/sub-chapters within a manual"""
+    # Verify manual exists
+    manual = db.query(QcManual).filter(QcManual.id == manual_id).first()
+    if not manual:
+        raise HTTPException(status_code=404, detail="Manual no encontrado")
+    
+    # Convert payload to list of dicts for service
+    # Chapters use UUID IDs
+    orders = [{"id": uuid.UUID(str(item.id)), "order": item.order} for item in payload.orders]
+    success = qc_manual_chapter_service.reorder_chapters(db, orders)
+    if not success:
+        raise HTTPException(status_code=500, detail="Error al reordenar capítulos")
+    return None
+
 @router.post("/{manual_id}/chapters", response_model=QcManualChapterOut, status_code=201)
 def create_chapter(
     manual_id: int,
@@ -536,6 +572,7 @@ def delete_chapter(
     if not success:
         raise HTTPException(status_code=500, detail="Error al eliminar el capítulo")
     return None
+
 
 
 

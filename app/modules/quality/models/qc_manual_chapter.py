@@ -43,6 +43,7 @@ class QcManualChapter(Base):
         "QcManualChapter", 
         back_populates="parent_chapter",
         foreign_keys=[parent_chapter_id],
-        cascade="all, delete-orphan"
+        cascade="all, delete-orphan",
+        order_by="QcManualChapter.order"
     )
     catalog_tests: Mapped[List["CatalogTest"]] = relationship("CatalogTest", back_populates="chapter_relation")

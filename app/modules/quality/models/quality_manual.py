@@ -9,6 +9,7 @@ class QualityManual(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String, unique=True, index=True, nullable=False)
+    order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=get_time, nullable=False)
     created_by: Mapped[str] = mapped_column(String, nullable=False)

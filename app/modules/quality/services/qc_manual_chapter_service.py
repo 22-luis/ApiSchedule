@@ -3,6 +3,7 @@ from typing import List, Optional
 from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import select
 from app.modules.quality.models.qc_manual_chapter import QcManualChapter
+from app.modules.quality.models.quality_manual import QualityManual
 from app.modules.quality.schemas.qc_manual_chapter import (
     QcManualChapterCreate,
     QcManualChapterUpdate
@@ -101,6 +102,30 @@ def reorder_chapters(
             ).first()
             if chapter:
                 chapter.order = item['order']
+        
+        db.commit()
+        return True
+    except Exception:
+        db.rollback()
+        return False
+
+
+def reorder_manuals(
+    db: Session,
+    manual_orders: List[dict]
+) -> bool:
+    """Update display order for multiple quality manuals
+    
+    Args:
+        manual_orders: List of dicts with 'id' and 'order' keys
+    """
+    try:
+        for item in manual_orders:
+            manual = db.query(QualityManual).filter(
+                QualityManual.id == item['id']
+            ).first()
+            if manual:
+                manual.order = item['order']
         
         db.commit()
         return True
