@@ -10,7 +10,7 @@ from app.shared.utils.core.dependencies import get_current_user
 from app.modules.quality.models.quality_manual import QualityManual
 from app.modules.quality.models.qc_manual import QcManual
 from app.modules.quality.models.qc_manual_chapter import QcManualChapter
-from app.modules.quality.schemas.qc_manual import QcManualBase, QcManualCreate, QcManualOut, SectionOut, Chapters, HierarchyOut, QcManualWithChaptersOut
+from app.modules.quality.schemas.qc_manual import QcManualBase, QcManualCreate, QcManualOut, SectionOut, Chapters, HierarchyOut, QcManualWithChaptersOut, QcManualRename
 from app.modules.quality.schemas.qc_manual_chapter import (
     QcManualChapterCreate,
     QcManualChapterUpdate,
@@ -56,6 +56,32 @@ def create_manual_identity(
         
         new_audit.name = qm.name 
         return new_audit
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.patch("/identity", status_code=204)
+def update_manual_identity(
+    manual_data: QcManualRename,
+    db: Session = Depends(get_db),
+    _current_user = Depends(require_roles(UserRole.ADMIN, UserRole.QC_COORDINATOR))
+):
+    """Updates the name of a manual identity"""
+    try:
+        qm = db.query(QualityManual).filter(QualityManual.name == manual_data.name).first()
+        if not qm:
+            raise HTTPException(status_code=404, detail="Manual no encontrado")
+            
+        # Check if new name already exists
+        exists = db.query(QualityManual).filter(QualityManual.name == manual_data.new_name).first()
+        if exists:
+             raise HTTPException(status_code=400, detail="Ya existe un instructivo con el nuevo nombre")
+             
+        qm.name = manual_data.new_name
+        db.commit()
+        return None
     except HTTPException:
         raise
     except Exception as e:
@@ -475,6 +501,41 @@ def create_chapter(
         db, manual_id, chapter_data, current_user.username
     )
     return chapter
+
+@router.patch("/{manual_id}/chapters/{chapter_id}", response_model=QcManualChapterOut)
+def update_chapter(
+    manual_id: int,
+    chapter_id: uuid.UUID,
+    chapter_data: QcManualChapterUpdate,
+    db: Session = Depends(get_db),
+    current_user = Depends(require_roles(UserRole.ADMIN, UserRole.QC_COORDINATOR))
+):
+    """Update an existing chapter"""
+    chapter = qc_manual_chapter_service.get_chapter_by_id(db, chapter_id)
+    if not chapter or chapter.manual_id != manual_id:
+        raise HTTPException(status_code=404, detail="Chapter no encontrado")
+    
+    updated = qc_manual_chapter_service.update_chapter(
+        db, chapter_id, chapter_data, current_user.username
+    )
+    return updated
+
+@router.delete("/{manual_id}/chapters/{chapter_id}", status_code=204)
+def delete_chapter(
+    manual_id: int,
+    chapter_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user = Depends(require_roles(UserRole.ADMIN, UserRole.QC_COORDINATOR))
+):
+    """Delete a chapter and its sub-chapters"""
+    chapter = qc_manual_chapter_service.get_chapter_by_id(db, chapter_id)
+    if not chapter or chapter.manual_id != manual_id:
+        raise HTTPException(status_code=404, detail="Chapter no encontrado")
+    
+    success = qc_manual_chapter_service.delete_chapter(db, chapter_id)
+    if not success:
+        raise HTTPException(status_code=500, detail="Error al eliminar el capítulo")
+    return None
 
 
 

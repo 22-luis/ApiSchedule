@@ -8,6 +8,10 @@ class QcManualBase(BaseModel):
 class QcManualCreate(QcManualBase):
     content: Any | None = None # Incoming content for processing
 
+class QcManualRename(BaseModel):
+    name: str 
+    new_name: str
+
 class SectionOut(BaseModel):
     section_name: str
     content: str
