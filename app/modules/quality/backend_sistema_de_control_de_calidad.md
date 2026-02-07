@@ -161,24 +161,28 @@ close  # Pregunta cerrada (respuesta fija)
 
 | Método | Endpoint | Descripción | Roles |
 |--------|----------|-------------|-------|
-| `POST` | `/` | Crear nuevo manual con capítulos | Admin, QC_Coordinator |
+| `POST` | `/` | Crear nuevo manual con capítulos (Payload completo) | Admin, QC_Coordinator |
+| `POST` | `/identity` | Crear identidad de manual (Nombre) | Autenticado |
+| `PATCH` | `/identity` | Renombrar identidad de manual | Admin, QC_Coordinator |
 | `GET` | `/names` | Listar nombres de manuales | Autenticado |
 | `GET` | `/identities` | Listar identidades (id + nombre) | Autenticado |
 | `GET` | `/chapters` | Obtener capítulos del último manual | Autenticado |
 | `GET` | `/hierarchy` | Obtener jerarquía completa de capítulos | Autenticado |
 | `GET` | `/section/{name}` | Obtener contenido de una sección específica | Autenticado |
-| `GET` | `/content/{manual_id}` | Obtener contenido completo de un manual | Autenticado |
+| `GET` | `/{manual_id}/full-content` | Obtener contenido completo de un manual | Autenticado |
+| `PATCH` | `/reorder` | Reordenar manuales | Admin, QC_Coordinator |
 | `GET` | `/latest` | Obtener la última revisión | Autenticado |
 | `DELETE` | `/{name}` | Eliminar manual y todas sus revisiones | Admin, QC_Coordinator |
 
-#### Capítulos (`/manual/chapter`)
+#### Capítulos (Relativo a `/manual`)
 
 | Método | Endpoint | Descripción | Roles |
 |--------|----------|-------------|-------|
-| `POST` | `/{manual_id}` | Crear capítulo en un manual | Admin, QC_Coordinator |
-| `PATCH` | `/{chapter_id}` | Actualizar capítulo | Admin, QC_Coordinator |
-| `DELETE` | `/{chapter_id}` | Eliminar capítulo y sub-capítulos | Admin, QC_Coordinator |
-| `GET` | `/tree/{manual_id}` | Obtener árbol de capítulos | Autenticado |
+| `POST` | `/{manual_id}/chapters` | Crear capítulo en un manual | Admin, QC_Coordinator |
+| `PATCH` | `/{manual_id}/chapters/{chapter_id}` | Actualizar capítulo | Admin, QC_Coordinator |
+| `DELETE` | `/{manual_id}/chapters/{chapter_id}` | Eliminar capítulo y sub-capítulos | Admin, QC_Coordinator |
+| `PATCH` | `/{manual_id}/chapters/reorder` | Reordenar capítulos | Admin, QC_Coordinator |
+| `GET` | `/hierarchy` | Obtener jerarquía completa (usa `name` query param) | Autenticado |
 
 ---
 
@@ -302,6 +306,18 @@ close  # Pregunta cerrada (respuesta fija)
    { "status": "accepted" }
    ```
 4. El backend valida el rol y registra automáticamente `approved_by` y `approved_at`
+
+---
+
+### 4.5 Reordenamiento
+
+**Manuales:**
+- `PATCH /manual/reorder`
+- Payload: `{"orders": [{"id": 1, "order": 1}, {"id": 2, "order": 2}]}`
+
+**Capítulos:**
+- `PATCH /manual/{manual_id}/chapters/reorder`
+- Payload: `{"orders": [{"id": "uuid-cap-1", "order": 1}, {"id": "uuid-cap-2", "order": 2}]}` (Los IDs son UUIDs)
 
 ---
 
