@@ -14,6 +14,7 @@ class CatalogTestBase(BaseModel):
 class CatalogTestQuestionNested(BaseModel):
     question: str
     specification: str | None = None
+    options: str | None = None  # Comma-separated options for closed questions
     type: QuestionType
     chapter_id: UUID | None = None
 

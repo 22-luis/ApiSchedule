@@ -29,6 +29,7 @@ class CatalogTestQuestion(Base):
     
     question: Mapped[str] = mapped_column(sa.String, nullable=False)
     specification: Mapped[str | None] = mapped_column(sa.String, nullable=True)
+    options: Mapped[str | None] = mapped_column(sa.String, nullable=True)  # Comma-separated options for closed questions
     type: Mapped[QuestionType] = mapped_column(sa.Enum(QuestionType), nullable=False)
     
     catalog_test: Mapped["CatalogTest"] = relationship("CatalogTest", back_populates="questions")

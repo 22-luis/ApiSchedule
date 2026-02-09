@@ -2,7 +2,7 @@ from typing import List
 from uuid import UUID
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from app.shared.db.session import get_db
 from app.shared.utils.core.dependencies import get_current_user
 from app.modules.quality.models.test_record import TestRecord as Test
@@ -35,7 +35,7 @@ def get_next_analysis_number(db: Session) -> int:
 
 @router.get("/session/{lote}/{code_id}", response_model=TestSessionOut)
 def get_session(lote: int, code_id: UUID, db: Session = Depends(get_db), _current_user = Depends(get_current_user)):
-    session = db.query(Test).filter(Test.lote == lote, Test.code_id == code_id).first()
+    session = db.query(Test).options(joinedload(Test.results)).filter(Test.lote == lote, Test.code_id == code_id).first()
     if not session:
         raise HTTPException(status_code=404, detail="Quality session not found")
     
@@ -170,7 +170,7 @@ def get_test_record_by_lote(
     _current_user = Depends(get_current_user)
 ):
     # This remains for backward compatibility but returns the full session (first one found for the lote)
-    test_record = db.query(Test).filter(Test.lote == lote).first()
+    test_record = db.query(Test).options(joinedload(Test.results)).filter(Test.lote == lote).first()
     if not test_record:
         raise HTTPException(status_code=404, detail="Registro de calidad no encontrado")
     enrich_session_user_details(test_record, db)

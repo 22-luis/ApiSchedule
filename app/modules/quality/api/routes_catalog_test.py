@@ -51,6 +51,7 @@ def create(
                     catalog_test_id=new_test.id,
                     question=q.question,
                     specification=q.specification,
+                    options=q.options,
                     type=q.type,
                     chapter_id=q.chapter_id # New: Store chapter link per question
                 )
@@ -95,6 +96,7 @@ def update_catalog_test(test_id: UUID, test_data: CatalogTestUpdate, db: Session
                 catalog_test_id=test_id,
                 question=q.question,
                 specification=q.specification,
+                options=q.options,
                 type=q.type,
                 chapter_id=q.chapter_id # Store chapter link per question
             )

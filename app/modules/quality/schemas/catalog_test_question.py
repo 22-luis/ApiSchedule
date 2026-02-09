@@ -8,6 +8,7 @@ class CatalogTestQuestionBase(BaseModel):
     catalog_test_id: UUID
     question: str
     specification: str | None
+    options: str | None = None  # Comma-separated options for closed questions
     type: QuestionType
     chapter_id: UUID | None = None
 
@@ -17,6 +18,7 @@ class CatalogTestQuestionCreate(CatalogTestQuestionBase):
 class CatalogTestQuestionUpdate(BaseModel):
     question: str | None
     specification: str | None
+    options: str | None = None
     type: QuestionType | None
 
 class CatalogTestQuestionOut(CatalogTestQuestionBase):
