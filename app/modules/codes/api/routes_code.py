@@ -82,7 +82,7 @@ def get_codes(
         )
     
     total = query.count()
-    codes = query.offset(skip).limit(limit).all()
+    codes = query.order_by(Code.code).offset(skip).limit(limit).all()
     
     return CodePageOut(
         codes=[CodeOut.model_validate(c) for c in codes],
