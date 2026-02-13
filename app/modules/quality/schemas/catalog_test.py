@@ -6,10 +6,10 @@ from app.modules.quality.schemas.catalog_test_question import CatalogTestQuestio
 
 class CatalogTestBase(BaseModel):
     name: str
-    chapter: str
+    chapter: str | None = None
     chapter_id: UUID | None = None
     quality_manual_id: int | None = None
-    status: bool
+    status: bool = True
 
 class CatalogTestQuestionNested(BaseModel):
     question: str

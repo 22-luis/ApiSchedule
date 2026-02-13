@@ -11,6 +11,8 @@ from app.modules.quality.schemas.code_test import CodeTestLink, CodeTestOut
 from app.modules.quality.schemas.catalog_test import CatalogTestOut
 from app.modules.core.models.role import UserRole
 from app.shared.utils.core.dependencies import require_roles
+from app.modules.quality.models.code_test_parameter_specification import CodeTestParameterSpecification
+from app.modules.quality.schemas.code_test_parameter_specification import CodeTestParameterSpecificationBatch
 import logging
 
 logger = logging.getLogger(__name__)
@@ -62,7 +64,42 @@ def link_tests_to_sync(
         CodeTest, CatalogTest.id == CodeTest.catalog_test_id
     ).filter(CodeTest.code_id == code_id).all()
     
-    return enrich_tests_with_manual_content(db, updated_tests)
+    return enrich_tests_with_manual_content(db, updated_tests, code_id=code_id)
+
+@router.post("/{code_id}/specifications",
+             dependencies=[Depends(require_roles(UserRole.ADMIN, UserRole.QC_COORDINATOR, UserRole.QC_ASSISTANT))])
+def save_code_specifications(
+    code_id: UUID,
+    batch_data: CodeTestParameterSpecificationBatch,
+    db: Session = Depends(get_db)
+):
+    logger.info(f"Guardando especificaciones para código {code_id}")
+    
+    # Verify code exists
+    code = db.query(Code).filter(Code.id == code_id).first()
+    if not code:
+        raise HTTPException(status_code=404, detail="Code not found")
+
+    for spec in batch_data.specifications:
+        # We assume the user sends specifications for questions related to tests linked to this code
+        # We can add more validation if needed
+        existing = db.query(CodeTestParameterSpecification).filter(
+            CodeTestParameterSpecification.code_id == code_id,
+            CodeTestParameterSpecification.question_id == spec.question_id
+        ).first()
+        
+        if existing:
+            existing.specification = spec.specification
+        else:
+            db_spec = CodeTestParameterSpecification(
+                code_id=code_id,
+                question_id=spec.question_id,
+                specification=spec.specification
+            )
+            db.add(db_spec)
+            
+    db.commit()
+    return {"status": "success"}
 
 from sqlalchemy.orm import Session, joinedload
 from app.modules.quality.models.qc_manual_chapter import QcManualChapter
@@ -88,12 +125,22 @@ def get_tests_for_code(code_id: UUID, db: Session = Depends(get_db)):
         joinedload(CatalogTest.questions)
     ).all()
     
+    
     # Enrich with manual content if applicable
-    return enrich_tests_with_manual_content(db, tests)
+    return enrich_tests_with_manual_content(db, tests, code_id=code_id)
 
-def enrich_tests_with_manual_content(db: Session, tests: List[CatalogTest]) -> List[dict]:
+def enrich_tests_with_manual_content(db: Session, tests: List[CatalogTest], code_id: UUID = None) -> List[dict]:
     try:
         result = []
+        
+        # Pre-fetch specifications if code_id is provided
+        code_specs = {}
+        if code_id:
+            specs = db.query(CodeTestParameterSpecification).filter(
+                CodeTestParameterSpecification.code_id == code_id
+            ).all()
+            code_specs = {s.question_id: s.specification for s in specs}
+
         for t in tests:
             # Validate and convert to dict
             test_data = CatalogTestOut.model_validate(t, from_attributes=True).model_dump()
@@ -101,6 +148,13 @@ def enrich_tests_with_manual_content(db: Session, tests: List[CatalogTest]) -> L
             # Enrich with content from linked chapter if available
             if t.chapter_relation and t.chapter_relation.content:
                 test_data['instructions'] = t.chapter_relation.content
+            
+            # Override specifications if code-specific ones exist
+            if 'questions' in test_data:
+                for q in test_data['questions']:
+                    q_id = UUID(str(q['id'])) if isinstance(q['id'], str) else q['id']
+                    if q_id in code_specs:
+                        q['specification'] = code_specs[q_id]
                 
             result.append(test_data)
         

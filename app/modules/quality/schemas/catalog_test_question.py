@@ -7,7 +7,7 @@ from app.modules.quality.models.question_type import QuestionType
 class CatalogTestQuestionBase(BaseModel):
     catalog_test_id: UUID
     question: str
-    specification: str | None
+    specification: str | None = None
     options: str | None = None  # Comma-separated options for closed questions
     type: QuestionType
     chapter_id: UUID | None = None

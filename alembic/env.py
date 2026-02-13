@@ -35,6 +35,7 @@ from app.modules.quality.models.catalog_test import CatalogTest
 from app.modules.quality.models.code_test import CodeTest
 from app.modules.quality.models.catalog_test_question import CatalogTestQuestion
 from app.modules.quality.models.test_results import TestResults
+from app.modules.quality.models.code_test_parameter_specification import CodeTestParameterSpecification
 from app.modules.quality.models.qc_manual import QcManual
 from app.modules.quality.models.quality_manual import QualityManual
 from app.modules.quality.models.qc_manual_chapter import QcManualChapter
