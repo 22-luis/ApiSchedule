@@ -23,3 +23,19 @@ class User(Base):
     
     # Proxy to get teams directly (optional)
     teams = relationship("Team", secondary="user_teams", viewonly=True)
+
+    @property
+    def active_team_ids(self):
+        """Returns IDs of teams where the user is currently active based on start_date and end_date."""
+        from datetime import date
+        today = date.today()
+        return [
+            assoc.team_id 
+            for assoc in self.team_associations 
+            if assoc.start_date <= today and (assoc.end_date is None or assoc.end_date >= today)
+        ]
+
+    @property
+    def teamIds(self):
+        """Alias for active_team_ids to match Pydantic schema naming."""
+        return self.active_team_ids

@@ -28,7 +28,7 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
             "id": user.id,
             "username": user.username,
             "role": user.role,
-            "teamIds": [team.id for team in user.teams]
+            "teamIds": user.active_team_ids
         }
     }
 
