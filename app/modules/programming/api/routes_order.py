@@ -1084,6 +1084,10 @@ def hide_order(
         raise HTTPException(status_code=404, detail="Order not found")
     
     db_order.is_hidden = is_hidden
+    if is_hidden:
+        db_order.hidden_at = datetime.now()
+    else:
+        db_order.hidden_at = None
     db.commit()
     db.refresh(db_order)
     

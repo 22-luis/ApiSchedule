@@ -28,6 +28,7 @@ def create_surplus(
     db.refresh(new_surplus)
     return new_surplus
 
+from datetime import datetime
 @router.post("/batch", status_code=201)
 def create_surplus_batch(
     surplus_list: List[OrderSurplusCreate],
@@ -40,8 +41,11 @@ def create_surplus_batch(
             new_surplus = OrderSurplus(**surplus_data.model_dump())
             db.add(new_surplus)
             
-            # Hide the corresponding order
-            db.query(Order).filter(Order.lote == surplus_data.lote).update({"is_hidden": True})
+            # Hide the corresponding order and set hidden_at
+            db.query(Order).filter(Order.lote == surplus_data.lote).update({
+                "is_hidden": True,
+                "hidden_at": datetime.now()
+            })
         
         db.commit()
         return {"message": f"Successfully processed {len(surplus_list)} surplus orders"}

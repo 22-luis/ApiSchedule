@@ -39,6 +39,7 @@ class OrderOut(BaseModel):
     submitted_date: Optional[datetime] = None
     submitted_observations: Optional[str] = None
     is_hidden: Optional[bool] = False
+    hidden_at: Optional[datetime] = None
 
     @field_validator('code', 'description')
     @classmethod
@@ -71,6 +72,7 @@ class OrderWarehouseUpdate(BaseModel):
     submitted_date: Optional[datetime] = None
     submitted_observations: Optional[str] = None
     is_hidden: Optional[bool] = None
+    hidden_at: Optional[datetime] = None
 
 class OrderWarehouseOut(BaseModel):
     lote: int
@@ -89,4 +91,5 @@ class OrderWarehouseOut(BaseModel):
     submitted_date: Optional[datetime] = None
     submitted_observations: Optional[str] = None
     is_hidden: Optional[bool] = False
+    hidden_at: Optional[datetime] = None
 

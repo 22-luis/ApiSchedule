@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Enum, Integer, Date, Float, Boolean
+from sqlalchemy import Column, String, Enum, Integer, Date, Float, Boolean, DateTime
 from app.shared.db.database import Base
 from app.modules.programming.models.state import OrderStatus
 
@@ -20,3 +20,4 @@ class Order(Base):
     submitted_date = Column(Date)
     submitted_observations = Column(String)
     is_hidden = Column(Boolean, default=False, nullable=True)
+    hidden_at = Column(DateTime, nullable=True)
