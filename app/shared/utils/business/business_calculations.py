@@ -114,6 +114,31 @@ class BusinessCalculations:
         )
     
     @staticmethod
+    def apply_lunch_break_adjustment(start_time: datetime, end_time: datetime) -> datetime:
+        """
+        Ajusta la hora final si la tarea cruza el horario de almuerzo (12:00 PM - 1:00 PM).
+        Si la tarea empieza antes de las 12:00 PM y termina después de las 12:00 PM, 
+        se le suma 1 hora (60 minutos) a la hora final.
+        """
+        # Definir el inicio y fin del almuerzo para el día de la tarea
+        lunch_start = datetime.combine(start_time.date(), time(12, 0))
+        lunch_end = datetime.combine(start_time.date(), time(13, 0))
+        
+        # Si la tarea empieza ANTES de las 12 y termina DESPUÉS de las 12
+        if start_time < lunch_start and end_time > lunch_start:
+            return end_time + timedelta(hours=1)
+        
+        # Si la tarea empieza durante el almuerzo (entre 12 y 1)
+        if lunch_start <= start_time < lunch_end:
+            # Re-calcular la duración original
+            duration = end_time - start_time
+            # Nueva hora de inicio es a la 1 PM
+            new_start = lunch_end
+            return new_start + duration
+            
+        return end_time
+
+    @staticmethod
     def calculate_sequential_times(
         base_date: date,
         tasks: list,
@@ -140,8 +165,17 @@ class BusinessCalculations:
                 task_id = getattr(task, 'id', None)
                 description = getattr(task, 'description', '')
             
+            # Ajustar hora de inicio si cae en almuerzo
+            lunch_start = datetime.combine(current_time.date(), time(12, 0))
+            lunch_end = datetime.combine(current_time.date(), time(13, 0))
+            if lunch_start <= current_time < lunch_end:
+                current_time = lunch_end
+                
             start_time = current_time
-            end_time = current_time + timedelta(minutes=minutes)
+            raw_end_time = current_time + timedelta(minutes=minutes)
+            
+            # Aplicar ajuste de almuerzo si cruza las 12 PM
+            end_time = BusinessCalculations.apply_lunch_break_adjustment(start_time, raw_end_time)
             
             result.append({
                 'id': task_id,
@@ -155,7 +189,6 @@ class BusinessCalculations:
         
         return result
     
-    @staticmethod
     def calculate_task_efficiency(planned_minutes: int, actual_minutes: int) -> Dict[str, Any]:
         """Calcula la eficiencia de una tarea completada."""
         if planned_minutes <= 0:

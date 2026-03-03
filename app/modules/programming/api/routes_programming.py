@@ -1325,6 +1325,14 @@ def get_first_available_programming_for_task(
         # Calcular el tiempo final si se agrega la nueva tarea
         final_minutes = current_end_minutes + task_minutes
         
+        # Ajustar por almuerzo (12:00 PM - 1:00 PM)
+        # 12:00 PM = 720 minutos, 1:00 PM = 780 minutos desde la medianoche
+        if current_end_minutes < 720 and final_minutes > 720:
+            final_minutes += 60
+        elif 720 <= current_end_minutes < 780:
+            # Si el inicio actual cae en el almuerzo, mover a la 1 PM + duración de la tarea
+            final_minutes = 780 + task_minutes
+        
         # Verificar si esta programación cumple con el límite
         if final_minutes <= max_allowed_minutes:
             # ¡Encontramos la primera programación que cumple!

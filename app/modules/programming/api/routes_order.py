@@ -685,8 +685,8 @@ def receive_order(
         raise HTTPException(status_code=404, detail="Order not found")
     
     # Previous verifications
-    if db_order.status != OrderStatus.delivered:
-        raise HTTPException(status_code=400, detail="La orden debe estar en estado 'entregado' para poder ser recibida")
+    if db_order.status not in [OrderStatus.delivered, OrderStatus.not_programmable]:
+        raise HTTPException(status_code=400, detail="La orden debe estar en estado 'entregado' o 'no programable' para poder ser recibida")
 
     if db_order.status == OrderStatus.completed:
         raise HTTPException(status_code=400, detail="La orden ya está completada")
