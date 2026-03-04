@@ -1402,3 +1402,26 @@ def restore_availability_endpoint(
         "message": "Availability restoration completed",
         "results": results
     }
+
+@router.patch("/{programming_id}/tasks/{task_id}/quantity")
+def update_task_quantity(
+    programming_id: UUID,
+    task_id: UUID,
+    data: dict = Body(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
+):
+    pt = db.query(ProgrammingTask).filter_by(programming_id=programming_id, task_id=task_id).first()
+    if not pt:
+        raise HTTPException(status_code=404, detail="ProgrammingTask not found")
+    
+    real_quantity = data.get("real_quantity")
+    if real_quantity is not None:
+        try:
+            pt.real_quantity = float(real_quantity)
+        except (ValueError, TypeError):
+            raise HTTPException(status_code=400, detail="Invalid real_quantity value")
+    
+    db.commit()
+    db.refresh(pt)
+    return {"ok": True, "real_quantity": pt.real_quantity}
