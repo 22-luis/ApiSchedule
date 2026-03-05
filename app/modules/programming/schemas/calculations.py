@@ -38,7 +38,7 @@ class TaskFormValidationRequest(BaseModel):
 
 class ExtraTaskValidationRequest(BaseModel):
     description: str = Field(..., min_length=1)
-    minutes: float = Field(..., gt=0)
+    minutes: float = Field(..., ge=0)
     selected_team: str
     programming_id: str
 
