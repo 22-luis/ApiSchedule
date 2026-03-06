@@ -244,6 +244,43 @@ class ProgrammingUtils:
             return start_dt + timedelta(minutes=duration_minutes)
 
     @staticmethod
+    def calculate_current_programming_time(programming_tasks: List[ProgrammingTask], programming_date: date) -> int:
+        """
+        Calcula el tiempo ocupado actual de una programación en minutos desde la medianoche.
+        Si no hay tareas, devuelve el tiempo de inicio estándar.
+        """
+        # Horarios estándar de inicio
+        is_saturday = programming_date.weekday() == 5
+        standard_start_minutes = 450 if is_saturday else 420  # 7:30 AM o 7:00 AM
+
+        if not programming_tasks:
+            return standard_start_minutes
+
+        # Encontrar el tiempo de finalización más tardío
+        max_end_minutes = standard_start_minutes
+        
+        # Intentar importar timezone para manejar conversiones si es necesario
+        try:
+            from pytz import timezone
+            sv_tz = timezone("America/El_Salvador")
+        except ImportError:
+            sv_tz = None
+
+        for pt in programming_tasks:
+            if pt.end_time:
+                # Asegurar que estamos trabajando con tiempo local
+                end_time = pt.end_time
+                if sv_tz and end_time.tzinfo is not None:
+                    end_time = end_time.astimezone(sv_tz).replace(tzinfo=None)
+                
+                # Convertir a minutos desde la medianoche
+                current_minutes = end_time.hour * 60 + end_time.minute
+                if current_minutes > max_end_minutes:
+                    max_end_minutes = current_minutes
+        
+        return max_end_minutes
+
+    @staticmethod
     def create_order_task(programming_id: str, programming_tasks: List[ProgrammingTask], task_minutes: int, 
                          order_data: Dict, activity_details: Dict, db: Session) -> Dict[str, Any]:
         """
