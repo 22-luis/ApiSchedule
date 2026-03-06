@@ -25,11 +25,16 @@ def create_preparation(
 
 @router.post("/bulk_upload")
 def bulk_upload_preparations(preparations: list[dict], db: Session = Depends(get_db), _current_user=Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))):
-    created = 0
-    updated = 0
-    errors = []
+    all_db_preps = db.query(Preparation).all()
+    existing_preps_map = {clean_str(p.description): p for p in all_db_preps}
+    existing_ids_map = {str(p.id): p for p in all_db_preps}
+    
+    created, updated, deleted, errors = 0, 0, 0, []
+    processed_ids = set()
+    sync_mode = any(prep.get("id") for prep in preparations)
     
     for idx, prep_data in enumerate(preparations):
+        prep_id = prep_data.get("id")
         description = clean_str(prep_data.get("description"))
         minutes = clean_int(prep_data.get("minutes"))
         
@@ -37,14 +42,33 @@ def bulk_upload_preparations(preparations: list[dict], db: Session = Depends(get
             errors.append({"row": idx+1, "error": "Falta descripción o minutos"})
             continue
         
-        # Buscar si existe una preparación con la misma descripción
-        existing_prep = db.query(Preparation).filter(Preparation.description == description).first()
+        # Buscar si existe la preparación
+        existing_prep = None
+        if prep_id and str(prep_id) in existing_ids_map:
+            existing_prep = existing_ids_map[str(prep_id)]
+        else:
+            existing_prep = existing_preps_map.get(description)
         
         if existing_prep:
-            # Si existe, actualizar solo si los minutos han cambiado
-            if existing_prep.minutes != minutes:
-                existing_prep.minutes = minutes
+            # Si existe, actualizar si hay cambios
+            has_changes = False
+            # description ya viene limpia (uppercase) de arriba
+            new_mins = clean_int(minutes)
+            
+            if clean_str(existing_prep.description) != description:
+                existing_prep.description = description
+                has_changes = True
+            
+            if clean_int(existing_prep.minutes) != new_mins:
+                existing_prep.minutes = new_mins
+                has_changes = True
+            
+            if has_changes:
                 updated += 1
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.debug(f"Preparación {existing_prep.description} (ID: {existing_prep.id}) actualizada.")
+            processed_ids.add(existing_prep.id)
         else:
             # Si no existe, crear nueva
             db_prep = Preparation(
@@ -52,16 +76,40 @@ def bulk_upload_preparations(preparations: list[dict], db: Session = Depends(get
                 minutes=minutes
             )
             db.add(db_prep)
+            db.flush() # Para obtener el ID
             created += 1
+            processed_ids.add(db_prep.id)
+            # Actualizar mapas para evitar duplicados en la misma carga
+            existing_preps_map[description] = db_prep
+            existing_ids_map[str(db_prep.id)] = db_prep
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.debug(f"Nueva preparación creada: {db_prep.description} (ID: {db_prep.id})")
     
-    db.commit()
+    # Sincronización: Eliminar si estamos en modo sync
+    if sync_mode:
+        preps_to_delete = [p for p in all_db_preps if p.id not in processed_ids]
+        for p in preps_to_delete:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(f"Sincronización: Eliminando preparación {p.description} (ID: {p.id})")
+            db.delete(p)
+            deleted += 1
+    
+    if created > 0 or updated > 0 or deleted > 0:
+        db.commit()
     
     total_processed = len(preparations) - len(errors)
     unchanged = total_processed - created - updated
     
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"Carga de preparaciones completada - Creadas: {created}, Actualizadas: {updated}, Eliminadas: {deleted}, Sin cambios: {unchanged}")
+    
     return {
         "created": created, 
         "updated": updated, 
+        "deleted": deleted,
         "unchanged": unchanged,
         "errors": errors,
         "total_processed": total_processed

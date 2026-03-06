@@ -19,7 +19,7 @@ from app.shared.core.enums import (
     ManufacturingActivities
 )
 from app.shared.db.session import get_db
-from app.shared.utils.business.data_cleaning import clean_float, clean_str, clean_str_preserve_case
+from app.shared.utils.business.data_cleaning import clean_float, clean_int, clean_str, clean_str_preserve_case
 from app.shared.utils.core.dependencies import require_roles
 
 # Configurar logger
@@ -240,6 +240,7 @@ from pydantic import BaseModel, ValidationError, ConfigDict
 from typing import Optional, Any
 
 class CodeBulkItem(BaseModel):
+    id: Optional[uuid.UUID] = None
     code: str
     activity: Optional[str] = None
     description: Optional[str] = None
@@ -265,9 +266,12 @@ def bulk_upload_codes(codes: List[dict], db: Session = Depends(get_db), _current
     existing_codes_map = {
         (clean_str(c.code), clean_str(c.activity)): c for c in all_db_codes
     }
+    existing_ids_map = {c.id: c for c in all_db_codes}
     logger.info(f"Se cargaron {len(existing_codes_map)} códigos existentes en memoria para comparación.")
 
-    created, updated, errors = 0, 0, []
+    created, updated, deleted, errors = 0, 0, 0, []
+    processed_ids = set()
+    sync_mode = any(item.get("id") for item in codes)
     
     for idx, item_data in enumerate(codes):
         try:
@@ -278,6 +282,7 @@ def bulk_upload_codes(codes: List[dict], db: Session = Depends(get_db), _current
 
         code_data = item.model_dump(exclude_unset=True)
         code_str = code_data.get("code")
+        item_id = code_data.get("id")
         
         if not code_str: 
             errors.append({"row": idx + 2, "error": "Fila sin código"})
@@ -286,7 +291,13 @@ def bulk_upload_codes(codes: List[dict], db: Session = Depends(get_db), _current
         # 2. PROCESAR: Limpiar y buscar en el mapa en memoria
         activity_str = code_data.get("activity")
         lookup_key = (clean_str(code_str), clean_str(activity_str))
-        existing_code = existing_codes_map.get(lookup_key)
+        
+        # Intentar buscar por ID si viene en el Excel, sino por código y actividad
+        existing_code = None
+        if item_id and item_id in existing_ids_map:
+            existing_code = existing_ids_map[item_id]
+        else:
+            existing_code = existing_codes_map.get(lookup_key)
 
         # Mapeo de columnas para compatibilidad con Excel (lowercase a camelCase)
         useful_life = code_data.get("usefulLife") or code_data.get("usefullife")
@@ -294,33 +305,60 @@ def bulk_upload_codes(codes: List[dict], db: Session = Depends(get_db), _current
 
         if existing_code:
             # 3. ACTUALIZAR (si hay cambios)
-            has_changes = False
-            new_values = {
-                'description': clean_str_preserve_case(code_data.get("description")),
-                'unit': clean_str_preserve_case(code_data.get("unit")),
-                'type': clean_str_preserve_case(code_data.get("type")),
-                'quantity': clean_float(code_data.get("quantity")),
-                'time': clean_float(code_data.get("time")),
-                'people': clean_float(code_data.get("people")),
-                'performance': clean_float(code_data.get("performance")),
-                'material': clean_str_preserve_case(code_data.get("material")),
-                'presentation': clean_str_preserve_case(code_data.get("presentation")),
-                'fabricationCode': clean_str_preserve_case(fabrication_code),
-                'usefulLife': clean_str_preserve_case(useful_life)
+            new_values_to_compare = {
+                'description': code_data.get("description"),
+                'unit': code_data.get("unit"),
+                'type': code_data.get("type"),
+                'quantity': code_data.get("quantity"),
+                'time': code_data.get("time"),
+                'people': code_data.get("people"),
+                'performance': code_data.get("performance"),
+                'material': code_data.get("material"),
+                'presentation': code_data.get("presentation"),
+                'fabricationCode': fabrication_code,
+                'usefulLife': useful_life
             }
+            # También actualizar código y actividad si se encontró por ID
+            if item_id:
+                new_values_to_compare['code'] = code_data.get("code")
+                new_values_to_compare['activity'] = code_data.get("activity")
 
-            for field, new_value in new_values.items():
-                current_value = getattr(existing_code, field)
-                if isinstance(current_value, str) and isinstance(new_value, str):
-                    if clean_str(current_value) != clean_str(new_value):
-                        setattr(existing_code, field, new_value)
+            has_changes = False
+            for field, new_val_raw in new_values_to_compare.items():
+                if new_val_raw is None and field not in ['quantity', 'time', 'people', 'performance']:
+                    continue
+                
+                curr_val = getattr(existing_code, field)
+                
+                # Comparación robusta por tipo
+                if field in ['quantity', 'time', 'performance', 'people']:
+                    # Campos numéricos (incluyendo quantity que es String en el modelo)
+                    if field == 'people':
+                        n = clean_int(new_val_raw)
+                        c = clean_int(curr_val)
+                    else:
+                        n = clean_float(new_val_raw)
+                        c = clean_float(curr_val)
+                    
+                    if n != c:
+                        # Si es quantity, guardamos como string si no es None
+                        if field == 'quantity':
+                            setattr(existing_code, field, str(n) if n is not None else None)
+                        else:
+                            setattr(existing_code, field, n)
                         has_changes = True
-                elif current_value != new_value:
-                    setattr(existing_code, field, new_value)
-                    has_changes = True
+                else:
+                    # Campos string: normalizamos para evitar actualizaciones por espacios o None vs ""
+                    n = clean_str_preserve_case(new_val_raw)
+                    c = clean_str_preserve_case(curr_val)
+                    if n != c:
+                        setattr(existing_code, field, n)
+                        has_changes = True
             
             if has_changes:
                 updated += 1
+                logger.debug(f"Código {existing_code.code} (ID: {existing_code.id}) actualizado por cambios.")
+            processed_ids.add(existing_code.id)
         else:
             # 4. CREAR (si no existe)
             new_code = Code(
@@ -329,9 +367,9 @@ def bulk_upload_codes(codes: List[dict], db: Session = Depends(get_db), _current
                 description=clean_str_preserve_case(code_data.get("description")),
                 unit=clean_str_preserve_case(code_data.get("unit")),
                 type=clean_str_preserve_case(code_data.get("type")),
-                quantity=clean_float(code_data.get("quantity")),
+                quantity=str(clean_float(code_data.get("quantity"))) if clean_float(code_data.get("quantity")) is not None else None,
                 time=clean_float(code_data.get("time")),
-                people=clean_float(code_data.get("people")),
+                people=clean_int(code_data.get("people")),
                 performance=clean_float(code_data.get("performance")),
                 material=clean_str_preserve_case(code_data.get("material")),
                 presentation=clean_str_preserve_case(code_data.get("presentation")),
@@ -339,23 +377,38 @@ def bulk_upload_codes(codes: List[dict], db: Session = Depends(get_db), _current
                 usefulLife=clean_str_preserve_case(useful_life)
             )
             db.add(new_code)
+            db.flush() # Para obtener el ID generado
             created += 1
+            processed_ids.add(new_code.id)
             # Añadir el nuevo código al mapa para evitar duplicados en la misma carga
             existing_codes_map[lookup_key] = new_code
+            existing_ids_map[new_code.id] = new_code
+            logger.debug(f"Nuevo código creado: {new_code.code} (ID: {new_code.id})")
 
-    # 5. COMMIT: Guardar todos los cambios en una sola transacción
-    if created > 0 or updated > 0:
+    # 5. SINCRONIZACIÓN: Eliminar códigos que no están en el Excel si estamos en modo sync
+    if sync_mode:
+        codes_to_delete = [c for c in all_db_codes if c.id not in processed_ids]
+        for c in codes_to_delete:
+            logger.info(f"Sincronización: Eliminando código {c.code} (ID: {c.id}) por no estar en el Excel")
+            db.delete(c)
+            deleted += 1
+        if deleted > 0:
+            logger.info(f"Sincronización completa. Eliminados: {deleted}")
+
+    # 6. COMMIT: Guardar todos los cambios en una sola transacción
+    if created > 0 or updated > 0 or deleted > 0:
         db.commit()
-        logger.info(f"Commit a la BD realizado. Creados: {created}, Actualizados: {updated}")
+        logger.info(f"Commit a la BD realizado. Creados: {created}, Actualizados: {updated}, Eliminados: {deleted}")
     
     total_processed = len(codes) - len(errors)
     unchanged = total_processed - created - updated
     
-    logger.info(f"Carga masiva completada - Creados: {created}, Actualizados: {updated}, Sin cambios: {unchanged}, Errores: {len(errors)}")
+    logger.info(f"Carga masiva completada - Creados: {created}, Actualizados: {updated}, Eliminados: {deleted}, Sin cambios: {unchanged}, Errores: {len(errors)}")
     
     return {
         "created": created, 
         "updated": updated, 
+        "deleted": deleted,
         "unchanged": unchanged,
         "errors": errors,
         "total_processed": total_processed,
