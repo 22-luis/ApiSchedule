@@ -216,47 +216,32 @@ class ProgrammingUtils:
         return result
 
     @staticmethod
-    def calculate_current_programming_time(programming_tasks: List[ProgrammingTask], programming_date: date) -> int:
+    def adjust_for_lunch_break(start_dt: datetime, duration_minutes: int) -> datetime:
         """
-        Calcula el tiempo ocupado (en minutos desde el inicio del día) basado en las tareas.
+        Ajusta el tiempo de finalización considerando el descanso de almuerzo (12:00 PM - 1:00 PM).
+        Si la tarea cruza las 12:00 PM, se extiende 60 minutos.
+        Si la tarea inicia durante el almuerzo, se mueve el inicio a la 1:00 PM.
         """
-        if not programming_tasks:
-            # Si no hay tareas, asumimos inicio a las 7:30 AM (450 minutos) si es sábado, 
-            # o 7:00 AM (420 minutos) de lo contrario.
-            # Nota: Esto es opcional, pero ayuda a la consistencia.
-            if programming_date and programming_date.weekday() == 5:
-                return 450
-            return 420 
-            
-        from pytz import timezone
-        sv_tz = timezone("America/El_Salvador")
-            
-        # Encontrar la tarea que termina más tarde
-        last_end_time = None
-        for pt in programming_tasks:
-            if pt.end_time:
-                # Si end_time es datetime, extraer time.
-                et_dt = pt.end_time
-                
-                if isinstance(et_dt, datetime):
-                    # Sí tiene info de zona horaria, convertir a El Salvador
-                    if et_dt.tzinfo is not None:
-                        et_dt = et_dt.astimezone(sv_tz)
-                    et = et_dt.time()
-                else:
-                    # Asumimos que ya es un objeto time
-                    et = et_dt
-                
-                if last_end_time is None or et > last_end_time:
-                    last_end_time = et
-                    
-        if last_end_time:
-            return last_end_time.hour * 60 + last_end_time.minute
+        # 12:00 PM = 720 minutos, 1:00 PM = 780 minutos desde la medianoche
+        start_minutes = start_dt.hour * 60 + start_dt.minute
         
-        # Fallback a inicio de jornada si no hay horas válidas
-        if programming_date and programming_date.weekday() == 5:
-            return 450
-        return 420
+        # Caso 1: Inicia antes de las 12 y terminaría después de las 12
+        if start_minutes < 720:
+            if start_minutes + duration_minutes > 720:
+                return start_dt + timedelta(minutes=duration_minutes + 60)
+            else:
+                return start_dt + timedelta(minutes=duration_minutes)
+        
+        # Caso 2: Inicia durante el almuerzo (12:00 - 13:00)
+        elif 720 <= start_minutes < 780:
+            # Mover el inicio a las 1:00 PM y sumar la duración
+            start_date = start_dt.date()
+            new_start = datetime.combine(start_date, time(13, 0))
+            return new_start + timedelta(minutes=duration_minutes)
+            
+        # Caso 3: Inicia después del almuerzo
+        else:
+            return start_dt + timedelta(minutes=duration_minutes)
 
     @staticmethod
     def create_order_task(programming_id: str, programming_tasks: List[ProgrammingTask], task_minutes: int, 
@@ -277,24 +262,22 @@ class ProgrammingUtils:
             programming_date: date = programming.date
 
             # Calcular hora de inicio basada en tareas existentes
-            # Nota: calculate_current_programming_time usa la fecha solo para logs o lógica interna, 
-            # pero el cálculo real se basa en las horas de las tareas.
             start_minutes = ProgrammingUtils.calculate_current_programming_time(programming_tasks, programming_date)
             
-            # Convertir minutos a hora
+            # Convertir minutos a datetime para el ajuste
             start_hour = start_minutes // 60
             start_minute = start_minutes % 60
-            start_time_obj = time(start_hour, start_minute)
+            start_datetime = datetime.combine(programming_date, time(start_hour, start_minute))
             
-            # Calcular hora de fin
-            end_minutes = start_minutes + task_minutes
-            end_hour = end_minutes // 60
-            end_minute = end_minutes % 60
-            end_time_obj = time(end_hour, end_minute)
+            # Usar la nueva utilidad para calcular el end_datetime con el ajuste de almuerzo
+            end_datetime = ProgrammingUtils.adjust_for_lunch_break(start_datetime, task_minutes)
             
-            # Crear objetos datetime combinando la fecha de la programación con la hora calculada
-            start_datetime = datetime.combine(programming_date, start_time_obj)
-            end_datetime = datetime.combine(programming_date, end_time_obj)
+            # Re-ajustar start_datetime por si acaso el inicio cayó en el almuerzo
+            # (El método adjust_for_lunch_break no muta el inicio original, así que si cayó en almuerzo, 
+            # necesitamos asegurar que el start_datetime guardado sea el correcto)
+            start_total_mins = start_datetime.hour * 60 + start_datetime.minute
+            if 720 <= start_total_mins < 780:
+                 start_datetime = datetime.combine(programming_date, time(13, 0))
             
             task_id = uuid.uuid4()
             next_order = order_data.get("lote")

@@ -14,6 +14,8 @@ from app.modules.codes.models.code import Code
 from app.shared.utils.core.dependencies import get_current_user
 from app.modules.core.models.user import User
 
+from app.modules.timer.models.record_stopwatch import RecordStopwatch
+
 router = APIRouter(prefix="/reports", tags=["reports"])
 
 # Incluir router de compare
@@ -40,10 +42,20 @@ async def get_productivity_report(
     """
     Genera un reporte de productividad que incluye:
     - Total de tareas programadas vs completadas
-    - Tiempo total programado vs tiempo real
+    - Tiempo total programado vs tiempo real (de record_stopwatch)
     - Cantidad programada vs cantidad real
     - Eficiencia por equipo
     """
+    # Subquery para obtener minutos reales por tarea
+    real_minutes_subquery = (
+        db.query(
+            RecordStopwatch.task_id,
+            func.sum(RecordStopwatch.accumulated_duration * 60).label('total_real_minutes')
+        )
+        .group_by(RecordStopwatch.task_id)
+        .subquery()
+    )
+
     query = (
         db.query(
             Programming.date,
@@ -51,18 +63,17 @@ async def get_productivity_report(
             func.count(ProgrammingTask.task_id).label('total_tasks'),
             func.sum(case([(ProgrammingTask.is_completed == True, 1)], else_=0)).label('completed_tasks'),
             func.sum(Task.minutes).label('scheduled_minutes'),
-            func.sum(
-                case([
-                    (ProgrammingTask.real_end_time != None,
-                     func.extract('epoch', ProgrammingTask.real_end_time - ProgrammingTask.real_start_time) / 60)
-                ], else_=0)
-            ).label('real_minutes'),
+            func.sum(func.coalesce(real_minutes_subquery.c.total_real_minutes, ProgrammingTask.duration_in_hours * 60, 0)).label('real_minutes'),
             func.sum(Task.quantity).label('scheduled_quantity'),
             func.sum(ProgrammingTask.real_quantity).label('real_quantity')
         )
         .join(Team, Programming.team_id == Team.id)
         .join(ProgrammingTask, Programming.id == ProgrammingTask.programming_id)
         .join(Task, ProgrammingTask.task_id == Task.id)
+        .outerjoin(
+            real_minutes_subquery,
+            Task.id == real_minutes_subquery.c.task_id
+        )
         .filter(
             Programming.date.between(start_date, end_date),
             Programming.status != ProgrammingStatus.cancelled
@@ -165,6 +176,16 @@ async def get_task_performance_report(
             detail="No tienes permisos para acceder a este reporte. Se requiere rol admin o accounting."
         )
 
+    # Subquery for real minutes
+    real_minutes_subquery = (
+        db.query(
+            RecordStopwatch.task_id,
+            func.sum(RecordStopwatch.accumulated_duration * 60).label('total_real_minutes')
+        )
+        .group_by(RecordStopwatch.task_id)
+        .subquery()
+    )
+
     query = (
     select(
         func.date(ProgrammingTask.start_time).label('fecha'),
@@ -175,7 +196,7 @@ async def get_task_performance_report(
         Task.activity,
         (1.0 / func.nullif(Task.performance, 0)).label('horas'),
         ProgrammingTask.real_quantity,
-        (func.extract('epoch', ProgrammingTask.real_end_time - ProgrammingTask.real_start_time) / 60).label('minutes'),
+        func.coalesce(real_minutes_subquery.c.total_real_minutes, ProgrammingTask.duration_in_hours * 60, 0).label('minutes'),
         Task.people,
         ((1.0 / func.nullif(Task.performance, 0)) * ProgrammingTask.real_quantity).label('total_horas'),
         case(
@@ -188,6 +209,10 @@ async def get_task_performance_report(
     .select_from(Task)
     .join(Code, Task.code_id == Code.id)
     .join(ProgrammingTask, Task.id == ProgrammingTask.task_id)
+    .outerjoin(
+        real_minutes_subquery,
+        Task.id == real_minutes_subquery.c.task_id
+    )
 )
 
     results = db.execute(query).all()
@@ -231,23 +256,35 @@ async def get_task_performance_group_report(
             detail="No tienes permisos para acceder a este reporte. Se requiere rol admin o accounting."
         )
 
+    # Subquery for real hours
+    real_hours_subquery = (
+        db.query(
+            RecordStopwatch.task_id,
+            func.sum(RecordStopwatch.accumulated_duration).label('total_real_hours'),
+            extract('year', RecordStopwatch.creation_date).label('year'),
+            extract('month', RecordStopwatch.creation_date).label('month')
+        )
+        .group_by(RecordStopwatch.task_id, extract('year', RecordStopwatch.creation_date), extract('month', RecordStopwatch.creation_date))
+        .subquery()
+    )
+
     base_query = (
         select(
             Code.code,
             Code.description,
             Code.type,
-            (func.sum(func.extract('epoch', ProgrammingTask.real_end_time - ProgrammingTask.real_start_time)) / 3600.0).label('sum_hours'),
+            func.sum(func.coalesce(real_hours_subquery.c.total_real_hours, 0)).label('sum_hours'),
             func.sum(ProgrammingTask.real_quantity).label('sum_quantity'),
             case(
                 (func.sum(ProgrammingTask.real_quantity) != 0,
-                 (func.sum(func.extract('epoch', ProgrammingTask.real_end_time - ProgrammingTask.real_start_time)) / 3600.0) / func.sum(ProgrammingTask.real_quantity)
+                 func.sum(func.coalesce(real_hours_subquery.c.total_real_hours, 0)) / func.sum(ProgrammingTask.real_quantity)
                 ),
                 else_=None
             ).label('avg_time_per_product'),
             Task.people,
             case(
                 (func.sum(ProgrammingTask.real_quantity) != 0,
-                 ((func.sum(func.extract('epoch', ProgrammingTask.real_end_time - ProgrammingTask.real_start_time)) / 3600.0) / func.sum(ProgrammingTask.real_quantity)) * Task.people
+                 (func.sum(func.coalesce(real_hours_subquery.c.total_real_hours, 0)) / func.sum(ProgrammingTask.real_quantity)) * Task.people
                 ),
                 else_=None
             ).label('final_metric')
@@ -255,6 +292,14 @@ async def get_task_performance_group_report(
         .select_from(Code)
         .join(Task, Code.id == Task.code_id)
         .join(ProgrammingTask, Task.id == ProgrammingTask.task_id)
+        .outerjoin(
+            real_hours_subquery,
+            and_(
+                Task.id == real_hours_subquery.c.task_id,
+                extract('year', ProgrammingTask.start_time) == real_hours_subquery.c.year,
+                extract('month', ProgrammingTask.start_time) == real_hours_subquery.c.month
+            )
+        )
     )
 
     if year is not None and month is not None:
@@ -305,6 +350,17 @@ async def get_team_performance_report(
     - Tasa de completitud de tareas
     - Tiempo promedio por tarea
     """
+    # Subquery for real minutes
+    real_minutes_subquery = (
+        db.query(
+            RecordStopwatch.task_id,
+            func.date(RecordStopwatch.creation_date).label('record_date'),
+            func.sum(RecordStopwatch.accumulated_duration * 60).label('total_real_minutes')
+        )
+        .group_by(RecordStopwatch.task_id, func.date(RecordStopwatch.creation_date))
+        .subquery()
+    )
+
     team_query = (
         db.query(
             Team.name,
@@ -312,22 +368,19 @@ async def get_team_performance_report(
             func.count(ProgrammingTask.task_id).label('total_tasks'),
             func.sum(case([(ProgrammingTask.is_completed == True, 1)], else_=0)).label('completed_tasks'),
             func.sum(Task.minutes).label('scheduled_minutes'),
-            func.sum(
-                case([
-                    (ProgrammingTask.real_end_time != None,
-                     func.extract('epoch', ProgrammingTask.real_end_time - ProgrammingTask.real_start_time) / 60)
-                ], else_=0)
-            ).label('real_minutes'),
-            func.avg(
-                case([
-                    (ProgrammingTask.real_end_time != None,
-                     func.extract('epoch', ProgrammingTask.real_end_time - ProgrammingTask.real_start_time) / 60)
-                ], else_=None)
-            ).label('avg_task_minutes')
+            func.sum(func.coalesce(real_minutes_subquery.c.total_real_minutes, 0)).label('real_minutes'),
+            func.avg(func.coalesce(real_minutes_subquery.c.total_real_minutes, 0)).label('avg_task_minutes')
         )
         .join(Programming, Team.id == Programming.team_id)
         .join(ProgrammingTask, Programming.id == ProgrammingTask.programming_id)
         .join(Task, ProgrammingTask.task_id == Task.id)
+        .outerjoin(
+            real_minutes_subquery,
+            and_(
+                Task.id == real_minutes_subquery.c.task_id,
+                Programming.date == real_minutes_subquery.c.record_date
+            )
+        )
         .filter(
             Programming.date.between(start_date, end_date),
             Programming.status != ProgrammingStatus.cancelled

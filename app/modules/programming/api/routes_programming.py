@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Body, Request
+from sqlalchemy import func, and_
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from app.modules.programming.models.programming import Programming, ProgrammingTask
@@ -22,6 +23,7 @@ from app.shared.utils.business.programming_availability import update_programmin
 from app.modules.programming.models.order import Order as OrderModel
 from app.modules.programming.models.state import OrderStatus
 from app.modules.timer.services.timer import TimerService
+from app.modules.timer.models.record_stopwatch import RecordStopwatch
 from app.modules.quality.models.test_record import TestRecord as Test
 
 router = APIRouter(prefix="/programmings", tags=["programmings"])
@@ -85,6 +87,18 @@ def get_programming_by_team_date(team_id: str, date: str, db: Session = Depends(
             if current_user.role not in privileged_roles and not user_belongs_to_team(current_user, team_id):
                 raise HTTPException(status_code=403, detail="Not authorized")
 
+        # Obtener minutos reales acumulados de RecordStopwatch para todas las tareas de esta programación
+        task_ids = [pt.task_id for pt in programming.programming_tasks if pt.task_id]
+        real_minutes_map = {}
+        if task_ids:
+            real_records = db.query(
+                RecordStopwatch.task_id,
+                func.sum(RecordStopwatch.accumulated_duration * 60).label('total_minutes')
+            ).filter(
+                RecordStopwatch.task_id.in_(task_ids)
+            ).group_by(RecordStopwatch.task_id).all()
+            real_minutes_map = {str(r.task_id).lower(): r.total_minutes for r in real_records}
+
         # Construir la respuesta con los datos ya cargados (sin consultas adicionales)
         tasks = []
         for pt in sorted(programming.programming_tasks, key=lambda pt: pt.order):
@@ -99,7 +113,16 @@ def get_programming_by_team_date(team_id: str, date: str, db: Session = Depends(
             t['real_start_time'] = getattr(pt, 'real_start_time', None)
             t['real_end_time'] = getattr(pt, 'real_end_time', None)
             t['real_quantity'] = getattr(pt, 'real_quantity', None)
-            t['duration_in_hours'] = getattr(pt, 'duration_in_hours', None)
+            t['duration_in_hours'] = getattr(pt, 'duration_in_hours', 0)
+            # Multi-level fallback for accumulated_real_minutes
+            real_min = real_minutes_map.get(str(pt.task_id).lower(), (t['duration_in_hours'] or 0) * 60)
+            
+            # Final fallback to timestamps if the others are missing/zero
+            if real_min == 0 and pt.real_start_time and pt.real_end_time:
+                delta = pt.real_end_time - pt.real_start_time
+                real_min = delta.total_seconds() / 60.0
+            
+            t['accumulated_real_minutes'] = real_min
             t['comment'] = getattr(pt, 'comment', None)
             t['created_at'] = getattr(pt, 'created_at', None)
             
@@ -250,6 +273,18 @@ def get_dashboard_data(date: str, db: Session = Depends(get_db), current_user=De
             if not programming.programming_tasks:
                 continue
                 
+            # Obtener minutos reales acumulados de RecordStopwatch para esta programación
+            task_ids = [pt.task_id for pt in programming.programming_tasks if pt.task_id]
+            real_minutes_map = {}
+            if task_ids:
+                real_records = db.query(
+                    RecordStopwatch.task_id,
+                    func.sum(RecordStopwatch.accumulated_duration * 60).label('total_minutes')
+                ).filter(
+                    RecordStopwatch.task_id.in_(task_ids)
+                ).group_by(RecordStopwatch.task_id).all()
+                real_minutes_map = {str(r.task_id).lower(): r.total_minutes for r in real_records}
+
             # Serializar las tareas
             tasks = []
             for pt in sorted(programming.programming_tasks, key=lambda pt: pt.order):
@@ -265,7 +300,16 @@ def get_dashboard_data(date: str, db: Session = Depends(get_db), current_user=De
                 t['real_start_time'] = getattr(pt, 'real_start_time', None)
                 t['real_end_time'] = getattr(pt, 'real_end_time', None)
                 t['real_quantity'] = getattr(pt, 'real_quantity', None)
-                t['duration_in_hours'] = getattr(pt, 'duration_in_hours', None)
+                t['duration_in_hours'] = getattr(pt, 'duration_in_hours', 0)
+                # Multi-level fallback for accumulated_real_minutes
+                real_min = real_minutes_map.get(str(pt.task_id).lower(), (t['duration_in_hours'] or 0) * 60)
+                
+                # Final fallback to timestamps if the others are missing/zero
+                if real_min == 0 and pt.real_start_time and pt.real_end_time:
+                    delta = pt.real_end_time - pt.real_start_time
+                    real_min = delta.total_seconds() / 60.0
+                
+                t['accumulated_real_minutes'] = real_min
                 t['comment'] = getattr(pt, 'comment', None)
                 t['created_at'] = getattr(pt, 'created_at', None)
                 
@@ -492,10 +536,9 @@ async def reorder_programming_tasks(
             pt.end_time = et
             current_time = pt.end_time
         else:
-            # Solo recalcula si NO se envían los valores
+            programming_date: date = programming.date
+            weekday = programming_date.weekday()
             if current_time is None:
-                programming_date: date = programming.date
-                weekday = programming_date.weekday()
                 if base_time:
                     base_hour, base_minute = map(int, base_time.split(":"))
                     current_time = datetime.combine(programming_date, time(base_hour, base_minute))
@@ -504,9 +547,18 @@ async def reorder_programming_tasks(
                         current_time = datetime.combine(programming_date, time(7, 30))
                     else:
                         current_time = datetime.combine(programming_date, time(7, 0))
+            
+            # Ajustar inicio si cae en el almuerzo
+            curr_mins = current_time.hour * 60 + current_time.minute
+            if 720 <= curr_mins < 780:
+                current_time = datetime.combine(programming_date, time(13, 0))
+            
             pt.start_time = current_time
             duration = getattr(pt.task, "minutes", 0) or 0
-            pt.end_time = current_time + timedelta(minutes=duration)
+            
+            # Usar la utilidad central para calcular el fin con el ajuste de almuerzo
+            from app.modules.automation.services.utils.programming_utils import ProgrammingUtils
+            pt.end_time = ProgrammingUtils.adjust_for_lunch_break(current_time, duration)
             current_time = pt.end_time
         result.append(ProgrammingTaskOrderOut(
             task_id=pt.task_id,

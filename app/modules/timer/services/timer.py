@@ -110,16 +110,20 @@ class TimerService:
             elapsed_time = time_difference.total_seconds() / 3600  # Convert to hours
             accumulated_duration += elapsed_time
 
-        _record: Optional[RecordStopwatch | ProgrammingTask] = None
-        # Create a record in record_stopwatch or update ProgrammingTask
+        # Create a record in record_stopwatch (ALWAYS, for all types of tasks)
+        accumulated_duration_value: float = accumulated_duration
+        record_stopwatch = RecordStopwatch(
+            task_id=task_id,
+            quantity=real_quantity,
+            accumulated_duration=accumulated_duration_value,
+            creation_date=now # Use the same 'now' for consistency
+        )
+        self.db.add(record_stopwatch)
+
+        record: Optional[RecordStopwatch | ProgrammingTask] = None
+        
         if not stopwatch.is_from_programming:
-            accumulated_duration_value: float = accumulated_duration
-            record = RecordStopwatch(
-                task_id=task_id,
-                quantity=real_quantity,
-                accumulated_duration=accumulated_duration_value
-            )
-            self.db.add(record)
+            record = record_stopwatch
         else:
             prog_task: Optional[ProgrammingTask] = self.db.query(ProgrammingTask).filter(ProgrammingTask.task_id == task_id).first()
             if not prog_task:
@@ -133,7 +137,21 @@ class TimerService:
             prog_task.real_start_time = stopwatch.created_at
             prog_task.real_end_time = now
             prog_task.real_quantity = real_quantity
-            prog_task.duration_in_hours = accumulated_duration
+
+            # Flush to ensure record_stopwatch is included in the sum
+            self.db.flush()
+            
+            # Use the task_id as UUID object for the query
+            task_uuid = task_id if isinstance(task_id, uuid.UUID) else uuid.UUID(str(task_id))
+            
+            # Calculate total duration in hours from all record_stopwatch entries for this task
+            total_duration = self.db.query(func.sum(RecordStopwatch.accumulated_duration)).filter(
+                RecordStopwatch.task_id == task_uuid
+            ).scalar() or 0.0
+            
+            logger.info(f"Syncing duration for task {task_uuid}: calculated total_duration = {total_duration}")
+            
+            prog_task.duration_in_hours = total_duration
             prog_task.completed_by_user_id = user_id
 
             if is_completed is not None:
