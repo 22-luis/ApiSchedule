@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import Column, String, Integer, Float
+from sqlalchemy import Column, String, Integer, Float, Boolean
 from sqlalchemy.dialects.postgresql import UUID
 from app.shared.db.database import Base
 
@@ -20,3 +20,4 @@ class Code(Base):
     presentation = Column(String, nullable=True)
     fabricationCode = Column(String, nullable=True)
     usefulLife = Column(String, nullable=True)
+    verification = Column(Boolean, default=False, nullable=True)

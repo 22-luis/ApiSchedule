@@ -14,8 +14,8 @@ class CodeCreate(BaseModel):
     performance: Optional[float] = None
     material: Optional[str] = None
     presentation: Optional[str] = None
-    fabricationCode: Optional[str] = None
     usefulLife: Optional[str] = None
+    verification: Optional[bool] = False
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -33,6 +33,7 @@ class CodeUpdate(BaseModel):
     presentation: Optional[str] = None
     fabricationCode: Optional[str] = None
     usefulLife: Optional[str] = None
+    verification: Optional[bool] = None
 
 from app.modules.quality.schemas.catalog_test import CatalogTestOut
 
@@ -51,6 +52,7 @@ class CodeOut(BaseModel):
     presentation: Optional[str] = None
     fabricationCode: Optional[str] = None
     usefulLife: Optional[str] = None
+    verification: Optional[bool] = False
     tests: List[CatalogTestOut] = []
 
     model_config = ConfigDict(from_attributes=True)

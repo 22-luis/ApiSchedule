@@ -254,6 +254,7 @@ class CodeBulkItem(BaseModel):
     presentation: Optional[str] = None
     fabricationCode: Optional[str] = None
     usefulLife: Optional[str] = None
+    verification: Optional[Any] = None
 
     model_config = ConfigDict(extra='allow') # Permitir otros campos que puedan venir del Excel
 
@@ -316,7 +317,8 @@ def bulk_upload_codes(codes: List[dict], db: Session = Depends(get_db), _current
                 'material': code_data.get("material"),
                 'presentation': code_data.get("presentation"),
                 'fabricationCode': fabrication_code,
-                'usefulLife': useful_life
+                'usefulLife': useful_life,
+                'verification': code_data.get("verification")
             }
             # También actualizar código y actividad si se encontró por ID
             if item_id:
@@ -331,11 +333,18 @@ def bulk_upload_codes(codes: List[dict], db: Session = Depends(get_db), _current
                 curr_val = getattr(existing_code, field)
                 
                 # Comparación robusta por tipo
-                if field in ['quantity', 'time', 'performance', 'people']:
-                    # Campos numéricos (incluyendo quantity que es String en el modelo)
+                if field in ['quantity', 'time', 'performance', 'people', 'verification']:
+                    # Campos numéricos o booleanos
                     if field == 'people':
                         n = clean_int(new_val_raw)
                         c = clean_int(curr_val)
+                    elif field == 'verification':
+                        # Convertir a booleano de forma robusta
+                        if isinstance(new_val_raw, str):
+                            n = new_val_raw.lower() in ('true', '1', 't', 'y', 'yes', 'si', 'sí')
+                        else:
+                            n = bool(new_val_raw) if new_val_raw is not None else False
+                        c = bool(curr_val)
                     else:
                         n = clean_float(new_val_raw)
                         c = clean_float(curr_val)
@@ -374,7 +383,8 @@ def bulk_upload_codes(codes: List[dict], db: Session = Depends(get_db), _current
                 material=clean_str_preserve_case(code_data.get("material")),
                 presentation=clean_str_preserve_case(code_data.get("presentation")),
                 fabricationCode=clean_str_preserve_case(fabrication_code),
-                usefulLife=clean_str_preserve_case(useful_life)
+                usefulLife=clean_str_preserve_case(useful_life),
+                verification=code_data.get("verification") if isinstance(code_data.get("verification"), bool) else (str(code_data.get("verification")).lower() in ('true', '1', 't', 'y', 'yes', 'si', 'sí') if code_data.get("verification") is not None else False)
             )
             db.add(new_code)
             db.flush() # Para obtener el ID generado

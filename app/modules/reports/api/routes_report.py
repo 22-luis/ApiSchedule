@@ -224,12 +224,12 @@ async def get_task_performance_report(
         "lote": row.lote,
         "tipo": row.type,
         "actividad": row.activity,
-        "horas": round(float(row.horas), 2) if row.horas else None,
+        "horas": round(float(row.horas), 4) if row.horas else None,
         "cantidad_real": float(row.real_quantity) if row.real_quantity else None,
-        "minutes": round(float(row.minutes), 2) if row.minutes else None,
+        "minutes": round(float(row.minutes), 4) if row.minutes else None,
         "personas": row.people,
-        "total_horas": round(float(row.total_horas), 2) if row.total_horas else None,
-        "proporcion": round(float(row.proporcion), 2) if row.proporcion else None
+        "total_horas": round(float(row.total_horas), 4) if row.total_horas else None,
+        "proporcion": round(float(row.proporcion), 4) if row.proporcion else None
     } for row in results]
 
 @router.get("/task-performance-group")
