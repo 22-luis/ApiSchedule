@@ -1,51 +1,41 @@
-import traceback
-from typing import List, Union, Optional
+import logging
+from typing import List, Union, Optional, Tuple
 from sqlalchemy.orm import Session
-from sqlalchemy import or_, and_
-from fastapi import BackgroundTasks
-from app.modules.orders.schemas.order import OrderCreate
-from app.modules.warehouse.models.history import WarehouseHistory, WarehouseHistoryType
-from app.modules.orders.models import order as order_model
-from app.modules.organization.models.user import User
-from app.modules.organization.models.role import UserRole
+from datetime import date, datetime
+from fastapi import BackgroundTasks, HTTPException
+
+from app.modules.orders.models.order import Order
 from app.modules.orders.models.state import OrderStatus
+from app.modules.orders.repositories import order_repository
+from app.modules.warehouse.models.history import WarehouseHistory, WarehouseHistoryType
+from app.modules.organization.models.user import User
 from app.shared.utils.business.data_cleaning import clean_order_data
 from app.modules.automation.services.task_config import extract_created_orders_data, get_orders_summary
 from app.modules.automation.services.factory import TaskServiceFactory
 from app.modules.automation.services.auto import create_tasks_for_lotes
 from app.shared.utils.business.order_status_service import OrderStatusService
-from app.modules.programming.models.programming import ProgrammingTask
 from app.shared.utils.core.logging import get_logger
 
 logger = get_logger("order_service")
 
 class OrderService:
     @staticmethod
-    def create_orders(db: Session, orders_data: List[OrderCreate], auto_create_tasks: bool, current_user: User, background_tasks: BackgroundTasks = None):
-        """
-        Creates new orders and optionally triggers automatic task creation.
-        Handles complex logic for Bin 8 orders synchronously.
-        """
-        logger.info(f"Received request to create orders. auto_create_tasks={auto_create_tasks}")
-        
+    def create_orders(db: Session, orders_data: List[any], auto_create_tasks: bool, current_user: User, background_tasks: BackgroundTasks = None):
+        """Crea órdenes y gestiona la creación automática de tareas."""
         created_orders = []
         for order in orders_data:
-            # Verificar si la orden ya existe por el lote
-            existing_order = db.query(order_model.Order).filter(order_model.Order.lote == order.lote).first()
-            if existing_order:
+            if order_repository.find_by_lote(db, order.lote):
                 logger.info(f"Order with lote {order.lote} already exists. SKIPPING.")
                 continue 
             
-            # Limpiar los datos de la orden
-            order_dict = order.dict()
+            order_dict = order.dict() if hasattr(order, 'dict') else order.model_dump()
             cleaned_order = clean_order_data(order_dict)
             
             initial_status = OrderStatus.unprogrammed
-            # Not programmable condition
             if order.bin not in [8, 10, 100]:
                 initial_status = OrderStatus.not_programmable
             
-            db_order = order_model.Order(
+            db_order = Order(
                 lote=order.lote,
                 dueDate=order.dueDate,
                 code=cleaned_order['code'],
@@ -62,24 +52,20 @@ class OrderService:
         for db_order in created_orders:
             db.refresh(db_order)
         
-        # Extracted data for task creation services
         extracted_orders = extract_created_orders_data(created_orders)
         summary = get_orders_summary(created_orders)
         
-        # Serialize orders for response
-        serialized_orders = []
-        for order in created_orders:
-            status_val = order.status.name if hasattr(order.status, 'name') else str(order.status)
-            due_date_val = order.dueDate.isoformat() if hasattr(order.dueDate, 'isoformat') else order.dueDate
-            serialized_orders.append({
-                "lote": int(order.lote) if order.lote is not None else None,
-                "code": order.code,
-                "status": status_val,
-                "description": order.description,
-                "quantity": float(order.quantity) if order.quantity is not None else 0.0,
-                "bin": int(order.bin) if order.bin is not None else None,
-                "dueDate": due_date_val
-            })
+        serialized_orders = [
+            {
+                "lote": int(o.lote),
+                "code": o.code,
+                "status": o.status.name if hasattr(o.status, 'name') else str(o.status),
+                "description": o.description,
+                "quantity": float(o.quantity) if o.quantity is not None else 0.0,
+                "bin": int(o.bin) if o.bin is not None else None,
+                "dueDate": o.dueDate.isoformat() if hasattr(o.dueDate, 'isoformat') else o.dueDate
+            } for o in created_orders
+        ]
         
         response_data = {
             "created_orders": serialized_orders,
@@ -88,7 +74,6 @@ class OrderService:
             "auto_create_tasks": auto_create_tasks
         }
         
-        # Separate Bin 8 orders
         bin8_orders = [o for o in created_orders if o.bin == 8]
         other_orders = [o for o in created_orders if o.bin != 8]
         bin8_failed = []
@@ -101,8 +86,7 @@ class OrderService:
             
             processed_bin8 = bin_8_result["processed"]
             failed_bin8_raw = bin_8_result["failed"]
-            self_sufficient_bin8 = bin_8_result.get("self_sufficient", [])
-            other_orders.extend(self_sufficient_bin8)
+            other_orders.extend(bin_8_result.get("self_sufficient", []))
             
             if processed_bin8:
                 extracted_orders_bin8 = extract_created_orders_data(processed_bin8)
@@ -122,7 +106,6 @@ class OrderService:
                 except Exception as e:
                     logger.error(f"Error creating tasks synchronously: {e}")
             
-            # Prepare failed info for response
             for failed_info in failed_bin8_raw:
                 order = failed_info["order"]
                 bin8_failed.append({
@@ -136,7 +119,6 @@ class OrderService:
                     "reason": failed_info["reason"]
                 })
         
-        # Trigger task creation for non-Bin 8 (and self-sufficient) orders
         if auto_create_tasks and other_orders:
             other_lotes = [o.lote for o in other_orders]
             if background_tasks is not None:
@@ -152,58 +134,164 @@ class OrderService:
         return response_data
 
     @staticmethod
-    def create_tasks_for_bin8_manual(db: Session, order_lote: int, fabrication_lote: int, current_user: User):
-        """
-        Manually create tasks for a bin 8 order with a specified fabrication lot.
-        """
-        logger.info(f"Manual task creation requested for order {order_lote} with fabrication lot {fabrication_lote}")
+    def get_paged_orders(db: Session, filters: dict):
+        """Obtiene órdenes paginadas con sus metadatos."""
+        skip = filters.pop("skip", 0)
+        limit = filters.pop("limit", 10)
         
-        # Obtener la orden de empaque
-        packaging_order = db.query(order_model.Order).filter(
-            order_model.Order.lote == order_lote
-        ).first()
+        total = order_repository.count_all(db, **filters)
+        orders = order_repository.find_all(db, skip=skip, limit=limit, **filters)
         
-        if not packaging_order:
-            return None, f"Order {order_lote} not found"
+        serialized_orders = []
+        for order in orders:
+            serialized_orders.append({
+                "lote": order.lote,
+                "code": order.code,
+                "status": order.status,
+                "description": order.description,
+                "quantity": order.quantity,
+                "bin": order.bin,
+                "dueDate": order.dueDate,
+                "received_user": order.received_user,
+                "received_date": order.received_date,
+                "received_quantity": order.received_quantity,
+                "missing_quantity": order.missing_quantity,
+                "submitted_user": order.submitted_user,
+                "submitted_date": order.submitted_date,
+                "submitted_observations": order.submitted_observations,
+                "is_hidden": order.is_hidden
+            })
+        return {"orders": serialized_orders, "total": total}
+
+    @staticmethod
+    def receive_order(db: Session, order_id: str, custom_status: Optional[str], current_user: User):
+        """Marca una orden como recibida en almacén."""
+        db_order = order_repository.find_by_lote(db, order_id)
+        if not db_order:
+            raise HTTPException(status_code=404, detail="Order not found")
         
-        if packaging_order.bin != 8:
-            return None, f"Order {order_lote} is not a bin 8 (packaging) order"
+        if db_order.status not in [OrderStatus.delivered, OrderStatus.not_programmable]:
+            raise HTTPException(status_code=400, detail="La orden debe estar en estado 'entregado' o 'no programable' para poder ser recibida")
+
+        if db_order.status == OrderStatus.completed:
+            raise HTTPException(status_code=400, detail="La orden ya está completada")
         
-        # Verificar que el lote de fabricación existe
-        fabrication_order = db.query(order_model.Order).filter(
-            order_model.Order.lote == fabrication_lote
-        ).first()
-        
-        if not fabrication_order:
-            return None, f"Fabrication lot {fabrication_lote} not found"
-        
-        # Cambiar estado de la orden
-        packaging_order.status = OrderStatus.programmed
-        db.commit()
-        
-        # Extract order data but replace lote with fabrication lote
-        extracted = {
-            "lote": fabrication_lote,
-            "code": packaging_order.code,
-            "quantity": packaging_order.quantity,
-            "bin": packaging_order.bin,
-            "original_packaging_lote": order_lote
-        }
-        
-        # Get packaging service and create tasks
-        packaging_service = TaskServiceFactory.create_packaging_service()
-        
-        try:
-            result = packaging_service.create_packaging_tasks_for_orders([extracted], db)
-            if result and result.get("tasks_created", 0) > 0:
-                db.commit()
-                OrderService._create_notification(db, current_user.username, result.get("created_tasks", []), 1)
-                return result, None
+        db_order.received_user = current_user.username
+        db_order.received_date = date.today()
+
+        if custom_status:
+            db_order.status = OrderStatus.pending if custom_status == "pending" else OrderStatus.completed
+            status_message = "Pendiente" if custom_status == "pending" else "Completada"
+        else:
+            current_missing = db_order.missing_quantity if db_order.missing_quantity is not None else 0
+            if current_missing > 0:
+                db_order.status = OrderStatus.pending
+                status_message = "pendiente (quedan faltantes)"
             else:
-                return None, "No se crearon tareas. Verifica los logs del servidor."
-        except Exception as e:
-            db.rollback()
-            return None, str(e)
+                db_order.status = OrderStatus.completed
+                status_message = "completada"
+
+        history = WarehouseHistory(
+            lote=db_order.lote,
+            code=db_order.code,
+            quantity=db_order.received_quantity if db_order.received_quantity is not None else 0,
+            type=WarehouseHistoryType.RECEIVED,
+            user=current_user.username,
+            observations=f"Orden recibida. Estado: {status_message}"
+        )
+        db.add(history)
+        db.commit()
+        db.refresh(db_order)
+        
+        return {
+            "message": f"Orden {order_id} recibida exitosamente - Estado: {status_message}",
+            "lote": db_order.lote,
+            "status": db_order.status,
+            "received_user": db_order.received_user,
+            "received_date": db_order.received_date,
+            "received_quantity": db_order.received_quantity,
+            "missing_quantity": db_order.missing_quantity,
+            "status_message": status_message
+        }
+
+    @staticmethod
+    def deliver_order(db: Session, order_id: int, delivered_quantity: float, observations: Optional[str], current_user: User):
+        """Registra una entrega (salida de producción a almacén)."""
+        db_order = order_repository.find_by_lote(db, order_id)
+        if not db_order:
+            raise HTTPException(status_code=404, detail="Order not found")
+
+        db_order.submitted_user = current_user.username
+        db_order.submitted_date = date.today()
+        db_order.submitted_observations = observations
+        
+        current_received = db_order.received_quantity if db_order.received_quantity is not None else 0
+        new_received_total = current_received + delivered_quantity
+        db_order.received_quantity = new_received_total
+        
+        if db_order.quantity is not None:
+            new_missing_quantity = db_order.quantity - new_received_total
+            db_order.missing_quantity = new_missing_quantity
+        else:
+            new_missing_quantity = -new_received_total
+            db_order.missing_quantity = new_missing_quantity
+
+        db_order.status = OrderStatus.delivered
+        
+        history = WarehouseHistory(
+            lote=db_order.lote,
+            code=db_order.code,
+            quantity=delivered_quantity,
+            type=WarehouseHistoryType.SENT,
+            user=current_user.username,
+            observations=observations
+        )
+        db.add(history)
+        db.commit()
+        db.refresh(db_order)
+        
+        return {
+            "lote": db_order.lote,
+            "code": db_order.code,
+            "status": db_order.status,
+            "received_quantity": db_order.received_quantity,
+            "missing_quantity": db_order.missing_quantity,
+            "delivered_quantity": delivered_quantity,
+            "submitted_user": db_order.submitted_user,
+            "submitted_date": db_order.submitted_date,
+            "message": f"Entrega realizada exitosamente. Cantidad faltante: {db_order.missing_quantity}"
+        }
+
+    @staticmethod
+    def transfer_surplus(db: Session, source_lote: int, target_lote: int, transfer_quantity: float, current_user: User):
+        """Transfiere sobrantes de una orden a otra."""
+        source_order = order_repository.find_by_lote(db, source_lote)
+        target_order = order_repository.find_by_lote(db, target_lote)
+        
+        if not source_order or not target_order:
+            raise HTTPException(status_code=404, detail="Orden origen o destino no encontrada")
+        
+        if source_order.missing_quantity >= 0:
+            raise HTTPException(status_code=400, detail="La orden origen no tiene sobrantes")
+        
+        if source_order.status != OrderStatus.completed:
+            raise HTTPException(status_code=400, detail="La orden origen debe estar en estado 'completed'")
+        
+        if source_order.code != target_order.code:
+            raise HTTPException(status_code=400, detail="Las órdenes deben tener el mismo código")
+        
+        if transfer_quantity > abs(source_order.missing_quantity):
+            raise HTTPException(status_code=400, detail="Cantidad excede el sobrante disponible")
+        
+        source_order.missing_quantity += transfer_quantity
+        target_order.received_quantity = (target_order.received_quantity or 0) + transfer_quantity
+        target_order.missing_quantity = (target_order.quantity or 0) - target_order.received_quantity
+        
+        db.add(WarehouseHistory(lote=source_order.lote, code=source_order.code, quantity=transfer_quantity, type=WarehouseHistoryType.TRANSFER_SOURCE, user=current_user.username, observations=f"Sobrante transferido al lote {target_lote}"))
+        db.add(WarehouseHistory(lote=target_order.lote, code=target_order.code, quantity=transfer_quantity, type=WarehouseHistoryType.TRANSFER_TARGET, user=current_user.username, observations=f"Sobrante recibido del lote {source_lote}"))
+        
+        db.commit()
+        return {"message": "Transferencia completada"}
 
     @staticmethod
     def _create_notification(db, username, created_tasks_info, order_count):

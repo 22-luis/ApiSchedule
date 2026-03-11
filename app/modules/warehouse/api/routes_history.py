@@ -1,12 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
-from typing import List, Optional, Union
+from typing import List, Optional
 from app.shared.db.session import get_db
 from app.modules.organization.models.role import UserRole
 from app.shared.utils.core.dependencies import require_roles
-from app.modules.warehouse.models.history import WarehouseHistory, WarehouseHistoryType
+from app.modules.warehouse.models.history import WarehouseHistoryType
 from app.modules.warehouse.schemas.history import WarehouseHistoryOut
 from app.modules.organization.models.user import User
+from app.modules.warehouse.services import history_service
 
 router = APIRouter(prefix="/warehouse/history", tags=["warehouse"])
 
@@ -22,26 +23,19 @@ def get_warehouse_history(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.WAREHOUSE))
 ):
-    query = db.query(WarehouseHistory)
-    
-    if lote is not None:
-        query = query.filter(WarehouseHistory.lote == lote)
-    if code:
-        query = query.filter(WarehouseHistory.code.ilike(f"%{code}%"))
-    if user:
-        query = query.filter(WarehouseHistory.user == user)
-    if type:
-        query = query.filter(WarehouseHistory.type == type)
-    if date:
-        from datetime import datetime
-        try:
-            target_date = datetime.strptime(date, '%Y-%m-%d').date()
-            from sqlalchemy import func
-            query = query.filter(func.date(WarehouseHistory.timestamp) == target_date)
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Formato de fecha inválido. Use YYYY-MM-DD")
-        
-    return query.order_by(WarehouseHistory.timestamp.desc()).offset(skip).limit(limit).all()
+    """
+    Get warehouse history with optional filters.
+    """
+    return history_service.get_history(
+        db, 
+        lote=lote, 
+        code=code, 
+        user=user, 
+        history_type=type, 
+        date_str=date, 
+        skip=skip, 
+        limit=limit
+    )
 
 @router.get("/{identifier}", response_model=List[WarehouseHistoryOut])
 def get_history_by_identifier(
@@ -49,19 +43,7 @@ def get_history_by_identifier(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.WAREHOUSE))
 ):
-    query = db.query(WarehouseHistory)
-    
-    if identifier.isdigit():
-        lote_val = int(identifier)
-        query = query.filter(WarehouseHistory.lote == lote_val)
-    else:
-        query = query.filter(WarehouseHistory.code == identifier)
-        
-    results = query.order_by(WarehouseHistory.timestamp.desc()).all()
-    if not results:
-        # If no results as code, try partial match if it was a string
-        if not identifier.isdigit():
-             query_partial = db.query(WarehouseHistory).filter(WarehouseHistory.code.ilike(f"%{identifier}%"))
-             results = query_partial.order_by(WarehouseHistory.timestamp.desc()).all()
-             
-    return results
+    """
+    Get history entries filtered by lote or code.
+    """
+    return history_service.get_history_by_identifier(db, identifier)

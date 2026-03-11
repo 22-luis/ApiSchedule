@@ -22,8 +22,8 @@ from app.shared.db.database import Base
 # Import all models here so Alembic can see them
 from app.modules.codes.models.code import Code
 from app.modules.codes.models.preparation import Preparation
-from app.modules.core.models.user import User
-from app.modules.core.models.team import Team, UserTeam, task_team_association
+from app.modules.organization.models.user import User
+from app.modules.organization.models.team import Team, UserTeam, task_team_association
 from app.modules.programming.models.order import Order
 from app.modules.programming.models.programming import Programming, ProgrammingTask
 from app.modules.programming.models.task import Task
