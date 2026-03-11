@@ -24,12 +24,12 @@ from app.modules.codes.models.code import Code
 from app.modules.codes.models.preparation import Preparation
 from app.modules.organization.models.user import User
 from app.modules.organization.models.team import Team, UserTeam, task_team_association
-from app.modules.programming.models.order import Order
+from app.modules.orders.models.order import Order
 from app.modules.programming.models.programming import Programming, ProgrammingTask
 from app.modules.programming.models.task import Task
 from app.modules.programming.models.task_creation_notification import TaskCreationNotification
 from app.modules.programming.models.task_status_log import TaskStatusLog
-from app.modules.programming.models.order_surplus import OrderSurplus
+from app.modules.orders.models.order_surplus import OrderSurplus
 from app.modules.quality.models.test_record import TestRecord
 from app.modules.quality.models.catalog_test import CatalogTest
 from app.modules.quality.models.code_test import CodeTest
@@ -45,6 +45,7 @@ from app.modules.timer.models.stopwatch import Stopwatch
 from app.modules.timer.models.record_stopwatch import RecordStopwatch
 from app.modules.warehouse.models.history import WarehouseHistory
 from app.modules.available.models.availableModel import Available
+from app.modules.supervisor.models import SupStopwatch, SupRecordStopwatch, SupTask, SupTaskHistory
 
 target_metadata = Base.metadata
 

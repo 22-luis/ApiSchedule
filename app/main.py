@@ -149,6 +149,7 @@ app.add_exception_handler(Exception, generic_exception_handler)
 
 # --- Routes ---
 
+from app.modules.supervisor.api.routes_timer import router as supervisor_timer_router
 api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(auth_router, tags=["auth"])
 api_router.include_router(user_router, tags=["users"])
@@ -163,6 +164,7 @@ api_router.include_router(code_test_router, tags=["codes"])
 api_router.include_router(programming_router, tags=["programmings"])
 api_router.include_router(calculations_router, tags=["calculations"])
 api_router.include_router(timer_router, tags=["Timer"])
+api_router.include_router(supervisor_timer_router, tags=["Supervisor Timer"])
 api_router.include_router(record_stopwatch_router, tags=["Record Stopwatch"])
 api_router.include_router(report_router, tags=["reports"])
 api_router.include_router(available_router, tags=["available"])
