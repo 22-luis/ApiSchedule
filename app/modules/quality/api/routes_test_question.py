@@ -5,7 +5,7 @@ from fastapi.params import Depends
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.modules.core.models.role import UserRole
+from app.modules.organization.models.role import UserRole
 from app.modules.quality.models.catalog_test_question import CatalogTestQuestion
 from app.modules.quality.schemas.catalog_test_question import CatalogTestQuestionCreate, CatalogTestQuestionUpdate, CatalogTestQuestionOut
 from app.shared.db.session import get_db

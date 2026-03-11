@@ -1,6 +1,6 @@
 from sqlalchemy import Column, String, Enum, Integer, Date, Float, Boolean, DateTime
 from app.shared.db.database import Base
-from app.modules.programming.models.state import OrderStatus
+from app.modules.orders.models.state import OrderStatus
 
 class Order(Base):
     __tablename__ = "order"

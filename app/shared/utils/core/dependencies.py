@@ -1,8 +1,9 @@
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from fastapi.security import HTTPAuthorizationCredentials
 
-from app.modules.core.models.role import UserRole
-from app.modules.core.models.user import User
+from app.modules.organization.models.role import UserRole
+from app.modules.organization.models.user import User
 from app.shared.db.session import get_db
 from app.shared.utils.security.jwt import decode_token
 from app.shared.utils.security.security import oauth2_scheme
@@ -22,13 +23,14 @@ ROLE_HIERARCHY = {
 }
 
 def get_current_user(
-    token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)
+    auth: HTTPAuthorizationCredentials = Depends(oauth2_scheme), db: Session = Depends(get_db)
 ):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+    token = auth.credentials
     payload = decode_token(token)
     if payload is None:
         raise credentials_exception
@@ -43,7 +45,7 @@ def get_current_user(
 def get_current_active_user(
     current_user: User = Depends(get_current_user),
 ) -> User:
-    from app.modules.core.models.state import UserState
+    from app.modules.organization.models.state import UserState
     if current_user.state != UserState.ACTIVE:
         raise HTTPException(status_code=400, detail="Inactive user")
     return current_user

@@ -1,7 +1,7 @@
 import pytest
 from sqlalchemy.orm import Session
-from app.modules.programming.models.order import Order
-from app.modules.programming.models.state import OrderStatus
+from app.modules.orders.models.order import Order
+from app.modules.orders.models.state import OrderStatus
 from app.modules.automation.services.order_flow_service import OrderFlowService
 from app.modules.codes.models.code import Code
 from datetime import date

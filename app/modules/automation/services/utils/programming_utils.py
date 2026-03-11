@@ -6,7 +6,7 @@ from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
 
 from app.modules.codes.models.code import Code
-from app.modules.programming.models.order import Order
+from app.modules.orders.models.order import Order
 # from app.modules.codes.models.preparation import Preparation
 from app.modules.programming.models.programming import Programming, ProgrammingTask
 from app.modules.programming.models.state import ProgrammingStatus

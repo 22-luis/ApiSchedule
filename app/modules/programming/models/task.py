@@ -3,7 +3,7 @@ from sqlalchemy import Column, String, Integer, ForeignKey, DateTime, Float, Boo
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
 from app.shared.db.database import Base
-from app.modules.core.models.team import task_team_association
+from app.modules.organization.models.team import task_team_association
 from app.modules.codes.models.code import Code
 
 class Task(Base):

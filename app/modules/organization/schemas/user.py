@@ -6,8 +6,8 @@ from typing import List, Optional, Union
 
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 
-from app.modules.core.models.role import UserRole
-from app.modules.core.models.state import UserState
+from app.modules.organization.models.role import UserRole
+from app.modules.organization.models.state import UserState
 
 
 class UserBase(BaseModel):

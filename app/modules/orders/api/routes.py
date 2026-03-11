@@ -1,14 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Body, BackgroundTasks
 from sqlalchemy.orm import Session
-from app.modules.programming.schemas.order import OrderCreate, OrderOut, OrderStatusUpdate, OrderPageOut, OrderWarehouseUpdate, OrderWarehouseOut, OrderDeliver
+from app.modules.orders.schemas.order import OrderCreate, OrderOut, OrderPageOut, OrderWarehouseUpdate, OrderWarehouseOut, OrderDeliver, OrderStatusUpdate
 from app.modules.warehouse.models.history import WarehouseHistory, WarehouseHistoryType
-from app.modules.programming.models import order as order_model
+from app.modules.orders.models import order as order_model
 from app.shared.db.session import get_db
 from typing import List, Union, Optional
-from app.modules.core.models.user import User
+from app.modules.organization.models.user import User
 from app.shared.utils.core.dependencies import get_current_user, require_roles
-from app.modules.core.models.role import UserRole
-from app.modules.programming.models.state import OrderStatus
+from app.modules.organization.models.role import UserRole
+from app.modules.orders.models.state import OrderStatus
+from app.modules.orders.services.order_service import OrderService
 from app.shared.utils.business.data_cleaning import clean_order_data
 from datetime import datetime
 from sqlalchemy import or_, and_
@@ -52,251 +53,10 @@ def create_orders(
 ):
     logger.info(f"Received request to create orders. auto_create_tasks={auto_create_tasks}")
     
-    # Si es una sola orden, la convertimos en lista
     if isinstance(orders, OrderCreate):
         orders = [orders]
     
-    logger.debug(f"Processing {len(orders)} orders.")
-    
-    created_orders = []
-    for order in orders:
-        logger.debug(f"Processing order with lote: {order.lote}")
-        
-        # Verificar si la orden ya existe por el lote
-        existing_order = db.query(order_model.Order).filter(order_model.Order.lote == order.lote).first()
-        if existing_order:
-            logger.info(f"Order with lote {order.lote} already exists. SKIPPING (not updating, not processing).")
-            continue 
-        
-        # Limpiar los datos de la orden
-        order_dict = order.dict()
-        cleaned_order = clean_order_data(order_dict)
-        
-        initial_status = OrderStatus.unprogrammed
-        
-        #Not programable condition
-        if order.bin not in [8, 10, 100]:
-            initial_status = OrderStatus.not_programmable
-            logger.info(f"Order with lote {order.lote} is not programmable (bin: {order.bin}). Setting status to {initial_status}.")
-        
-        db_order = order_model.Order(
-            lote=order.lote,
-            dueDate=order.dueDate,
-            code=cleaned_order['code'],
-            description=cleaned_order['description'],
-            quantity=order.quantity,
-            missing_quantity=order.quantity,
-            bin=order.bin,
-            status=initial_status
-        )
-        db.add(db_order)
-        created_orders.append(db_order)
-        logger.info(f"Order with lote {order.lote} marked for creation.")
-
-    db.commit()
-    logger.info(f"Committed {len(created_orders)} new orders to the database.")
-
-    for db_order in created_orders:
-        db.refresh(db_order)
-    
-    # Extraer solo lote, quantity y code de las órdenes creadas
-    extracted_orders = extract_created_orders_data(created_orders)
-    
-    # Generar resumen simplificado
-    summary = get_orders_summary(created_orders)
-    
-    # Serializar las órdenes creadas para la respuesta: normalizar tipos (str/int/float/ISO date)
-    serialized_orders = []
-    for order in created_orders:
-        # Convertir status a cadena si es enum
-        status_val = order.status.name if hasattr(order.status, 'name') else str(order.status)
-
-        # Asegurar dueDate como string ISO (YYYY-MM-DD) si es date
-        due_date_val = order.dueDate.isoformat() if hasattr(order.dueDate, 'isoformat') else order.dueDate
-
-        order_dict = {
-            "lote": int(order.lote) if order.lote is not None else None,
-            "code": order.code,
-            "status": status_val,
-            "description": order.description,
-            "quantity": float(order.quantity) if order.quantity is not None else 0.0,
-            "bin": int(order.bin) if order.bin is not None else None,
-            "dueDate": due_date_val
-        }
-        serialized_orders.append(order_dict)
-    
-    response_data = {
-        "created_orders": serialized_orders,
-        "extracted_orders": extracted_orders,
-        "summary": summary,
-        "auto_create_tasks": auto_create_tasks
-    }
-    
-    # Separarórdenes de Bin 8 de las demás
-    bin8_orders = [o for o in created_orders if o.bin == 8]
-    other_orders = [o for o in created_orders if o.bin != 8]
-    
-    # Procesar órdenes Bin 8 sincrónicamente para capturar órdenes fallidas
-    bin8_failed = []
-    if bin8_orders:
-        from app.modules.automation.services.order_flow_service import OrderFlowService
-        
-        logger.info(f"Processing {len(bin8_orders)} Bin 8 orders synchronously")
-        bin_8_result = OrderFlowService.process_bin_8_orders(
-            bin8_orders, 
-            db, 
-            fabrication_orders_in_batch=[o for o in created_orders if o.bin in [10, 100]]
-        )
-        
-        processed_bin8 = bin_8_result["processed"]
-        failed_bin8_raw = bin_8_result["failed"]
-        # NEW: Self-sufficient orders (Bin 8 but treated as Bin 10 for task creation)
-        self_sufficient_bin8 = bin_8_result.get("self_sufficient", [])
-        
-        # Add self-sufficient orders to other_orders so they get processed by create_tasks_for_lotes
-        # This allows Weighing and Fabrication tasks to be created for them
-        other_orders.extend(self_sufficient_bin8)
-        
-        # Crear tareas solo para las órdenes procesadas exitosamente
-        if processed_bin8:
-            logger.info(f"Creating tasks directly for {len(processed_bin8)} successfully processed Bin 8 orders")
-            
-            # Setup for direct task creation
-            # Note: extract_created_orders_data and TaskServiceFactory are already imported globally
-
-            
-            # Prepare extracted orders with the CORRECT fabrication lot
-            extracted_orders = extract_created_orders_data(processed_bin8)
-            
-            # Update lots with fabrication lots (which are available in current session)
-            for i, extracted in enumerate(extracted_orders):
-                original_order = processed_bin8[i]
-                if hasattr(original_order, '_usar_lote_fabricacion'):
-                    logger.info(
-                        f"Using fabrication lote {original_order._usar_lote_fabricacion} "
-                        f"instead of packaging lote {extracted['lote']} for task creation"
-                    )
-                    extracted['lote'] = original_order._usar_lote_fabricacion
-                    extracted['original_packaging_lote'] = original_order._original_packaging_lote
-                    extracted['bin'] = original_order.bin
-
-            # Get packaging service and create tasks
-            packaging_service = TaskServiceFactory.create_packaging_service()
-            
-            try:
-                packaging_result = packaging_service.create_packaging_tasks_for_orders(
-                    extracted_orders, db
-                )
-                logger.info(f"Synchronous task creation result: {packaging_result}")
-                
-                if packaging_result and packaging_result.get("tasks_created", 0) > 0:
-                    # Commit task creation
-                    db.commit()
-                    
-                    # --- Create notification for frontend banner ---
-                    try:
-                        created_tasks_info = packaging_result.get("created_tasks", [])
-                        
-                        from collections import defaultdict
-                        prog_map = defaultdict(lambda: {"task_count": 0, "team_name": None, "programming_date": None})
-                        
-                        for task_info in created_tasks_info:
-                            selected_prog = task_info.get("selected_programming")
-                            if selected_prog:
-                                prog_id = str(selected_prog.get("id"))
-                                prog_map[prog_id]["task_count"] += 1
-                                prog_map[prog_id]["team_name"] = selected_prog.get("team_name")
-                                prog_date = selected_prog.get("date")
-                                if hasattr(prog_date, 'strftime'):
-                                    prog_date = prog_date.strftime('%Y-%m-%d')
-                                prog_map[prog_id]["programming_date"] = str(prog_date)
-                        
-                        programming_info_list = [
-                            {
-                                "programming_id": prog_id,
-                                "team_name": data["team_name"],
-                                "programming_date": data["programming_date"],
-                                "task_count": data["task_count"]
-                            }
-                            for prog_id, data in prog_map.items()
-                        ]
-                        
-                        if programming_info_list:
-                            from app.modules.programming.models.task_creation_notification import TaskCreationNotification
-                            
-                            notification = TaskCreationNotification(
-                                created_by=current_user.username,
-                                programming_info=programming_info_list,
-                                order_count=len(processed_bin8)
-                            )
-                            db.add(notification)
-                            db.commit()
-                            logger.info(f"Created notification for automatic task creation: {len(programming_info_list)} programmings")
-                    except Exception as notif_error:
-                        logger.error(f"Error creating notification: {notif_error}")
-
-            except Exception as e:
-                logger.error(f"Error creating tasks synchronously: {e}")
-                # Don't fail the whole request, but log error
-                # Maybe add to failed list? For now just log.
-        
-        # Preparar información de órdenes fallidas para el frontend
-        for failed_info in failed_bin8_raw:
-            order = failed_info["order"]
-            bin8_failed.append({
-                "lote": int(order.lote),
-                "code": order.code,
-                "description": order.description,
-                "quantity": float(order.quantity),
-                "bin": int(order.bin),
-                "dueDate": order.dueDate.isoformat() if hasattr(order.dueDate, 'isoformat') else order.dueDate,
-                "fabrication_code": failed_info.get("fabrication_code"),
-                "reason": failed_info["reason"]
-            })
-        
-        if bin8_failed:
-            logger.warning(f"{len(bin8_failed)} Bin 8 orders failed and require manual lot selection")
-        
-    # Solo crear tareas para otras órdenes si auto_create_tasks es True
-    if auto_create_tasks and other_orders:
-        other_lotes = [o.lote for o in other_orders]
-        if background_tasks is not None:
-            background_tasks.add_task(create_tasks_for_lotes, other_lotes, current_user.username)
-            response_data.update({
-                "task_creation_scheduled": True,
-                "message": f"Se crearon {len(created_orders)} órdenes exitosamente. La creación de tareas se programó en background."
-            })
-        else:
-            # Fallback: run inline (keeps previous behavior)
-            create_tasks_for_lotes(other_lotes, current_user.username)
-            response_data.update({
-                "task_creation_scheduled": False,
-                "message": f"Se crearon {len(created_orders)} órdenes exitosamente. Las tareas se crearon en el mismo proceso."
-            })
-    elif bin8_orders and not other_orders:
-        # Solo había órdenes Bin 8
-        processed_count = len(bin8_orders) - len(bin8_failed)
-        message = f"Se crearon {len(bin8_orders)} órdenes de Bin 8."
-        if processed_count > 0:
-            message += f" {processed_count} tareas {'programadas' if background_tasks else 'creadas'} automáticamente."
-        if bin8_failed:
-            message += f" {len(bin8_failed)} órdenes requieren selección manual de lote."
-        response_data.update({
-            "task_creation_scheduled": background_tasks is not None,
-            "message": message
-        })
-    else:
-        logger.info("auto_create_tasks is False. Skipping task creation.")
-        response_data.update({
-            "message": f"Se crearon {len(created_orders)} órdenes exitosamente. No se crearon tareas automáticamente."
-        })
-    
-    # Agregar información de órdenes bin 8 fallidas a la respuesta
-    if bin8_failed:
-        response_data["bin8_failed"] = bin8_failed
-    
-    logger.info("Finished processing create_orders request.")
-    return response_data
+    return OrderService.create_orders(db, orders, auto_create_tasks, current_user, background_tasks)
 
 @router.delete("/{order_id}")
 def delete_order(order_id: str, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))):
@@ -317,136 +77,20 @@ def create_tasks_for_bin8_manual(
     background_tasks: BackgroundTasks = None,
     current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))
 ):
-    """
-    Manually create tasks for a bin 8 order with a specified fabrication lot.
-    This is used when automatic matching fails and the user needs to manually select the fabrication lot.
-    """
     fabrication_lote = request_data.get("fabrication_lote")
     if not fabrication_lote:
         raise HTTPException(status_code=400, detail="fabrication_lote is required")
 
-    
-    logger.info(f"Manual task creation requested for order {order_lote} with fabrication lot {fabrication_lote}")
-    
-    # Obtener la orden de empaque
-    packaging_order = db.query(order_model.Order).filter(
-        order_model.Order.lote == order_lote
-    ).first()
-    
-    if not packaging_order:
-        raise HTTPException(status_code=404, detail=f"Order {order_lote} not found")
-    
-    if packaging_order.bin != 8:
-        raise HTTPException(status_code=400, detail=f"Order {order_lote} is not a bin 8 (packaging) order")
-    
-    # Verificar que la orden no esté ya programada
-    if packaging_order.status not in [OrderStatus.unprogrammed]:
-        logger.warning(f"Order {order_lote} is already in status {packaging_order.status}")
-        # Permitir re-procesar si es necesario, pero advertir
-    
-    # Verificar que el lote de fabricación existe
-    fabrication_order = db.query(order_model.Order).filter(
-        order_model.Order.lote == fabrication_lote
-    ).first()
-    
-    if not fabrication_order:
-        raise HTTPException(status_code=404, detail=f"Fabrication lot {fabrication_lote} not found")
-    
-    # Cambiar estado de la orden
-    packaging_order.status = OrderStatus.programmed
-    db.commit()
-    
-    logger.info(f"Order {order_lote} linked to fabrication lot {fabrication_lote} manually")
-    
-    # Crear tareas directamente usando el lote de fabricación especificado
-    # No usamos attributes temporales, en su lugar creamos las tareas directamente
-    from app.modules.automation.services.task_config import extract_created_orders_data
-    from app.modules.automation.services.factory import TaskServiceFactory
-    
-    # Extract order data but replace lote with fabrication lote
-    extracted = {
-        "lote": fabrication_lote,  # Use fabrication lot for task creation
-        "code": packaging_order.code,
-        "quantity": packaging_order.quantity,
-        "bin": packaging_order.bin,
-        "original_packaging_lote": order_lote  # Track original for reference
-    }
-    
-    logger.info(f"Creating tasks with extracted data: {extracted}")
-    
-    # Get packaging service and create tasks
-    packaging_service = TaskServiceFactory.create_packaging_service()
-    
-    try:
-        result = packaging_service.create_packaging_tasks_for_orders([extracted], db)
-        logger.info(f"Task creation result: {result}")
-        
-        if result and result.get("tasks_created", 0) > 0:
-            db.commit()
-            message = f"Se crearon {result.get('tasks_created', 0)} tareas para orden {order_lote} usando lote de fabricación {fabrication_lote}"
-            
-            # --- Crear notificación para el banner del frontend ---
-            try:
-                # Extraer información de programación de las tareas creadas
-                created_tasks_info = result.get("created_tasks", [])
-                programming_info_list = []
-                
-                # Agrupar por programming_id para evitar duplicados si se crearon múltiples tareas en la misma programación
-                # (aunque para una sola orden usualmente es una programación, pero por si acaso)
-                from collections import defaultdict
-                prog_map = defaultdict(lambda: {"task_count": 0, "team_name": None, "programming_date": None})
-                
-                for task_info in created_tasks_info:
-                    selected_prog = task_info.get("selected_programming")
-                    if selected_prog:
-                        prog_id = str(selected_prog.get("id"))
-                        prog_map[prog_id]["task_count"] += 1
-                        prog_map[prog_id]["team_name"] = selected_prog.get("team_name")
-                        # Asegurar formato de fecha string YYYY-MM-DD
-                        prog_date = selected_prog.get("date")
-                        if hasattr(prog_date, 'strftime'):
-                            prog_date = prog_date.strftime('%Y-%m-%d')
-                        prog_map[prog_id]["programming_date"] = str(prog_date)
-                
-                # Convertir a lista formato para el modelo
-                programming_info_list = [
-                    {
-                        "programming_id": prog_id,
-                        "team_name": data["team_name"],
-                        "programming_date": data["programming_date"],
-                        "task_count": data["task_count"]
-                    }
-                    for prog_id, data in prog_map.items()
-                ]
-                
-                if programming_info_list:
-                    from app.modules.programming.models.task_creation_notification import TaskCreationNotification
-                    
-                    notification = TaskCreationNotification(
-                        created_by=current_user.username,
-                        programming_info=programming_info_list,
-                        order_count=1 # Estamos procesando solo 1 orden manualmente aquí
-                    )
-                    db.add(notification)
-                    db.commit()
-                    logger.info(f"Created notification for manual task creation: {len(programming_info_list)} programmings")
-            except Exception as notif_error:
-                logger.error(f"Error creating notification: {notif_error}")
-                # No fallamos el request principal si falla la notificación, solo logueamos
-
-        else:
-            message = f"No se crearon tareas para orden {order_lote}. Verifica los logs del servidor."
-    except Exception as e:
-        logger.error(f"Error creating tasks for order {order_lote}: {e}")
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"Error creando tareas: {str(e)}")
+    result, error = OrderService.create_tasks_for_bin8_manual(db, order_lote, fabrication_lote, current_user)
+    if error:
+        raise HTTPException(status_code=400, detail=error)
     
     return {
         "success": True,
-        "message": message,
+        "message": f"Se crearon {result.get('tasks_created', 0)} tareas para orden {order_lote}",
         "order_lote": order_lote,
         "fabrication_lote": fabrication_lote,
-        "tasks_created": result.get("tasks_created", 0) if result else 0
+        "tasks_created": result.get("tasks_created", 0)
     }
 
 @router.patch("/{order_id}/status")
@@ -948,7 +592,7 @@ def get_available_orders_for_transfer(
 
     query = db.query(order_model.Order).filter(
         order_model.Order.code.ilike(f"{code_base}%"),
-        order_model.Order.status.in_([OrderStatus.unprogrammed, OrderStatus.programmed, OrderStatus.manufactured]),
+        order_model.Order.status.in_([OrderStatus.unprogrammed, OrderStatus.programmed .manufactured]),
         order_model.Order.missing_quantity >= 0  # Sin sobrantes o con faltantes
     )
 

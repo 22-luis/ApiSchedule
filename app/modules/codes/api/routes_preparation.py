@@ -4,9 +4,9 @@ from typing import List
 from app.modules.codes.models.preparation import Preparation
 from app.modules.codes.schemas.preparation import PreparationCreate, PreparationOut
 from app.shared.db.session import get_db
-from app.modules.core.models.user import User
+from app.modules.organization.models.user import User
 from app.shared.utils.core.dependencies import require_roles
-from app.modules.core.models.role import UserRole
+from app.modules.organization.models.role import UserRole
 from app.shared.utils.business.data_cleaning import clean_int, clean_str
 
 router = APIRouter(prefix="/preparations", tags=["preparations"])

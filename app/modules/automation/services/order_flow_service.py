@@ -2,8 +2,8 @@ from typing import List, Dict
 
 from sqlalchemy.orm import Session
 
-from app.modules.programming.models import order as order_model
-from app.modules.programming.models.state import OrderStatus
+from app.modules.orders.models import order as order_model
+from app.modules.orders.models.state import OrderStatus
 from app.shared.utils.business.fabrication_code_finder import FabricationCodeFinder
 from app.shared.utils.core.logging import get_logger
 

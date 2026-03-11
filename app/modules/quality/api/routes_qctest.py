@@ -8,12 +8,12 @@ from app.shared.utils.core.dependencies import get_current_user
 from app.modules.quality.models.test_record import TestRecord as Test
 from app.modules.quality.schemas.test_record import TestCreate, TestUpdate, TestOut, TestSessionCreate, TestSessionOut
 from app.modules.quality.models.test_results import TestResults
-from app.modules.core.models.role import UserRole
+from app.modules.organization.models.role import UserRole
 from app.modules.quality.models.test_status import TestStatus
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import func, extract
 import base64
-from app.modules.core.models.user import User as UserModel
+from app.modules.organization.models.user import User as UserModel
 
 router = APIRouter(prefix="/qctest", tags=["qctest"])
 

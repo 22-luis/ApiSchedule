@@ -19,8 +19,8 @@ from app.modules.quality.schemas.qc_manual_chapter import (
 )
 from app.modules.quality.models.catalog_test import CatalogTest
 from app.modules.quality.services import qc_manual_chapter_service
-from app.modules.quality.services.Split_sections import split_html_into_sections
-from app.modules.core.models.role import UserRole
+from app.modules.quality.services.split_sections import split_html_into_sections
+from app.modules.organization.models.role import UserRole
 from app.shared.utils.core.dependencies import require_roles
 
 router = APIRouter(prefix="/manual", tags=["manual"])

@@ -2,11 +2,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional, Union
 from app.shared.db.session import get_db
-from app.modules.core.models.role import UserRole
+from app.modules.organization.models.role import UserRole
 from app.shared.utils.core.dependencies import require_roles
 from app.modules.warehouse.models.history import WarehouseHistory, WarehouseHistoryType
 from app.modules.warehouse.schemas.history import WarehouseHistoryOut
-from app.modules.core.models.user import User
+from app.modules.organization.models.user import User
 
 router = APIRouter(prefix="/warehouse/history", tags=["warehouse"])
 

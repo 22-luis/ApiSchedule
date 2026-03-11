@@ -6,9 +6,9 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 from datetime import datetime, date, timedelta
 from app.modules.programming.models.task import Task
-from app.modules.core.models.team import Team
+from app.modules.organization.models.team import Team
 from app.modules.programming.models.programming import Programming, ProgrammingTask
-from app.modules.programming.models.order import Order
+from app.modules.orders.models.order import Order
 
 class TestUtils:
     """Test utility endpoints and business logic."""

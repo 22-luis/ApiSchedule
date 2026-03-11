@@ -1,7 +1,7 @@
 from datetime import datetime, time, timedelta, date as date_class
 from sqlalchemy.orm import Session
 from app.modules.programming.models.programming import Programming, ProgrammingTask
-from app.modules.core.models.team import Team
+from app.modules.organization.models.team import Team
 from app.modules.programming.models.state import ProgrammingStatus
 from typing import Optional, List, cast, Any
 

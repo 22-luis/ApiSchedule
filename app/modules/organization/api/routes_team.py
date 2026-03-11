@@ -5,10 +5,10 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from app.modules.core.models.role import UserRole
-from app.modules.core.models.team import Team, UserTeam
-from app.modules.core.models.user import User
-from app.modules.core.schemas.team import TeamCreate, TeamOut, TeamUpdate, TeamMembersUpdate, TeamMemberOut
+from app.modules.organization.models.role import UserRole
+from app.modules.organization.models.team import Team, UserTeam
+from app.modules.organization.models.user import User
+from app.modules.organization.schemas.team import TeamCreate, TeamOut, TeamUpdate, TeamMembersUpdate, TeamMemberOut
 from app.shared.db.session import get_db
 from app.shared.utils.core.dependencies import get_current_active_user, require_roles
 

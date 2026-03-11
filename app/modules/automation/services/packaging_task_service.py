@@ -213,8 +213,8 @@ class PackagingTaskService(BaseTaskService):
 
                 # --- DUPLICATE CHECK START ---
                 from app.modules.programming.models.task import Task
-                from app.modules.programming.models.order import Order
-                from app.modules.programming.models.state import OrderStatus
+                from app.modules.orders.models.order import Order
+                from app.modules.orders.models.state import OrderStatus
                 from app.modules.programming.models.programming import ProgrammingTask
 
                 target_lote = order_data.get("lote")
@@ -245,7 +245,7 @@ class PackagingTaskService(BaseTaskService):
                          programming_date = None
                          if pt:
                              from app.modules.programming.models.programming import Programming
-                             from app.modules.core.models.team import Team
+                             from app.modules.organization.models.team import Team
                              
                              prog = db.query(Programming).filter(Programming.id == pt.programming_id).first()
                              if prog:

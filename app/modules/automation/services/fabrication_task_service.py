@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 from app.modules.automation.services.base_task_service import BaseTaskService
 from app.modules.automation.services.config import ServiceType, ServiceConfig
-from app.modules.automation.rules.Manufactured import ManufacturedRule
+from app.modules.automation.rules.manufactured import ManufacturedRule
 from app.modules.automation.services.utils.auto_create_programming import create_programming_if_not_exists
 from app.modules.automation.services.utils.sequencing import get_sequence_start_date
 
@@ -207,8 +207,8 @@ class FabricationTaskService(BaseTaskService):
 
                 # --- DUPLICATE CHECK START ---
                 from app.modules.programming.models.task import Task
-                from app.modules.programming.models.order import Order
-                from app.modules.programming.models.state import OrderStatus
+                from app.modules.orders.models.order import Order
+                from app.modules.orders.models.state import OrderStatus
                 from app.modules.programming.models.programming import ProgrammingTask
 
                 target_lote = order_data.get("lote")
@@ -239,7 +239,7 @@ class FabricationTaskService(BaseTaskService):
                          programming_date = None
                          if pt:
                              from app.modules.programming.models.programming import Programming
-                             from app.modules.core.models.team import Team
+                             from app.modules.organization.models.team import Team
                              
                              prog = db.query(Programming).filter(Programming.id == pt.programming_id).first()
                              if prog:

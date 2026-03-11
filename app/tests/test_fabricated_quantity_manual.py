@@ -1,9 +1,9 @@
 import pytest
 from sqlalchemy.orm import Session
-from app.modules.programming.models.order import Order
+from app.modules.orders.models.order import Order
 from app.modules.programming.models.task import Task
 from app.modules.programming.models.programming import Programming, ProgrammingTask
-from app.modules.programming.models.state import OrderStatus
+from app.modules.orders.models.state import OrderStatus
 from app.shared.utils.business.order_status_service import OrderStatusService
 from datetime import date, datetime
 
@@ -34,7 +34,7 @@ def test_fabricated_quantity_update(db: Session):
 
         # 3. Create a programming and programming task
         # Fetch an existing team
-        from app.modules.core.models.team import Team
+        from app.modules.organization.models.team import Team
         team = db.query(Team).first()
         if not team:
             # Create a dummy team if none exists

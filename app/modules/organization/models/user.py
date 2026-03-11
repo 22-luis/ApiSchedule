@@ -3,8 +3,8 @@ import uuid
 from sqlalchemy import Column, String, Enum, LargeBinary
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
-from app.modules.core.models.role import UserRole
-from app.modules.core.models.state import UserState
+from app.modules.organization.models.role import UserRole
+from app.modules.organization.models.state import UserState
 from app.shared.db.database import Base
 
 class User(Base):

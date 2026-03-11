@@ -7,8 +7,8 @@ from sqlalchemy.orm import Session
 from datetime import datetime, date, timedelta
 from app.modules.programming.models.programming import Programming, ProgrammingTask
 from app.modules.programming.models.task import Task
-from app.modules.core.models.team import Team
-from app.modules.core.models.user import User
+from app.modules.organization.models.team import Team
+from app.modules.organization.models.user import User
 
 class TestProgramming:
     """Test programming management endpoints."""

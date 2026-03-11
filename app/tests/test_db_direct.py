@@ -3,8 +3,8 @@
 Script para probar directamente la base de datos sin autenticación.
 """
 from app.shared.db.session import SessionLocal
-from app.modules.programming.models.order import Order
-from app.modules.core.models.state import OrderStatus
+from app.modules.orders.models.order import Order
+from app.modules.organization.models.state import OrderStatus
 
 def test_manufactured_status_direct():
     """Prueba directamente en la base de datos"""

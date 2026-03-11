@@ -1,6 +1,6 @@
 from typing import Dict, Any, List
 from sqlalchemy.orm import Session
-from app.modules.core.models.team import Team
+from app.modules.organization.models.team import Team
 from app.modules.automation.services.config import ServiceType, ServiceConfig
 
 class TeamSelectionService:

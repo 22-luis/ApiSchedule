@@ -5,7 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 from datetime import date, timedelta
-from app.modules.programming.models.order import Order
+from app.modules.orders.models.order import Order
 
 class TestOrders:
     """Test order management endpoints."""

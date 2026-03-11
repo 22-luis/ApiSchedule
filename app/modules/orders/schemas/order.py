@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, field_validator
-from app.modules.programming.models.state import OrderStatus
+from app.modules.orders.models.state import OrderStatus
 
 class OrderCreate(BaseModel):
     lote: int

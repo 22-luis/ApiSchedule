@@ -4,11 +4,11 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from app.modules.core.models.role import UserRole
-from app.modules.core.models.state import UserState
-from app.modules.core.models.team import Team
-from app.modules.core.models.user import User
-from app.modules.core.schemas.user import UserCreate, UserUpdate, UserOut, UsersPageOut, UserStateUpdate
+from app.modules.organization.models.role import UserRole
+from app.modules.organization.models.state import UserState
+from app.modules.organization.models.team import Team
+from app.modules.organization.models.user import User
+from app.modules.organization.schemas.user import UserCreate, UserUpdate, UserOut, UsersPageOut, UserStateUpdate
 from app.shared.db.session import get_db
 from app.shared.utils.core.dependencies import get_current_user, require_roles, ROLE_HIERARCHY, \
     check_user_modification_permission

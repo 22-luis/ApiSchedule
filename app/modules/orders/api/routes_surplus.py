@@ -3,9 +3,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.shared.db.session import get_db
 from app.shared.utils.core.dependencies import get_current_user
-from app.modules.programming.models.order_surplus import OrderSurplus
-from app.modules.programming.models.order import Order
-from app.modules.programming.schemas.order_surplus import OrderSurplusCreate, OrderSurplusOut
+from app.modules.orders.models.order_surplus import OrderSurplus
+from app.modules.orders.models.order import Order
+from app.modules.orders.schemas.order_surplus import OrderSurplusCreate, OrderSurplusOut
 
 router = APIRouter(prefix="/surplus", tags=["surplus"])
 

@@ -9,7 +9,7 @@ from app.modules.codes.models.code import Code
 from app.modules.quality.models.catalog_test import CatalogTest
 from app.modules.quality.schemas.code_test import CodeTestLink, CodeTestOut
 from app.modules.quality.schemas.catalog_test import CatalogTestOut
-from app.modules.core.models.role import UserRole
+from app.modules.organization.models.role import UserRole
 from app.shared.utils.core.dependencies import require_roles
 from app.modules.quality.models.code_test_parameter_specification import CodeTestParameterSpecification
 from app.modules.quality.schemas.code_test_parameter_specification import CodeTestParameterSpecificationBatch

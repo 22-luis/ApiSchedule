@@ -1,8 +1,9 @@
 from sqlalchemy.orm import Session
-from app.modules.programming.models.order import Order
+from app.modules.orders.models.order import Order
 from app.modules.programming.models.task import Task
 from app.modules.programming.models.programming import ProgrammingTask
-from app.modules.programming.models.state import OrderStatus, TaskStatus
+from app.modules.orders.models.state import OrderStatus
+from app.modules.programming.models.state import TaskStatus
 from datetime import datetime, date
 from typing import Optional
 

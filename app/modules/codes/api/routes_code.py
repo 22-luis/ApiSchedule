@@ -11,9 +11,9 @@ from app.modules.quality.models.catalog_test import CatalogTest
 from app.modules.codes.models.code import Code
 from app.modules.quality.models.code_test import CodeTest
 from app.modules.codes.schemas.code import CodeCreate, CodeOut, CodePageOut, CodeUpdate
-from app.modules.core.models.role import UserRole
-from app.modules.core.models.user import User
-from app.modules.programming.models.order import Order
+from app.modules.organization.models.role import UserRole
+from app.modules.organization.models.user import User
+from app.modules.orders.models.order import Order
 from app.shared.core.enums import (
     WeighingActivities,
     ManufacturingActivities

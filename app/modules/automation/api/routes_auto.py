@@ -1,8 +1,8 @@
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Body
 from typing import List
 from app.shared.utils.core.dependencies import require_roles
-from app.modules.core.models.role import UserRole
-from app.modules.core.models.user import User
+from app.modules.organization.models.role import UserRole
+from app.modules.organization.models.user import User
 from app.modules.automation.services.auto import create_tasks_for_lotes
 
 router = APIRouter(prefix="/orders/auto", tags=["orders-auto"])

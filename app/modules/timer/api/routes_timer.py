@@ -10,7 +10,7 @@ from app.modules.timer.schemas.record_stopwatch import RecordStopwatch as Record
 from app.modules.programming.schemas.programming import ProgrammingTaskOrderOut as ProgrammingTaskSchema
 
 from app.shared.utils.core.dependencies import get_current_user
-from app.modules.core.models.user import User
+from app.modules.organization.models.user import User
 
 from app.modules.timer.schemas.timer import (
     RecordStopwatchDetailSchema,

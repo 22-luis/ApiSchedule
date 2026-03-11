@@ -6,13 +6,13 @@ from sqlalchemy.orm import Session, aliased
 from app.shared.db.session import get_db
 from app.modules.programming.models.programming import Programming, ProgrammingTask
 from app.modules.programming.models.task import Task
-from app.modules.core.models.team import Team
-from app.modules.programming.models.order import Order
-from app.modules.programming.models.state import ProgrammingStatus, OrderStatus
-from app.modules.core.models.role import UserRole
+from app.modules.organization.models.team import Team
+from app.modules.orders.models.order import Order
+from app.modules.programming.models.state import ProgrammingStatus 
+from app.modules.organization.models.role import UserRole
 from app.modules.codes.models.code import Code
 from app.shared.utils.core.dependencies import get_current_user
-from app.modules.core.models.user import User
+from app.modules.organization.models.user import User
 
 from app.modules.timer.models.record_stopwatch import RecordStopwatch
 
