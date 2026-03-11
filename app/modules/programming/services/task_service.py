@@ -1,4 +1,5 @@
 import datetime
+from uuid import UUID
 from typing import List, Dict, Any, Optional, cast
 from sqlalchemy.orm import Session, joinedload
 from fastapi import HTTPException
@@ -19,12 +20,8 @@ from app.modules.automation.services.replicate_pesado import replicate_task_to_p
 class TaskService:
     @staticmethod
     def get_task_with_relations(db: Session, task_id: str) -> Optional[Task]:
-        return db.query(Task).options(
-            joinedload(Task.code),
-            joinedload(Task.preparation),
-            joinedload(Task.teams),
-            joinedload(Task.created_by_user)
-        ).filter(Task.id == task_id).first()
+        from app.modules.programming.repositories import task_repository
+        return task_repository.find_with_relations(db, task_id)
 
     @staticmethod
     def check_user_team_permission(current_user: User, programming: Programming):
@@ -35,7 +32,8 @@ class TaskService:
 
     @staticmethod
     def create_task(db: Session, task_data: Dict[str, Any], team_ids: List[str], programming_id: str, current_user: User) -> Task:
-        programming = db.query(Programming).filter(Programming.id == programming_id).first()
+        from app.modules.programming.repositories import programming_repository, task_repository
+        programming = programming_repository.find_by_id(db, UUID(programming_id) if isinstance(programming_id, str) else programming_id)
         if not programming:
             raise HTTPException(status_code=404, detail="Programming not found")
 
@@ -51,8 +49,7 @@ class TaskService:
             teams=teams,
             created_by_user_id=current_user.id
         )
-        db.add(db_task)
-        db.flush()
+        task_repository.save(db, db_task)
 
         # Associate with Programming
         max_order = db.query(ProgrammingTask).filter(ProgrammingTask.programming_id == programming.id).count()
@@ -71,7 +68,7 @@ class TaskService:
             start_time=st,
             end_time=et
         )
-        db.add(programming_task)
+        task_repository.save_programming_task(db, programming_task)
 
         # Side effects
         OrderStatusService.update_order_status_for_task_creation(db, db_task)
@@ -231,3 +228,26 @@ class TaskService:
         except Exception:
             db.rollback()
             raise
+    @staticmethod
+    def get_task_real_time(db: Session, task_id: str) -> dict:
+        """Calculate real time for a task from its status logs."""
+        from app.modules.programming.repositories import task_repository
+        db_task = task_repository.find_by_id(db, task_id)
+        if not db_task:
+            raise HTTPException(status_code=404, detail="Task not found")
+
+        log_entries = db.query(TaskStatusLog).filter(
+            TaskStatusLog.task_id == task_id,
+            TaskStatusLog.status == TaskStatus.IN_PROGRESS.value
+        ).all()
+
+        total_time = datetime.timedelta(0)
+        for entry in log_entries:
+            if entry.end_time:
+                total_time += entry.end_time - entry.start_time
+            else:
+                total_time += datetime.datetime.utcnow() - entry.start_time
+
+        return {"task_id": task_id, "real_time_seconds": total_time.total_seconds()}
+
+task_service = TaskService()

@@ -27,12 +27,13 @@ class ProgrammingService:
 
     @staticmethod
     def list_programmings(db: Session, current_user: User):
+        from app.modules.programming.repositories import programming_repository
         privileged_roles = (UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.TIMEKEEPER, UserRole.QC_COORDINATOR, UserRole.QC_ASSISTANT)
         if current_user.role in privileged_roles:
-            programmings = db.query(Programming).all()
+            programmings = programming_repository.find_all(db)
         else:
             team_ids = [team.id for team in getattr(current_user, "teams", [])]
-            programmings = db.query(Programming).filter(Programming.team_id.in_(team_ids)).all()
+            programmings = programming_repository.find_by_team_ids(db, team_ids)
             
         result = []
         for p in programmings:
@@ -46,13 +47,11 @@ class ProgrammingService:
 
     @staticmethod
     def get_by_team_date(db: Session, team_id: str, date_str: str, current_user: User):
+        from app.modules.programming.repositories import programming_repository
         try:
             date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
             
-            programming = db.query(Programming).options(
-                joinedload(Programming.programming_tasks).joinedload(ProgrammingTask.task).joinedload(Task.code),
-                joinedload(Programming.programming_tasks).joinedload(ProgrammingTask.task).joinedload(Task.created_by_user)
-            ).filter_by(team_id=team_id, date=date_obj).first()
+            programming = programming_repository.find_by_team_and_date(db, team_id, date_obj)
 
             privileged_roles = (UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.TIMEKEEPER, UserRole.QC_COORDINATOR, UserRole.QC_ASSISTANT)
             autho = current_user.role in privileged_roles or ProgrammingService.user_belongs_to_team(current_user, team_id)
@@ -61,9 +60,7 @@ class ProgrammingService:
                 if not autho:
                     raise HTTPException(status_code=403, detail="Not authorized")
                 programming = Programming(date=date_obj, team_id=team_id)
-                db.add(programming)
-                db.commit()
-                db.refresh(programming)
+                programming = programming_repository.save(db, programming)
             else:
                 if not autho:
                     raise HTTPException(status_code=403, detail="Not authorized")
@@ -198,36 +195,39 @@ class ProgrammingService:
                 team_ids = [team.id for team in getattr(current_user, "teams", [])]
                 programmings_query = db.query(Programming).filter(Programming.team_id.in_(team_ids))
             
-            # Optimización: Cargar todas las programaciones de la fecha con eager loading
+            # Optimización: Cargar todas las programaciones de la fecha con eager loading completo
             programmings = programmings_query.options(
                 joinedload(Programming.team).joinedload(Team.supervisor),
                 joinedload(Programming.team).joinedload(Team.member_associations).joinedload(UserTeam.user),
                 joinedload(Programming.programming_tasks).joinedload(ProgrammingTask.task).joinedload(Task.code),
+                joinedload(Programming.programming_tasks).joinedload(ProgrammingTask.task).joinedload(Task.teams),
                 joinedload(Programming.programming_tasks).joinedload(ProgrammingTask.task).joinedload(Task.created_by_user)
             ).filter(
                 Programming.date == date_obj
             ).all()
             
+            # Optimización: Obtener TODOS los minutos reales para TODAS las tareas de la fecha en UNA SOLA consulta
+            all_task_ids = []
+            for p in programmings:
+                all_task_ids.extend([pt.task_id for pt in p.programming_tasks if pt.task_id])
+            
+            global_real_minutes_map = {}
+            if all_task_ids:
+                real_records = db.query(
+                    RecordStopwatch.task_id,
+                    func.sum(RecordStopwatch.accumulated_duration * 60).label('total_minutes')
+                ).filter(
+                    RecordStopwatch.task_id.in_(all_task_ids)
+                ).group_by(RecordStopwatch.task_id).all()
+                global_real_minutes_map = {str(r.task_id).lower(): r.total_minutes for r in real_records}
+
             # Construir la respuesta con todos los datos
             result = []
             for programming in programmings:
-                # Solo incluir programaciones que tienen tareas
                 if not programming.programming_tasks:
                     continue
                     
-                # Obtener minutos reales acumulados de RecordStopwatch para esta programación
-                task_ids = [pt.task_id for pt in programming.programming_tasks if pt.task_id]
-                real_minutes_map = {}
-                if task_ids:
-                    real_records = db.query(
-                        RecordStopwatch.task_id,
-                        func.sum(RecordStopwatch.accumulated_duration * 60).label('total_minutes')
-                    ).filter(
-                        RecordStopwatch.task_id.in_(task_ids)
-                    ).group_by(RecordStopwatch.task_id).all()
-                    real_minutes_map = {str(r.task_id).lower(): r.total_minutes for r in real_records}
-
-                # Serializar las tareas
+                # Serializar las tareas usando el mapa global de minutos
                 tasks = []
                 for pt in sorted(programming.programming_tasks, key=lambda pt: pt.order):
                     task_obj = pt.task
@@ -244,10 +244,8 @@ class ProgrammingService:
                     t['real_quantity'] = getattr(pt, 'real_quantity', None)
                     t['duration_in_hours'] = getattr(pt, 'duration_in_hours', 0)
                     
-                    # Multi-level fallback for accumulated_real_minutes
-                    real_min = real_minutes_map.get(str(pt.task_id).lower(), (t['duration_in_hours'] or 0) * 60)
+                    real_min = global_real_minutes_map.get(str(pt.task_id).lower(), (t['duration_in_hours'] or 0) * 60)
                     
-                    # Final fallback to timestamps if the others are missing/zero
                     if real_min == 0 and pt.real_start_time and pt.real_end_time:
                         delta = pt.real_end_time - pt.real_start_time
                         real_min = delta.total_seconds() / 60.0
@@ -256,7 +254,6 @@ class ProgrammingService:
                     t['comment'] = getattr(pt, 'comment', None)
                     t['created_at'] = getattr(pt, 'created_at', None)
                     
-                    # Serializar created_by_user
                     if task_obj.created_by_user:
                         t['created_by_user'] = UserOut.model_validate(task_obj.created_by_user, from_attributes=True).model_dump()
                     else:
@@ -265,7 +262,6 @@ class ProgrammingService:
                     t['is_completed'] = getattr(pt, 'is_completed', None)
                     tasks.append(t)
                 
-                # Serializar el equipo
                 team_data = None
                 if programming.team:
                     team_data = {
@@ -276,7 +272,6 @@ class ProgrammingService:
                         "members": programming.team.members
                     }
                 
-                # Agregar al resultado
                 result.append({
                     "team": team_data,
                     "programming": {
@@ -373,26 +368,22 @@ class ProgrammingService:
 
     @staticmethod
     def update_task_real_quantity(db: Session, programming_id: UUID, task_id: UUID, real_quantity: float):
-        print(f"DEBUG - update_task_real_quantity: p={programming_id}, t={task_id}, q={real_quantity}")
-        pt = db.query(ProgrammingTask).filter_by(programming_id=programming_id, task_id=task_id).first()
+        from app.modules.programming.repositories import task_repository
+        pt = task_repository.find_programming_task(db, programming_id, task_id)
         if not pt:
-            print(f"DEBUG - pt not found")
             raise HTTPException(status_code=404, detail="Task not found in this programming")
         
         pt.real_quantity = real_quantity
-        print(f"DEBUG - updating real_quantity to {real_quantity}")
-        
-        db.commit()
+        task_repository.commit(db)
         db.refresh(pt)
-        print(f"DEBUG - success")
         return pt
 
     @staticmethod
     def toggle_task_status(db: Session, programming_id: UUID, task_id: UUID, payload: dict, current_user: User):
         from app.modules.programming.services.task_timer_service import TaskTimerService
-        print(f"DEBUG - toggle_task_status: p={programming_id}, t={task_id}")
+        from app.modules.programming.repositories import task_repository
         
-        pt = db.query(ProgrammingTask).filter_by(programming_id=programming_id, task_id=task_id).first()
+        pt = task_repository.find_programming_task(db, programming_id, task_id)
         if not pt:
             raise HTTPException(status_code=404, detail="Task not found in this programming")
             
@@ -419,16 +410,16 @@ class ProgrammingService:
             task.is_completed = True
             
             # If it was in progress, stop the timer
-            # Correcting the call to stop_task_timer
             from app.modules.programming.schemas.programming import ProgrammingTaskReportIn
+            from app.modules.programming.services.task_timer_service import TaskTimerService
             report_data = ProgrammingTaskReportIn(real_quantity=pt.real_quantity)
-            TaskTimerService.stop_task_timer(db, str(programming_id), str(task_id), current_user, report_data)
+            TaskTimerService.stop_timer(db=db, task_id=str(task_id), current_user=current_user, data=report_data, programming_id=str(programming_id))
         else:
             from app.shared.core.enums import TaskStatus as SharedTaskStatus
             task.status = SharedTaskStatus.PENDING.value
             task.is_completed = False
             
-        db.commit()
+        task_repository.commit(db)
         db.refresh(pt)
         db.refresh(task)
         print(f"DEBUG - success toggle")
@@ -455,3 +446,5 @@ class ProgrammingService:
                 "order_count": n.order_count
             })
         return serialized
+
+programming_service = ProgrammingService()

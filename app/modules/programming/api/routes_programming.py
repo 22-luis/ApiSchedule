@@ -9,8 +9,7 @@ from app.modules.programming.schemas.programming import (
     ProgrammingRead, ProgrammingUpdate, TasksOrderRequest, 
     ProgrammingSummaryResponse, ToggleTaskStatusRequest
 )
-from app.modules.programming.services.programming_service import ProgrammingService
-from app.modules.programming.services.task_timer_service import TaskTimerService
+from app.modules.programming.services import programming_service, task_timer_service
 from app.shared.db.session import get_db
 from app.shared.utils.core.dependencies import get_current_user, require_roles
 from app.shared.utils.business.programming_availability import update_all_programmings_availability_for_date, cleanup_past_programmings
@@ -19,19 +18,19 @@ router = APIRouter(prefix="/programmings", tags=["programmings"])
 
 @router.get("/", response_model=List[ProgrammingRead])
 def list_programmings(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    return ProgrammingService.list_programmings(db, current_user)
+    return programming_service.list_programmings(db, current_user)
 
 @router.get("/by_team_date", response_model=dict)
 def get_programming_by_team_date(team_id: str, date: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    return ProgrammingService.get_by_team_date(db, team_id, date, current_user)
+    return programming_service.get_by_team_date(db, team_id, date, current_user)
 
 @router.get("/summary", response_model=ProgrammingSummaryResponse)
 def get_programming_summary(team_id: str, date: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    return ProgrammingService.get_summary(db, team_id, date, current_user)
+    return programming_service.get_summary(db, team_id, date, current_user)
 
 @router.get("/dashboard", response_model=dict)
 def get_dashboard_data(date: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    return ProgrammingService.get_dashboard_data(db, date, current_user)
+    return programming_service.get_dashboard_data(db, date, current_user)
 
 @router.put("/{programming_id}/reorder", response_model=dict)
 def reorder_tasks_by_programming(
@@ -41,21 +40,21 @@ def reorder_tasks_by_programming(
     current_user: User = Depends(get_current_user)
 ):
     """Reorder tasks in a programming. Called by the frontend after drag-and-drop or recalculation."""
-    result, error = ProgrammingService.reorder_programming_tasks(db, programming_id, request.tasks_order)
+    result, error = programming_service.reorder_programming_tasks(db, programming_id, request.tasks_order)
     if error:
         raise HTTPException(status_code=400, detail=error)
     return {"success": True, "reordered_tasks": result}
 
 @router.post("/start_timer")
 def start_timer(task_id: str = Body(..., embed=True), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    success, message = TaskTimerService.start_timer(db, task_id, current_user)
+    success, message = task_timer_service.start_timer(db, task_id, current_user)
     if not success:
         raise HTTPException(status_code=400, detail=message)
     return {"message": message}
 
 @router.post("/stop_timer")
 def stop_timer(task_id: str = Body(..., embed=True), real_quantity: Optional[float] = Body(None, embed=True), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    success, message = TaskTimerService.stop_timer(db, task_id, current_user, real_quantity)
+    success, message = task_timer_service.stop_timer(db, task_id, current_user, real_quantity)
     if not success:
         raise HTTPException(status_code=400, detail=message)
     return {"message": message}
@@ -103,7 +102,7 @@ def update_task_real_quantity(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
 ):
-    return ProgrammingService.update_task_real_quantity(db, programming_id, task_id, real_quantity)
+    return programming_service.update_task_real_quantity(db, programming_id, task_id, real_quantity)
 
 @router.post("/{programming_id}/tasks/{task_id}/toggle_status")
 def toggle_task_status(
@@ -113,4 +112,4 @@ def toggle_task_status(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))
 ):
-    return ProgrammingService.toggle_task_status(db, programming_id, task_id, request.dict(), current_user)
+    return programming_service.toggle_task_status(db, programming_id, task_id, request.dict(), current_user)

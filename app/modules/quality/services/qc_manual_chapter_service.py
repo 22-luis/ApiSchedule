@@ -17,6 +17,7 @@ def create_chapter(
     user: str
 ) -> QcManualChapter:
     """Create a new chapter with audit information"""
+    from app.modules.quality.repositories import quality_repository
     chapter = QcManualChapter(
         manual_id=manual_id,
         parent_chapter_id=chapter_data.parent_chapter_id,
@@ -26,10 +27,7 @@ def create_chapter(
         order=chapter_data.order,
         created_by=user
     )
-    db.add(chapter)
-    db.commit()
-    db.refresh(chapter)
-    return chapter
+    return quality_repository.save_chapter(db, chapter)
 
 
 def update_chapter(
@@ -39,7 +37,8 @@ def update_chapter(
     user: str
 ) -> Optional[QcManualChapter]:
     """Update a chapter and set updated_by/updated_at"""
-    chapter = db.query(QcManualChapter).filter(QcManualChapter.id == chapter_id).first()
+    from app.modules.quality.repositories import quality_repository
+    chapter = quality_repository.find_chapter_by_id(db, chapter_id)
     if not chapter:
         return None
     
@@ -48,58 +47,41 @@ def update_chapter(
         setattr(chapter, field, value)
     
     chapter.updated_by = user
-    db.commit()
-    db.refresh(chapter)
-    return chapter
+    return quality_repository.save_chapter(db, chapter)
 
 
 def delete_chapter(db: Session, chapter_id: uuid.UUID) -> bool:
     """Delete a chapter and cascade to sub-chapters"""
-    chapter = db.query(QcManualChapter).filter(QcManualChapter.id == chapter_id).first()
+    from app.modules.quality.repositories import quality_repository
+    chapter = quality_repository.find_chapter_by_id(db, chapter_id)
     if not chapter:
         return False
     
-    db.delete(chapter)
-    db.commit()
+    quality_repository.delete_chapter(db, chapter)
     return True
 
 
 def get_chapter_tree(db: Session, manual_id: int) -> List[QcManualChapter]:
     """Retrieve full chapter hierarchy for a manual (only root chapters with nested sub-chapters)"""
-    stmt = (
-        select(QcManualChapter)
-        .where(
-            QcManualChapter.manual_id == manual_id,
-            QcManualChapter.parent_chapter_id.is_(None)
-        )
-        .order_by(QcManualChapter.order)
-        .options(selectinload(QcManualChapter.sub_chapters))
-    )
-    
-    result = db.execute(stmt)
-    chapters = result.scalars().all()
-    return list(chapters)
+    from app.modules.quality.repositories import quality_repository
+    return quality_repository.find_root_chapters_with_subchapters(db, manual_id)
 
 
 def get_chapter_by_id(db: Session, chapter_id: uuid.UUID) -> Optional[QcManualChapter]:
     """Get a single chapter by ID"""
-    return db.query(QcManualChapter).filter(QcManualChapter.id == chapter_id).first()
+    from app.modules.quality.repositories import quality_repository
+    return quality_repository.find_chapter_by_id(db, chapter_id)
 
 
 def reorder_chapters(
     db: Session,
     chapter_orders: List[dict]
 ) -> bool:
-    """Update display order for multiple chapters
-    
-    Args:
-        chapter_orders: List of dicts with 'id' and 'order' keys
-    """
+    """Update display order for multiple chapters"""
+    from app.modules.quality.repositories import quality_repository
     try:
         for item in chapter_orders:
-            chapter = db.query(QcManualChapter).filter(
-                QcManualChapter.id == item['id']
-            ).first()
+            chapter = quality_repository.find_chapter_by_id(db, item['id'])
             if chapter:
                 chapter.order = item['order']
         
@@ -114,16 +96,11 @@ def reorder_manuals(
     db: Session,
     manual_orders: List[dict]
 ) -> bool:
-    """Update display order for multiple quality manuals
-    
-    Args:
-        manual_orders: List of dicts with 'id' and 'order' keys
-    """
+    """Update display order for multiple quality manuals"""
+    from app.modules.quality.repositories import quality_repository
     try:
         for item in manual_orders:
-            manual = db.query(QualityManual).filter(
-                QualityManual.id == item['id']
-            ).first()
+            manual = quality_repository.find_manual_by_id(db, item['id'])
             if manual:
                 manual.order = item['order']
         

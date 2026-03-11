@@ -24,14 +24,14 @@ class TimerService:
         self.db = db
 
     def start_stopwatch(self, task_id: uuid.UUID, start_time: datetime | None = None, is_from_programming: bool = False):
-        task = self.db.query(Task).filter(Task.id == task_id).first()
+        from app.modules.timer.repositories import timer_repository
+        from app.modules.programming.repositories import task_repository
+        
+        task = task_repository.find_by_id(self.db, str(task_id))
         if not task:
             raise ValueError("Task not found")
 
-        existing_stopwatch = self.db.query(Stopwatch).filter(
-            Stopwatch.task_id == task_id,
-            Stopwatch.is_from_programming == is_from_programming
-        ).first()
+        existing_stopwatch = timer_repository.find_stopwatch_by_task(self.db, task_id, is_from_programming)
         if existing_stopwatch:
             raise ValueError("Stopwatch already exists for this task with the same programming flag")
 
@@ -46,18 +46,13 @@ class TimerService:
             is_from_programming=is_from_programming,
             created_at=start_time
         )
-        self.db.add(stopwatch)
-        self.db.commit()
-        self.db.refresh(stopwatch)
-        return stopwatch
+        return timer_repository.save_stopwatch(self.db, stopwatch)
 
     def pause_stopwatch(self, task_id: uuid.UUID):
+        from app.modules.timer.repositories import timer_repository
         now = datetime.now(timezone.utc) - timedelta(hours=6)
         
-        stopwatch = self.db.query(Stopwatch).filter(
-            Stopwatch.task_id == task_id,
-            Stopwatch.status == TimerStatus.RUNNING
-        ).first()
+        stopwatch = timer_repository.find_running_stopwatch(self.db, task_id)
 
         if not stopwatch:
             raise ValueError("No running stopwatch found for this task")
@@ -69,16 +64,12 @@ class TimerService:
         stopwatch.status = TimerStatus.PAUSED
         stopwatch.update_at = now
 
-        self.db.commit()
-        self.db.refresh(stopwatch)
-        return stopwatch
+        return timer_repository.save_stopwatch(self.db, stopwatch)
 
     def resume_stopwatch(self, task_id: uuid.UUID):
+        from app.modules.timer.repositories import timer_repository
         
-        stopwatch = self.db.query(Stopwatch).filter(
-            Stopwatch.task_id == task_id,
-            Stopwatch.status == TimerStatus.PAUSED
-        ).first()
+        stopwatch = timer_repository.find_paused_stopwatch(self.db, task_id)
 
         if not stopwatch:
             raise ValueError("No paused stopwatch found for this task")
@@ -87,14 +78,15 @@ class TimerService:
         stopwatch.status = TimerStatus.RUNNING
         stopwatch.update_at = now
 
-        self.db.commit()
-        self.db.refresh(stopwatch)
-        return stopwatch
+        return timer_repository.save_stopwatch(self.db, stopwatch)
 
     def stop_stopwatch(self, task_id: uuid.UUID, real_quantity: float, user_id: uuid.UUID, is_completed: bool | None = None):
+        from app.modules.timer.repositories import timer_repository
+        from app.modules.programming.repositories import task_repository
+        
         now = datetime.now(timezone.utc) - timedelta(hours=6)
         
-        stopwatch = self.db.query(Stopwatch).filter(Stopwatch.task_id == task_id).first()
+        stopwatch = timer_repository.find_stopwatch_by_task_any_status(self.db, task_id)
 
         if not stopwatch:
             raise ValueError("No stopwatch found for this task")
@@ -118,19 +110,19 @@ class TimerService:
             accumulated_duration=accumulated_duration_value,
             creation_date=now # Use the same 'now' for consistency
         )
-        self.db.add(record_stopwatch)
+        timer_repository.save_record_stopwatch(self.db, record_stopwatch)
 
         record: Optional[RecordStopwatch | ProgrammingTask] = None
         
         if not stopwatch.is_from_programming:
             record = record_stopwatch
         else:
-            prog_task: Optional[ProgrammingTask] = self.db.query(ProgrammingTask).filter(ProgrammingTask.task_id == task_id).first()
+            prog_task = task_repository.find_programming_task(self.db, task_id)
             if not prog_task:
                 raise ValueError(f"ProgrammingTask with task_id {task_id} not found.")
 
             record = prog_task
-            task: Optional[Task] = self.db.query(Task).filter(Task.id == task_id).first()
+            task = task_repository.find_by_id(self.db, str(task_id))
             if not task:
                 raise ValueError(f"Task with id {task_id} not found.")
 
@@ -141,10 +133,8 @@ class TimerService:
             # Flush to ensure record_stopwatch is included in the sum
             self.db.flush()
             
-            # Use the task_id as UUID object for the query
+            # Calculate total duration from all record_stopwatch entries for this task
             task_uuid = task_id if isinstance(task_id, uuid.UUID) else uuid.UUID(str(task_id))
-            
-            # Calculate total duration in hours from all record_stopwatch entries for this task
             total_duration = self.db.query(func.sum(RecordStopwatch.accumulated_duration)).filter(
                 RecordStopwatch.task_id == task_uuid
             ).scalar() or 0.0
@@ -170,10 +160,8 @@ class TimerService:
                 logger.error(f"Error updating order status for task {task_id}: {e}")
 
         # Delete it from the stopwatch
-        self.db.delete(stopwatch)
+        timer_repository.delete_stopwatch(self.db, stopwatch)
 
-        self.db.commit()
-        
         if record:
             self.db.refresh(record)
 
@@ -216,7 +204,8 @@ class TimerService:
         return final_statuses
 
     def get_record_stopwatch_info(self, task_id: uuid.UUID):
-        record = self.db.query(RecordStopwatch).filter(RecordStopwatch.task_id == task_id).first()
+        from app.modules.timer.repositories import timer_repository
+        record = timer_repository.find_record_by_task(self.db, task_id)
         if not record:
             return None
         return {
@@ -248,73 +237,50 @@ class TimerService:
         return result
 
     def get_daily_record_stopwatches(self):
+        from app.modules.timer.repositories import timer_repository
         # Get current UTC datetime, adjust by 6 hours, then extract the date part
         current_datetime_adjusted = datetime.now(timezone.utc) - timedelta(hours=6)
         today = current_datetime_adjusted.date()
 
-        daily_records_query = self.db.query(
-            RecordStopwatch,
-            Code.code,
-            Task.description,
-            Task.type,
-            Task.activity,
-            Task.people,
-            Code.activity.label("code_activity"),
-            Code.type.label("code_type")
-        ).join(Task, RecordStopwatch.task_id == Task.id).join(Code, Task.code_id == Code.id).filter(
-            func.date(RecordStopwatch.creation_date) == today
-        ).all()
-
+        daily_records_query = timer_repository.find_daily_records_with_details(self.db, today)
         return self._format_record_stopwatch_result(daily_records_query)
 
     def get_all_record_stopwatches(self):
-        all_records_query = self.db.query(
-            RecordStopwatch,
-            Code.code,
-            Task.description,
-            Task.type,
-            Task.activity,
-            Task.people,
-            Code.activity.label("code_activity"),
-            Code.type.label("code_type")
-        ).join(Task, RecordStopwatch.task_id == Task.id).join(Code, Task.code_id == Code.id).all()
-
+        from app.modules.timer.repositories import timer_repository
+        all_records_query = timer_repository.find_all_records_with_details(self.db)
         return self._format_record_stopwatch_result(all_records_query)
 
     def get_tasks_status_not_programmed(self, task_ids: list[uuid.UUID]):
+        from app.modules.timer.repositories import timer_repository
         logger.info(f"get_tasks_status_not_programmed called for task_ids: {task_ids}")
         # Get tasks from Stopwatch (running, paused) for non-programming tasks
-        stopwatch_tasks = self.db.query(Stopwatch.task_id, Stopwatch.status, Stopwatch.id, Stopwatch.is_from_programming).filter(
-            Stopwatch.task_id.in_(task_ids),
-            Stopwatch.is_from_programming == False
-        ).all()
+        stopwatch_tasks = timer_repository.find_stopwatches_by_task_ids(self.db, task_ids, False)
         logger.info(f"Stopwatch tasks found: {stopwatch_tasks}")
 
         # Get tasks from RecordStopwatch (completed/done, not from programming)
-        record_stopwatch_tasks = self.db.query(RecordStopwatch.task_id, RecordStopwatch.id).filter(RecordStopwatch.task_id.in_(task_ids)).all()
+        record_stopwatch_tasks = timer_repository.find_records_by_task_ids(self.db, task_ids)
         logger.info(f"RecordStopwatch tasks found: {record_stopwatch_tasks}")
 
         # Create a dictionary to hold the status
         task_statuses = {}
 
         # Add running/paused tasks from Stopwatch
-        for task_id, status, stopwatch_id, is_from_programming in stopwatch_tasks:
-            task_statuses[str(task_id)] = {"status": status.value, "record_id": str(stopwatch_id), "is_from_programming": is_from_programming}
+        for sw in stopwatch_tasks:
+            task_statuses[str(sw.task_id)] = {"status": sw.status.value, "record_id": str(sw.id), "is_from_programming": sw.is_from_programming}
 
-        for task_id_record, record_id in record_stopwatch_tasks:
-            if str(task_id_record) not in task_statuses:
-                task_statuses[str(task_id_record)] = {"status": TimerStatus.STOPPED.value, "record_id": str(record_id), "is_from_programming": False}
+        for rec in record_stopwatch_tasks:
+            if str(rec.task_id) not in task_statuses:
+                task_statuses[str(rec.task_id)] = {"status": TimerStatus.STOPPED.value, "record_id": str(rec.id), "is_from_programming": False}
 
         final_statuses = [{"task_id": task_id, "status": data["status"], "record_id": data["record_id"], "is_from_programming": data["is_from_programming"]} for task_id, data in task_statuses.items()]
         logger.info(f"Final statuses returned: {final_statuses}")
         return final_statuses
 
     def add_comment_to_record(self, record_id: uuid.UUID, comment: str):
-        record = self.db.query(RecordStopwatch).filter(RecordStopwatch.id == record_id).first()
+        from app.modules.timer.repositories import timer_repository
+        record = timer_repository.find_record_by_id(self.db, record_id)
         if not record:
             raise ValueError("Record not found")
 
         record.comments = comment
-        self.db.commit()
-        self.db.refresh(record)
-        return record
+        return timer_repository.save_record_stopwatch(self.db, record)

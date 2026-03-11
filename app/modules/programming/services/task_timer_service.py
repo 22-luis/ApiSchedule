@@ -11,9 +11,13 @@ from app.shared.utils.business.order_status_service import OrderStatusService
 
 class TaskTimerService:
     @staticmethod
-    def start_task_timer(db: Session, programming_id: str, task_id: str, current_user: User, data: dict = None):
+    def start_timer(db: Session, task_id: str, current_user: User, data: dict = None, programming_id: str = None):
         """Starts the timer for a specific task in a programming."""
-        pt = db.query(ProgrammingTask).filter_by(programming_id=programming_id, task_id=task_id).first()
+        query = db.query(ProgrammingTask).filter_by(task_id=task_id)
+        if programming_id:
+            query = query.filter_by(programming_id=programming_id)
+        
+        pt = query.first()
         if not pt:
             return None, "ProgrammingTask not found"
         
@@ -30,6 +34,7 @@ class TaskTimerService:
         pt.completed_by_user_id = current_user.id
         
         # Actualizar estado de la orden usando el servicio centralizado
+        from app.shared.utils.business.order_status_service import OrderStatusService
         OrderStatusService.update_order_status_for_task_start(db, pt)
         
         db.commit()
@@ -37,31 +42,40 @@ class TaskTimerService:
         return pt, None
 
     @staticmethod
-    def stop_task_timer(db: Session, programming_id: str, task_id: str, current_user: User, data: ProgrammingTaskReportIn):
+    def stop_timer(db: Session, task_id: str, current_user: User, real_quantity: float = None, programming_id: str = None, data: ProgrammingTaskReportIn = None):
         """Stops the timer and handles auto-completion and order status updates."""
-        # Cargar ProgrammingTask con la tarea relacionada
-        pt = db.query(ProgrammingTask).options(
+        query = db.query(ProgrammingTask).options(
             joinedload(ProgrammingTask.task)
-        ).filter_by(
-            programming_id=programming_id,
-            task_id=task_id
-        ).first()
+        ).filter_by(task_id=task_id)
+        
+        if programming_id:
+            query = query.filter_by(programming_id=programming_id)
+            
+        pt = query.first()
 
         if not pt:
             return None, "ProgrammingTask not found"
         
         sv_tz = timezone("America/El_Salvador")
-        if hasattr(data, 'real_end_time') and data.real_end_time:
-            val = data.real_end_time
-            if isinstance(val, str):
-                pt.real_end_time = datetime.fromisoformat(val)
+        # Use real_end_time from data if available, otherwise now
+        val_end = None
+        if data and hasattr(data, 'real_end_time') and data.real_end_time:
+            val_end = data.real_end_time
+        
+        if val_end:
+            if isinstance(val_end, str):
+                pt.real_end_time = datetime.fromisoformat(val_end)
             else:
-                pt.real_end_time = val
+                pt.real_end_time = val_end
         else:
             pt.real_end_time = datetime.now(sv_tz)
         
-        # Si real_quantity es una cadena vacía o None, establecer como None
-        pt.real_quantity = None if data.real_quantity is None or (isinstance(data.real_quantity, str) and data.real_quantity.strip() == "") else data.real_quantity
+        # Use real_quantity from argument if provided, otherwise from data
+        final_quantity = real_quantity
+        if final_quantity is None and data and hasattr(data, 'real_quantity'):
+            final_quantity = data.real_quantity
+            
+        pt.real_quantity = None if final_quantity is None or (isinstance(final_quantity, str) and final_quantity.strip() == "") else final_quantity
 
         lote = None
         has_pending_tasks = None
@@ -157,3 +171,5 @@ class TaskTimerService:
             "has_pending_tasks": has_pending_tasks,
             "is_completed": bool(pt.is_completed)
         }, None
+
+task_timer_service = TaskTimerService()

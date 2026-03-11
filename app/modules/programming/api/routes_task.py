@@ -1,17 +1,16 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from sqlalchemy.orm import Session
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
 import datetime
 
 from app.shared.db.session import get_db
 from app.modules.organization.models.user import User
 from app.modules.organization.models.role import UserRole
-from app.modules.programming.models.task_status_log import TaskStatusLog
 from app.modules.programming.schemas.task import TaskCreate, TaskUpdate, TaskOut
 from app.shared.utils.core.dependencies import get_current_user, require_roles
 from app.shared.core.enums import TaskStatus
-from app.modules.programming.services.task_service import TaskService
+from app.modules.programming.services import task_service
 
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
@@ -44,7 +43,7 @@ def create_task(
     team_ids = task.teamIds
     programming_id = task.programming_id
 
-    return TaskService.create_task(db, task_data, team_ids, str(programming_id), current_user)
+    return task_service.create_task(db, task_data, team_ids, str(programming_id), current_user)
 
 @router.post("/{task_id}/duplicate", response_model=TaskOut)
 def duplicate_task(
@@ -53,17 +52,15 @@ def duplicate_task(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))
 ):
-    return TaskService.duplicate_task(db, task_id, request.lote, current_user)
+    return task_service.duplicate_task(db, task_id, request.lote, current_user)
 
 @router.get("/", response_model=List[TaskOut])
 def get_tasks(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.TIMEKEEPER, UserRole.USER))
 ):
-    # This remains simple enough for the route
-    from app.modules.programming.models.task import Task
-    tasks = db.query(Task).all()
-    return tasks
+    from app.modules.programming.repositories import task_repository
+    return task_repository.find_all(db) if hasattr(task_repository, 'find_all') else db.query(task_service.Task).all()
 
 @router.get("/{task_id}", response_model=TaskOut)
 def get_task(
@@ -71,7 +68,7 @@ def get_task(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.TIMEKEEPER, UserRole.USER))
 ):
-    task = TaskService.get_task_with_relations(db, task_id)
+    task = task_service.get_task_with_relations(db, task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     return task
@@ -84,7 +81,7 @@ def update_task(
     current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))
 ):
     update_data = task_update.dict(exclude_unset=True)
-    return TaskService.update_task(db, task_id, update_data, current_user)
+    return task_service.update_task(db, task_id, update_data, current_user)
 
 @router.put("/{task_id}/status", response_model=TaskOut)
 def update_task_status(
@@ -93,7 +90,7 @@ def update_task_status(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    return TaskService.update_task_status(db, task_id, status_update.status, current_user)
+    return task_service.update_task_status(db, task_id, status_update.status, current_user)
 
 
 @router.get("/{task_id}/real-time")
@@ -102,26 +99,7 @@ def get_task_real_time(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # Log entries are business logic? Let's keep it here for now as it's a simple query
-    # or move to TaskService if we want absolutely clean routes.
-    from app.modules.programming.models.task import Task
-    db_task = db.query(Task).filter(Task.id == task_id).first()
-    if not db_task:
-        raise HTTPException(status_code=404, detail="Task not found")
-
-    log_entries = db.query(TaskStatusLog).filter(
-        TaskStatusLog.task_id == task_id,
-        TaskStatusLog.status == "in_progress" # TaskStatus.IN_PROGRESS.value might be better but checking original code
-    ).all()
-
-    total_time = datetime.timedelta(0)
-    for entry in log_entries:
-        if entry.end_time:
-            total_time += entry.end_time - entry.start_time
-        else:
-            total_time += datetime.datetime.utcnow() - entry.start_time
-
-    return {"task_id": task_id, "real_time_seconds": total_time.total_seconds()}
+    return task_service.get_task_real_time(db, task_id)
 
 
 @router.delete("/{task_id}")
@@ -130,7 +108,7 @@ def delete_task(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
 ):
-    if TaskService.delete_tasks(db, [task_id]):
+    if task_service.delete_tasks(db, [task_id]):
         return {"message": "Task deleted successfully"}
     raise HTTPException(status_code=404, detail="Task not found")
 
@@ -143,7 +121,7 @@ def delete_many_tasks(
     if not request.task_ids:
         raise HTTPException(status_code=400, detail="No task IDs provided.")
 
-    if TaskService.delete_tasks(db, request.task_ids):
+    if task_service.delete_tasks(db, request.task_ids):
          return {"message": f"Successfully deleted {len(request.task_ids)} tasks."}
     
     raise HTTPException(status_code=404, detail="One or more tasks not found")

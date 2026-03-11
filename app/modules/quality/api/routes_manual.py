@@ -32,9 +32,10 @@ def create_manual_identity(
     current_user = Depends(get_current_user)
 ):
     """Creates only the manual identity (QualityManual) and an initial audit revision (QcManual)"""
+    from app.modules.quality.repositories import quality_repository
     try:
         # 1. Get or Create the Master Manual record (QualityManual)
-        qm = db.query(QualityManual).filter(QualityManual.name == manual_data.name).first()
+        qm = quality_repository.find_manual_by_name(db, manual_data.name)
         if qm:
             raise HTTPException(status_code=400, detail="Ya existe un instructivo con ese nombre")
             
@@ -42,17 +43,14 @@ def create_manual_identity(
             name=manual_data.name,
             created_by=current_user.username
         )
-        db.add(qm)
-        db.flush()
+        quality_repository.save_manual(db, qm)
         
         # 2. Create the initial Audit/Link record (QcManual)
         new_audit = QcManual(
             quality_manual_id=qm.id,
             created_by=current_user.username
         )
-        db.add(new_audit)
-        db.commit()
-        db.refresh(new_audit)
+        quality_repository.save_qc_manual(db, new_audit)
         
         new_audit.name = qm.name 
         return new_audit
@@ -69,18 +67,19 @@ def update_manual_identity(
     _current_user = Depends(require_roles(UserRole.ADMIN, UserRole.QC_COORDINATOR))
 ):
     """Updates the name of a manual identity"""
+    from app.modules.quality.repositories import quality_repository
     try:
-        qm = db.query(QualityManual).filter(QualityManual.name == manual_data.name).first()
+        qm = quality_repository.find_manual_by_name(db, manual_data.name)
         if not qm:
             raise HTTPException(status_code=404, detail="Manual no encontrado")
             
         # Check if new name already exists
-        exists = db.query(QualityManual).filter(QualityManual.name == manual_data.new_name).first()
+        exists = quality_repository.find_manual_by_name(db, manual_data.new_name)
         if exists:
              raise HTTPException(status_code=400, detail="Ya existe un instructivo con el nuevo nombre")
              
         qm.name = manual_data.new_name
-        db.commit()
+        quality_repository.save_manual(db, qm)
         return None
     except HTTPException:
         raise
@@ -94,19 +93,19 @@ def create_qc_manual(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
+    from app.modules.quality.repositories import quality_repository
     try:
         # 1. Get or Create the Master Manual record (QualityManual)
-        qm = db.query(QualityManual).filter(QualityManual.name == manual_data.name).first()
+        qm = quality_repository.find_manual_by_name(db, manual_data.name)
         if not qm:
             qm = QualityManual(
                 name=manual_data.name,
                 created_by=current_user.username
             )
-            db.add(qm)
-            db.flush()
+            quality_repository.save_manual(db, qm)
         
         # 2. Check for latest revision to UPDATE instead of creating new
-        latest_audit = db.query(QcManual).filter(QcManual.quality_manual_id == qm.id).order_by(QcManual.id.desc()).first()
+        latest_audit = quality_repository.find_latest_qc_manual_by_quality_manual(db, qm.id)
         
         target_audit = None
         is_update = False
@@ -275,9 +274,9 @@ def list_manual_names(
     _current_user = Depends(get_current_user)
 ):
     """Returns a list of unique manual names from the identity table."""
-    # Query QualityManual instead of QcManual
-    names = db.query(QualityManual.name).order_by(QualityManual.order).all()
-    return [n[0] for n in names]
+    from app.modules.quality.repositories import quality_repository
+    manuals = quality_repository.find_manuals_ordered(db)
+    return [m.name for m in manuals]
 
 @router.get("/identities", response_model=list[dict])
 def get_identities(
@@ -285,10 +284,9 @@ def get_identities(
     _current_user = Depends(get_current_user)
 ):
     """Returns a list of manual identities with ID and name."""
-    manuals = db.query(QualityManual.id, QualityManual.name, QualityManual.order).order_by(QualityManual.order).all()
+    from app.modules.quality.repositories import quality_repository
+    manuals = quality_repository.find_manuals_ordered(db)
     return [{"id": m.id, "name": m.name, "order": m.order} for m in manuals]
-
-
 
 @router.get("/hierarchy", response_model=HierarchyOut)
 def get_manual_hierarchy(
@@ -296,12 +294,12 @@ def get_manual_hierarchy(
     db: Session = Depends(get_db),
     _current_user = Depends(get_current_user)
 ):
-    # Join to find latest revision by name
-    query = db.query(QcManual).join(QualityManual)
+    from app.modules.quality.repositories import quality_repository
     if name:
-        query = query.filter(QualityManual.name == name)
+        manual = quality_repository.find_latest_qc_manual_by_name(db, name)
+    else:
+        manual = db.query(QcManual).join(QualityManual).order_by(QcManual.id.desc()).first()
         
-    manual = query.order_by(QcManual.id.desc()).first()
     if not manual:
         raise HTTPException(status_code=404, detail="Manual QC no encontrado")
     
@@ -328,14 +326,13 @@ def get_manual_hierarchy(
         "hierarchy": hierarchy
     }
 
-
-
 @router.get("/section/{section_name}", response_model=SectionOut)
 def get_section(
     section_name: str,
     db: Session = Depends(get_db),
     _current_user = Depends(get_current_user)
 ):
+    from app.modules.quality.repositories import quality_repository
     is_uuid = False
     try:
         uuid_obj = uuid.UUID(section_name)
@@ -346,10 +343,9 @@ def get_section(
     chapter = None
     if is_uuid:
         # Search by ID (Globally Unique)
-        chapter = db.query(QcManualChapter).filter(QcManualChapter.id == section_name).first()
+        chapter = quality_repository.find_chapter_by_id(db, uuid.UUID(section_name))
     else:
-        # Search by Title (Legacy) - Limited to latest revision of ANY manual (This logic was existing but potentially flawed if multiple manuals exist)
-        # We preserve existing behavior for non-UUIDs.
+        # Search by Title (Legacy)
         manual = db.query(QcManual).join(QualityManual).order_by(QcManual.id.desc()).first()
         if not manual:
             raise HTTPException(status_code=404, detail="Manual QC no encontrado")
@@ -387,17 +383,14 @@ def get_full_manual_content(
     db: Session = Depends(get_db),
     _current_user = Depends(get_current_user)
 ):
-    """
-    Returns the aggregated content of ALL chapters for the latest revision 
-    of the specified QualityManual (by ID).
-    """
+    from app.modules.quality.repositories import quality_repository
     # 1. Find latest audit for this Quality Manual ID
-    latest_audit = db.query(QcManual).filter(QcManual.quality_manual_id == manual_id).order_by(QcManual.id.desc()).first()
+    latest_audit = quality_repository.find_latest_qc_manual_by_quality_manual(db, manual_id)
     
     if not latest_audit:
         raise HTTPException(status_code=404, detail="Manual no encontrado")
         
-    qm = db.query(QualityManual).filter(QualityManual.id == manual_id).first()
+    qm = quality_repository.find_manual_by_id(db, manual_id)
     manual_name = qm.name if qm else "Instructivo Completo"
 
     # 2. Helper to recursively build content
@@ -416,21 +409,11 @@ def get_full_manual_content(
              
         parts = []
         for ch in chapters:
-            # Skip tests in the full manual view usually, but user might want them? 
-            # Request says "contenido de todos los capitulos associated al instructivo".
-            # Let's include everything formatted nicely.
-            
-            # Determine Heading Level
-            # Root = H1 (but inside manual usually H1 is title). Let's use H(level)
             tag = f"h{min(level, 6)}"
             parts.append(f"<{tag}>{ch.title}</{tag}>")
-            
             if ch.content:
                 parts.append(ch.content)
-            
-            # Recurse
             parts.extend(get_all_content_recursive(ch.id, level + 1))
-            
         return parts
 
     # 3. Build Content
@@ -438,18 +421,19 @@ def get_full_manual_content(
     
     return {
         "section_name": manual_name,
-        "content": "\n<hr/>\n".join(full_content_parts) # Separate major blocks with spacing/lines if needed, or just standard flow
+        "content": "\n<hr/>\n".join(full_content_parts)
     }
 
 @router.get("/latest", 
              response_model=QcManualOut, 
              dependencies=[Depends(require_roles(UserRole.ADMIN, UserRole.QC_COORDINATOR, UserRole.QC_ASSISTANT))])
 def get_latest_qc_manual(name: str | None = None, db: Session = Depends(get_db)):
-    # Join to find latest revision
-    query = db.query(QcManual).join(QualityManual)
+    from app.modules.quality.repositories import quality_repository
     if name:
-        query = query.filter(QualityManual.name == name)
-    manual = query.order_by(QcManual.id.desc()).first()
+        manual = quality_repository.find_latest_qc_manual_by_name(db, name)
+    else:
+        manual = db.query(QcManual).join(QualityManual).order_by(QcManual.id.desc()).first()
+        
     if not manual:
         raise HTTPException(status_code=404, detail="Manual QC no encontrado")
     
@@ -463,10 +447,8 @@ def delete_qc_manual(
     db: Session = Depends(get_db),
     _current_user = Depends(require_roles(UserRole.ADMIN, UserRole.QC_COORDINATOR))
 ):
-    """
-    Deletes a manual identity and all its audit revisions (cascading).
-    """
-    qm = db.query(QualityManual).filter(QualityManual.name == name).first()
+    from app.modules.quality.repositories import quality_repository
+    qm = quality_repository.find_manual_by_name(db, name)
     if not qm:
         raise HTTPException(status_code=404, detail="Manual no encontrado")
         
