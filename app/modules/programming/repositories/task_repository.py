@@ -32,6 +32,11 @@ def find_programming_task(db: Session, programming_id: UUID, task_id: UUID) -> O
         task_id=task_id
     ).first()
 
+def find_programming_task_by_task_id(db: Session, task_id: UUID) -> Optional[ProgrammingTask]:
+    return db.query(ProgrammingTask).filter_by(
+        task_id=task_id
+    ).order_by(ProgrammingTask.created_at.desc()).first()
+
 def save_programming_task(db: Session, pt: ProgrammingTask) -> ProgrammingTask:
     db.add(pt)
     return pt

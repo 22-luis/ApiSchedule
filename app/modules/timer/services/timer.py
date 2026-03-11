@@ -117,7 +117,7 @@ class TimerService:
         if not stopwatch.is_from_programming:
             record = record_stopwatch
         else:
-            prog_task = task_repository.find_programming_task(self.db, task_id)
+            prog_task = task_repository.find_programming_task_by_task_id(self.db, task_id)
             if not prog_task:
                 raise ValueError(f"ProgrammingTask with task_id {task_id} not found.")
 

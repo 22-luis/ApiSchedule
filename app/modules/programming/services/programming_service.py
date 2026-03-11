@@ -9,6 +9,7 @@ from uuid import UUID
 
 from app.modules.programming.models.programming import Programming, ProgrammingTask
 from app.modules.programming.models.task import Task
+from app.modules.programming.models.state import ProgrammingStatus
 from app.modules.organization.models.team import Team, UserTeam
 from app.modules.organization.models.user import User
 from app.modules.organization.models.role import UserRole
@@ -395,6 +396,18 @@ class ProgrammingService:
         return pt
 
     @staticmethod
+    def update_task_comment(db: Session, programming_id: UUID, task_id: UUID, comment: str):
+        from app.modules.programming.repositories import task_repository
+        pt = task_repository.find_programming_task(db, programming_id, task_id)
+        if not pt:
+            raise HTTPException(status_code=404, detail="Task not found in this programming")
+        
+        pt.comment = comment
+        task_repository.commit(db)
+        db.refresh(pt)
+        return pt
+
+    @staticmethod
     def toggle_task_status(db: Session, programming_id: UUID, task_id: UUID, payload: dict, current_user: User):
         from app.modules.programming.services.task_timer_service import TaskTimerService
         from app.modules.programming.repositories import task_repository
@@ -462,5 +475,138 @@ class ProgrammingService:
                 "order_count": n.order_count
             })
         return serialized
+
+    @staticmethod
+    def get_monthly_performance(db: Session, year: int, month: int, current_user: User):
+        """
+        Calculates monthly performance summary for all teams.
+        Optimized to handle a full month of data in a single call.
+        """
+        # 1. Definir rango del mes
+        start_date = date(year, month, 1)
+        if month == 12:
+            end_date = date(year + 1, 1, 1)
+        else:
+            end_date = date(year, month + 1, 1)
+            
+        # 2. Obtener todas las programaciones del mes con sus tareas
+        privileged_roles = (UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.TIMEKEEPER, UserRole.QC_COORDINATOR, UserRole.QC_ASSISTANT)
+        
+        query = db.query(Programming).options(
+            joinedload(Programming.team),
+            joinedload(Programming.programming_tasks).joinedload(ProgrammingTask.task).joinedload(Task.code)
+        ).filter(
+            Programming.date >= start_date,
+            Programming.date < end_date
+        )
+        
+        if current_user.role not in privileged_roles:
+            team_ids = [team.id for team in getattr(current_user, "teams", [])]
+            query = query.filter(Programming.team_id.in_(team_ids))
+            
+        programmings = query.all()
+        
+        # 3. Obtener minutos reales masivos para todas las tareas del mes
+        all_task_ids = []
+        for p in programmings:
+            all_task_ids.extend([pt.task_id for pt in p.programming_tasks if pt.task_id])
+            
+        real_minutes_map = {}
+        if all_task_ids:
+            real_records = db.query(
+                RecordStopwatch.task_id,
+                func.sum(RecordStopwatch.accumulated_duration * 60).label('total_minutes')
+            ).filter(
+                RecordStopwatch.task_id.in_(all_task_ids)
+            ).group_by(RecordStopwatch.task_id).all()
+            real_minutes_map = {str(r.task_id).lower(): r.total_minutes for r in real_records}
+            
+        # 4. Procesar y agrupar por equipo y fecha
+        # perf_matrix: { team_id: { date: performance } }
+        perf_matrix = {}
+        active_days = set()
+        teams_info = {}
+
+        def is_test_team(name: str):
+            if not name: return False
+            lower = name.lower()
+            return lower == 'test' or 'equipo de test' in lower or 'equipo test' in lower
+
+        # Mapa para agrupar tareas por equipo y fecha
+        # {(team_id, date_str): [valid_programming_tasks]}
+        tasks_by_team_date = {}
+
+        def is_excluded_task(description: str):
+            if not description: return False
+            excluded = ['reunion', 'reunión', 'almuerzo', 'limpieza']
+            lower = description.lower()
+            return any(term in lower for term in excluded)
+
+        for p in programmings:
+            team = p.team
+            if not team: continue
+            
+            team_id = str(team.id)
+            team_name = team.name
+            
+            # Excluir equipos de test
+            if is_test_team(team_name): continue
+            
+            teams_info[team_id] = team_name
+            date_str = p.date.strftime("%Y-%m-%d")
+            
+            key = (team_id, date_str)
+            if key not in tasks_by_team_date:
+                tasks_by_team_date[key] = []
+            
+            # Recolectar tareas válidas
+            for pt in p.programming_tasks:
+                task = pt.task
+                if not task or not task.code: continue
+                
+                desc = task.description or task.code.description or ""
+                if is_excluded_task(desc): continue
+                
+                tasks_by_team_date[key].append(pt)
+
+        # Ahora calcular el rendimiento por cada grupo (equipo+fecha)
+        for (team_id, date_str), valid_tasks in tasks_by_team_date.items():
+            if not valid_tasks: continue
+            
+            sum_perf = 0.0
+            for pt in valid_tasks:
+                task = pt.task
+                # Tiempos planeados: Task.minutes o Code.time como fallback
+                p_min = float(task.minutes or (task.code.time if task.code else 0.0) or 0.0)
+                
+                # Tiempos reales con fallbacks
+                r_min = float(real_minutes_map.get(str(pt.task_id).lower(), (pt.duration_in_hours or 0.0) * 60))
+                if r_min == 0 and pt.real_start_time and pt.real_end_time:
+                    delta = pt.real_end_time - pt.real_start_time
+                    r_min = delta.total_seconds() / 60.0
+                
+                # Cantidades (Mismo comportamiento que ReportExcel.tsx)
+                # cPlan = (t.quantity && t.quantity > 0) ? t.quantity : 1
+                c_plan = float(task.quantity) if (task.quantity and task.quantity > 0) else 1.0
+                # cReal = t.real_quantity || 0
+                c_real = float(pt.real_quantity or 0.0)
+                
+                # R = (T.Plan * C.Real) / (T.Real * C.Plan)
+                if r_min > 0 and c_plan > 0:
+                    sum_perf += (p_min * c_real) / (r_min * c_plan)
+            
+            # Promedio sobre el total de tareas válidas
+            avg_perf = (sum_perf / len(valid_tasks)) * 100.0
+            
+            if team_id not in perf_matrix:
+                perf_matrix[team_id] = {}
+            perf_matrix[team_id][date_str] = avg_perf
+            active_days.add(date_str)
+                
+        return {
+            "perf_matrix": perf_matrix,
+            "active_days": sorted(list(active_days)),
+            "teams": [{"id": tid, "name": tname} for tid, tname in teams_info.items()]
+        }
 
 programming_service = ProgrammingService()

@@ -32,6 +32,10 @@ def get_programming_summary(team_id: str, date: str, db: Session = Depends(get_d
 def get_dashboard_data(date: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     return programming_service.get_dashboard_data(db, date, current_user)
 
+@router.get("/monthly_performance", response_model=dict)
+def get_monthly_performance(year: int, month: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    return programming_service.get_monthly_performance(db, year, month, current_user)
+
 @router.put("/{programming_id}/reorder", response_model=dict)
 def reorder_tasks_by_programming(
     programming_id: UUID,
@@ -113,3 +117,13 @@ def toggle_task_status(
     current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))
 ):
     return programming_service.toggle_task_status(db, programming_id, task_id, request.dict(), current_user)
+
+@router.post("/{programming_id}/tasks/{task_id}/comment")
+def update_task_comment(
+    programming_id: UUID,
+    task_id: UUID,
+    comment: str = Body(..., embed=True),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))
+):
+    return programming_service.update_task_comment(db, programming_id, task_id, comment)
