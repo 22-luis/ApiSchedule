@@ -372,6 +372,70 @@ class ProgrammingService:
         return result, None
 
     @staticmethod
+    def update_task_real_quantity(db: Session, programming_id: UUID, task_id: UUID, real_quantity: float):
+        print(f"DEBUG - update_task_real_quantity: p={programming_id}, t={task_id}, q={real_quantity}")
+        pt = db.query(ProgrammingTask).filter_by(programming_id=programming_id, task_id=task_id).first()
+        if not pt:
+            print(f"DEBUG - pt not found")
+            raise HTTPException(status_code=404, detail="Task not found in this programming")
+        
+        pt.real_quantity = real_quantity
+        print(f"DEBUG - updating real_quantity to {real_quantity}")
+        
+        db.commit()
+        db.refresh(pt)
+        print(f"DEBUG - success")
+        return pt
+
+    @staticmethod
+    def toggle_task_status(db: Session, programming_id: UUID, task_id: UUID, payload: dict, current_user: User):
+        from app.modules.programming.services.task_timer_service import TaskTimerService
+        print(f"DEBUG - toggle_task_status: p={programming_id}, t={task_id}")
+        
+        pt = db.query(ProgrammingTask).filter_by(programming_id=programming_id, task_id=task_id).first()
+        if not pt:
+            raise HTTPException(status_code=404, detail="Task not found in this programming")
+            
+        task = pt.task
+        if not task:
+            raise HTTPException(status_code=404, detail="Task not found")
+
+        # Update quantities if provided
+        if "assigned_quantity" in payload and payload["assigned_quantity"] is not None:
+            task.quantity = payload["assigned_quantity"]
+        
+        if "real_quantity" in payload and payload["real_quantity"] is not None:
+            pt.real_quantity = payload["real_quantity"]
+
+        # Toggle completion status
+        is_completed = pt.is_completed if pt.is_completed is not None else False
+        new_status = not is_completed
+        pt.is_completed = new_status
+        
+        if new_status:
+            # Complements status update in Task model
+            from app.shared.core.enums import TaskStatus as SharedTaskStatus
+            task.status = SharedTaskStatus.COMPLETED.value
+            task.is_completed = True
+            
+            # If it was in progress, stop the timer
+            # Correcting the call to stop_task_timer
+            from app.modules.programming.schemas.programming import ProgrammingTaskReportIn
+            report_data = ProgrammingTaskReportIn(real_quantity=pt.real_quantity)
+            TaskTimerService.stop_task_timer(db, str(programming_id), str(task_id), current_user, report_data)
+        else:
+            from app.shared.core.enums import TaskStatus as SharedTaskStatus
+            task.status = SharedTaskStatus.PENDING.value
+            task.is_completed = False
+            
+        db.commit()
+        db.refresh(pt)
+        db.refresh(task)
+        print(f"DEBUG - success toggle")
+        
+        return pt
+
+    @staticmethod
     def get_recent_task_creation_notifications(db: Session):
         from datetime import timedelta
         cutoff_time = datetime.utcnow() - timedelta(hours=24)

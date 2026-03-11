@@ -7,7 +7,7 @@ from app.modules.organization.models.role import UserRole
 from app.modules.organization.models.user import User
 from app.modules.programming.schemas.programming import (
     ProgrammingRead, ProgrammingUpdate, TasksOrderRequest, 
-    ProgrammingSummaryResponse
+    ProgrammingSummaryResponse, ToggleTaskStatusRequest
 )
 from app.modules.programming.services.programming_service import ProgrammingService
 from app.modules.programming.services.task_timer_service import TaskTimerService
@@ -33,9 +33,15 @@ def get_programming_summary(team_id: str, date: str, db: Session = Depends(get_d
 def get_dashboard_data(date: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     return ProgrammingService.get_dashboard_data(db, date, current_user)
 
-@router.post("/reorder_tasks", response_model=dict)
-def reorder_tasks(request: TasksOrderRequest, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))):
-    result, error = ProgrammingService.reorder_programming_tasks(db, request.programming_id, request.tasks)
+@router.put("/{programming_id}/reorder", response_model=dict)
+def reorder_tasks_by_programming(
+    programming_id: UUID,
+    request: TasksOrderRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Reorder tasks in a programming. Called by the frontend after drag-and-drop or recalculation."""
+    result, error = ProgrammingService.reorder_programming_tasks(db, programming_id, request.tasks_order)
     if error:
         raise HTTPException(status_code=400, detail=error)
     return {"success": True, "reordered_tasks": result}
@@ -89,3 +95,22 @@ def refresh_availability(date_str: str = Body(..., embed=True), db: Session = De
         return {"message": f"Availability refreshed for {date_str}"}
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format")
+@router.patch("/{programming_id}/tasks/{task_id}/quantity")
+def update_task_real_quantity(
+    programming_id: UUID,
+    task_id: UUID,
+    real_quantity: float = Body(..., embed=True),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
+):
+    return ProgrammingService.update_task_real_quantity(db, programming_id, task_id, real_quantity)
+
+@router.post("/{programming_id}/tasks/{task_id}/toggle_status")
+def toggle_task_status(
+    programming_id: UUID,
+    task_id: UUID,
+    request: ToggleTaskStatusRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))
+):
+    return ProgrammingService.toggle_task_status(db, programming_id, task_id, request.dict(), current_user)

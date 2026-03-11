@@ -293,6 +293,8 @@ def test_task(db: Session, test_task_data: Dict[str, Any], test_code: Code, test
         del task_data["teamIds"]
     if "programming_id" in task_data:
         del task_data["programming_id"]
+    if "total_time" in task_data:
+        del task_data["total_time"]
     
     task = Task(**task_data)
     db.add(task)
