@@ -17,8 +17,8 @@ from app.shared.utils.business.programming_availability import update_all_progra
 router = APIRouter(prefix="/programmings", tags=["programmings"])
 
 @router.get("/", response_model=List[ProgrammingRead])
-def list_programmings(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    return programming_service.list_programmings(db, current_user)
+def list_programmings(date: Optional[str] = None, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    return programming_service.list_programmings(db, current_user, date)
 
 @router.get("/by_team_date", response_model=dict)
 def get_programming_by_team_date(team_id: str, date: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):

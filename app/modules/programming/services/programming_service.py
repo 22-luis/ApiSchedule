@@ -1,5 +1,6 @@
 import traceback
 import sys
+from typing import List, Optional
 from datetime import date, datetime, time
 from pytz import timezone
 from sqlalchemy import func
@@ -26,14 +27,29 @@ class ProgrammingService:
         return any(str(team.id) == str(team_id) for team in getattr(user, "teams", []))
 
     @staticmethod
-    def list_programmings(db: Session, current_user: User):
+    def list_programmings(db: Session, current_user: User, date_str: Optional[str] = None):
         from app.modules.programming.repositories import programming_repository
         privileged_roles = (UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.TIMEKEEPER, UserRole.QC_COORDINATOR, UserRole.QC_ASSISTANT)
-        if current_user.role in privileged_roles:
-            programmings = programming_repository.find_all(db)
+        
+        if date_str:
+            try:
+                date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
+                if current_user.role in privileged_roles:
+                    programmings = db.query(Programming).filter(Programming.date == date_obj).all()
+                else:
+                    team_ids = [team.id for team in getattr(current_user, "teams", [])]
+                    programmings = db.query(Programming).filter(
+                        Programming.team_id.in_(team_ids),
+                        Programming.date == date_obj
+                    ).all()
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid date format")
         else:
-            team_ids = [team.id for team in getattr(current_user, "teams", [])]
-            programmings = programming_repository.find_by_team_ids(db, team_ids)
+            if current_user.role in privileged_roles:
+                programmings = programming_repository.find_all(db)
+            else:
+                team_ids = [team.id for team in getattr(current_user, "teams", [])]
+                programmings = programming_repository.find_by_team_ids(db, team_ids)
             
         result = []
         for p in programmings:
