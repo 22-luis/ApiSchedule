@@ -127,3 +127,22 @@ def update_task_comment(
     current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))
 ):
     return programming_service.update_task_comment(db, programming_id, task_id, comment)
+
+@router.get("/{programming_id}/last_task")
+def get_last_task(
+    programming_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Returns the last active task for a programming.
+    Handles 'null' ID gracefully to avoid 404/500 errors in logs.
+    """
+    if programming_id == "null":
+        return None
+        
+    result = programming_service.get_last_task(db, programming_id)
+    if not result:
+        # Instead of 404, we return None/empty so frontend doesn't crash if it's a valid call but no tasks exist
+        return None
+    return result

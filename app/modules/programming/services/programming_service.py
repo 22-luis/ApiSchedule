@@ -608,5 +608,47 @@ class ProgrammingService:
             "active_days": sorted(list(active_days)),
             "teams": [{"id": tid, "name": tname} for tid, tname in teams_info.items()]
         }
+    @staticmethod
+    def get_last_task(db: Session, programming_id: str):
+        """
+        Retrieves the last interacted task in a programming.
+        Handles 'null' string from frontend gracefully.
+        """
+        if not programming_id or programming_id == "null":
+            return None
+            
+        try:
+            pid = UUID(programming_id) if isinstance(programming_id, str) else programming_id
+        except (ValueError, AttributeError):
+            return None
+            
+        # Encontrar la última tarea que tuvo actividad (basado en real_start_time)
+        last_pt = db.query(ProgrammingTask).options(
+            joinedload(ProgrammingTask.task).joinedload(Task.code)
+        ).filter(
+            ProgrammingTask.programming_id == pid,
+            ProgrammingTask.real_start_time != None
+        ).order_by(ProgrammingTask.real_start_time.desc()).first()
+        
+        # Si no hay ninguna empezada, retornar la primera en orden? 
+        # Por ahora solo retornamos la última actividad real.
+        if not last_pt:
+            return None
+
+        # Serializar mínimamente para el frontend
+        task_obj = last_pt.task
+        return {
+            "id": str(last_pt.task_id),
+            "programming_id": str(last_pt.programming_id),
+            "real_start_time": last_pt.real_start_time.isoformat() if last_pt.real_start_time else None,
+            "real_end_time": last_pt.real_end_time.isoformat() if last_pt.real_end_time else None,
+            "is_completed": last_pt.is_completed,
+            "task_info": {
+                "id": str(task_obj.id),
+                "lote": task_obj.lote,
+                "description": task_obj.description,
+                "code": task_obj.code.code if task_obj.code else None
+            } if task_obj else None
+        }
 
 programming_service = ProgrammingService()
