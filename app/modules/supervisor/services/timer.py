@@ -179,54 +179,65 @@ class SupTimerService:
         self.db.commit()
         return record
 
-    def get_supervision_status(self, task_ids: List[uuid.UUID], supervisor_id: uuid.UUID):
-        # 1. Obtener temporizadores activos
+    def get_supervision_status(self, task_ids: List[uuid.UUID], supervisor_id: Optional[uuid.UUID] = None):
+        # 1. Buscar temporizadores activos para estas tareas
+        # Nota: Para reportes a veces queremos ver el trabajo de CUALQUIER supervisor
+        # pero por ahora mantenemos el filtro si se pasa, y si no, buscamos todo.
+        # En las rutas actuales siempre se pasa current_user.id.
+        # VAMOS A QUITAR EL FILTRO de supervisor_id para que el reporte vea todo el trabajo
+        
         active_timers = self.db.query(SupStopwatch).filter(
-            SupStopwatch.task_id.in_(task_ids),
-            SupStopwatch.supervisor_id == supervisor_id
+            SupStopwatch.task_id.in_(task_ids)
         ).all()
         
-        active_task_ids = {timer.task_id for timer in active_timers}
-        
-        # 2. Para las tareas que NO tienen temporizador activo, buscar si tienen registros históricos
-        remaining_task_ids = [tid for tid in task_ids if tid not in active_task_ids]
-        historical_records = []
-        if remaining_task_ids:
-            historical_records = self.db.query(SupRecordStopwatch).filter(
-                SupRecordStopwatch.task_id.in_(remaining_task_ids),
-                SupRecordStopwatch.supervisor_id == supervisor_id
-            ).order_by(SupRecordStopwatch.creation_date.asc()).all()
-
-        results = []
-        
-        # Procesar activos
+        # Traducir a un mapa para agrupar por tarea (en caso raro de múltiples supervisores simultáneos)
+        active_map = {}
         for timer in active_timers:
-            results.append({
-                "task_id": str(timer.task_id),
-                "status": timer.status.value,
-                "accumulated_duration": timer.accumulated_duration,
-                "real_start_time": timer.real_start_time,
-                "area_limpia": timer.area_limpia,
-                "peso_verificado": timer.peso_verificado,
-                "selladas": timer.selladas,
-                "contenedores_limpios": timer.contenedores_limpios,
-                "informacion_correcta": timer.informacion_correcta,
-                "etiquetas_correctas": timer.etiquetas_correctas,
-                "contenedores_correctos": timer.contenedores_correctos,
-                "medidas_tomadas": timer.medidas_tomadas
-            })
+            tid = str(timer.task_id)
+            live_duration = float(timer.accumulated_duration or 0)
+            if timer.status == TimerStatus.RUNNING:
+                now_local = datetime.now()
+                last_start = (timer.real_start_time if timer.real_start_time else timer.created_at).replace(tzinfo=None)
+                elapsed = (now_local - last_start).total_seconds() / 3600
+                live_duration += elapsed
             
-        # Procesar históricos (como 'stopped')
-        # Agrupar por task_id porque puede haber múltiples sesiones
-        hist_map = {}
+            if tid not in active_map:
+                active_map[tid] = {
+                    "task_id": tid,
+                    "status": timer.status.value,
+                    "accumulated_duration": 0.0,
+                    "real_start_time": timer.real_start_time,
+                    "real_end_time": timer.real_end_time,
+                    "area_limpia": timer.area_limpia,
+                    "peso_verificado": timer.peso_verificado,
+                    "selladas": timer.selladas,
+                    "contenedores_limpios": timer.contenedores_limpios,
+                    "informacion_correcta": timer.informacion_correcta,
+                    "etiquetas_correctas": timer.etiquetas_correctas,
+                    "contenedores_correctos": timer.contenedores_correctos,
+                    "medidas_tomadas": timer.medidas_tomadas
+                }
+            active_map[tid]["accumulated_duration"] = float(active_map[tid]["accumulated_duration"]) + live_duration
+            # Mantener el estado más "activo" si hay varios
+            if timer.status == TimerStatus.RUNNING:
+                active_map[tid]["status"] = TimerStatus.RUNNING.value
+        
+        # 2. Buscar históricos
+        historical_records = self.db.query(SupRecordStopwatch).filter(
+            SupRecordStopwatch.task_id.in_(task_ids)
+        ).order_by(SupRecordStopwatch.creation_date.asc()).all()
+
+        results_map = active_map.copy()
+        
         for rec in historical_records:
             tid = str(rec.task_id)
-            if tid not in hist_map:
-                hist_map[tid] = {
+            if tid not in results_map:
+                results_map[tid] = {
                     "task_id": tid,
                     "status": "stopped",
                     "accumulated_duration": 0.0,
                     "real_start_time": rec.real_start_time,
+                    "real_end_time": rec.real_end_time,
                     "area_limpia": rec.area_limpia,
                     "peso_verificado": rec.peso_verificado,
                     "selladas": rec.selladas,
@@ -236,19 +247,23 @@ class SupTimerService:
                     "contenedores_correctos": rec.contenedores_correctos,
                     "medidas_tomadas": rec.medidas_tomadas
                 }
-            hist_map[tid]["accumulated_duration"] += float(rec.accumulated_duration or 0)
-            # Intentar mantener el check más reciente o alguna lógica de mezcla? 
-            # Por ahora el último registro manda en los booleanos
-            hist_map[tid].update({
-                "area_limpia": rec.area_limpia,
-                "peso_verificado": rec.peso_verificado,
-                "selladas": rec.selladas,
-                "contenedores_limpios": rec.contenedores_limpios,
-                "informacion_correcta": rec.informacion_correcta,
-                "etiquetas_correctas": rec.etiquetas_correctas,
-                "contenedores_correctos": rec.contenedores_correctos,
-                "medidas_tomadas": rec.medidas_tomadas
-            })
+            
+            # Si la tarea ya estaba en active_map, el accumulated_duration de active_timer 
+            # YA incluye los históricos (se inicializa así en start_supervision).
+            # PERO, si la tarea NO estaba en active_map, sumamos los históricos.
+            if tid not in active_map:
+                results_map[tid]["accumulated_duration"] += float(rec.accumulated_duration or 0)
+                # Actualizar campos al más reciente
+                results_map[tid].update({
+                    "real_end_time": rec.real_end_time,
+                    "area_limpia": rec.area_limpia,
+                    "peso_verificado": rec.peso_verificado,
+                    "selladas": rec.selladas,
+                    "contenedores_limpios": rec.contenedores_limpios,
+                    "informacion_correcta": rec.informacion_correcta,
+                    "etiquetas_correctas": rec.etiquetas_correctas,
+                    "contenedores_correctos": rec.contenedores_correctos,
+                    "medidas_tomadas": rec.medidas_tomadas
+                })
 
-        results.extend(hist_map.values())
-        return results
+        return list(results_map.values())

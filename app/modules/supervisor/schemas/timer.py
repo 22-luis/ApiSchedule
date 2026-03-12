@@ -51,6 +51,7 @@ class SupTaskStatusResponse(BaseModel):
     status: str
     accumulated_duration: float
     real_start_time: Optional[datetime] = None
+    real_end_time: Optional[datetime] = None
     # Include verification fields in status response as well
     area_limpia: bool = False
     peso_verificado: bool = False
