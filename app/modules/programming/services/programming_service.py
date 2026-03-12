@@ -238,13 +238,36 @@ class ProgrammingService:
                 ).group_by(RecordStopwatch.task_id).all()
                 global_real_minutes_map = {str(r.task_id).lower(): r.total_minutes for r in real_records}
 
+            # Optimización: Obtener estados de supervisión para todas las tareas
+            global_sup_status_map = {}
+            if all_task_ids:
+                from app.modules.supervisor.models.sup_stopwatch import SupStopwatch
+                from app.modules.supervisor.models.sup_record_stopwatch import SupRecordStopwatch
+                
+                # Buscar temporizadores activos
+                active_sup = db.query(SupStopwatch.task_id, SupStopwatch.status).filter(
+                    SupStopwatch.task_id.in_(all_task_ids)
+                ).all()
+                for r in active_sup:
+                    global_sup_status_map[str(r.task_id).lower()] = r.status.value if hasattr(r.status, 'value') else str(r.status)
+                
+                # Buscar registros históricos (para tareas que no están activas)
+                # Si una tarea tiene un registro histórico y NO está activa, se considera 'stopped' (Revisada)
+                stopped_sup = db.query(SupRecordStopwatch.task_id).filter(
+                    SupRecordStopwatch.task_id.in_(all_task_ids)
+                ).distinct().all()
+                for r in stopped_sup:
+                    tid = str(r.task_id).lower()
+                    if tid not in global_sup_status_map:
+                        global_sup_status_map[tid] = 'stopped'
+
             # Construir la respuesta con todos los datos
             result = []
             for programming in programmings:
                 if not programming.programming_tasks:
                     continue
                     
-                # Serializar las tareas usando el mapa global de minutos
+                # Serializar las tareas usando el mapa global de minutos y supervisión
                 tasks = []
                 for pt in sorted(programming.programming_tasks, key=lambda pt: pt.order):
                     task_obj = pt.task
@@ -270,6 +293,9 @@ class ProgrammingService:
                     t['accumulated_real_minutes'] = real_min
                     t['comment'] = getattr(pt, 'comment', None)
                     t['created_at'] = getattr(pt, 'created_at', None)
+                    
+                    # Agregar estado de supervisión
+                    t['sup_status'] = global_sup_status_map.get(str(pt.task_id).lower(), 'pending')
                     
                     if task_obj.created_by_user:
                         t['created_by_user'] = UserOut.model_validate(task_obj.created_by_user, from_attributes=True).model_dump()
