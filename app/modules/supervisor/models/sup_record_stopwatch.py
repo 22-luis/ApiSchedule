@@ -13,7 +13,9 @@ class SupRecordStopwatch(Base):
     accumulated_duration = Column(Float, default=0, nullable=False) # in hours
     comments = Column(String, nullable=True)
     medidas_tomadas = Column(String, nullable=True)
-    creation_date = Column(DateTime(timezone=True), server_default=func.now())
+    creation_date = Column(DateTime, server_default=func.now())
+    real_start_time = Column(DateTime, nullable=True)
+    real_end_time = Column(DateTime, nullable=True)
     
     # Verification fields
     area_limpia = Column(Boolean, default=False, nullable=False)

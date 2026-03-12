@@ -15,10 +15,10 @@ class SupStopwatch(Base):
     supervisor_id = Column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=False)
     status = Column(Enum(TimerStatus), nullable=False)
     accumulated_duration = Column(Float, default=0, nullable=False) # in hours
-    real_start_time = Column(DateTime(timezone=True), nullable=True)
-    real_end_time = Column(DateTime(timezone=True), nullable=True)
-    created_at = Column(DateTime(timezone=True), nullable=True, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime(timezone=True), nullable=True, onupdate=lambda: datetime.now(timezone.utc))
+    real_start_time = Column(DateTime, nullable=True)
+    real_end_time = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, nullable=True, default=datetime.now)
+    updated_at = Column(DateTime, nullable=True, onupdate=datetime.now)
 
     # Verification fields
     area_limpia = Column(Boolean, default=False, nullable=False)

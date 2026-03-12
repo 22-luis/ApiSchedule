@@ -40,6 +40,8 @@ class SupRecordStopwatch(SupRecordStopwatchBase, SupVerificationFields):
     id: uuid.UUID
     supervisor_id: uuid.UUID
     creation_date: datetime
+    real_start_time: Optional[datetime] = None
+    real_end_time: Optional[datetime] = None
 
 class SupTimerStopPayload(SupVerificationFields):
     comments: Optional[str] = None
