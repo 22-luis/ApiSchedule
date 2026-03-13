@@ -10,7 +10,7 @@ from app.modules.quality.models.qc_manual_chapter import QcManualChapter
 from app.modules.quality.models.catalog_test import CatalogTest
 from app.modules.quality.models.catalog_test_question import CatalogTestQuestion
 from app.modules.quality.schemas.catalog_test import CatalogTestCreate, CatalogTestOut, CatalogTestUpdate
-from app.modules.core.models.role import UserRole
+from app.modules.organization.models.role import UserRole
 from app.shared.db.session import get_db
 from app.shared.utils.core.dependencies import require_roles
 

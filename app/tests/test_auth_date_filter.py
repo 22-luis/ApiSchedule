@@ -2,8 +2,8 @@ import pytest
 from datetime import date, timedelta
 from sqlalchemy.orm import Session
 from fastapi.testclient import TestClient
-from app.modules.core.models.user import User
-from app.modules.core.models.team import Team, UserTeam
+from app.modules.organization.models.user import User
+from app.modules.organization.models.team import Team, UserTeam
 from app.shared.utils.security.security import hash_password
 
 def test_active_team_ids_filtering(db: Session, client: TestClient, test_user_data: dict):

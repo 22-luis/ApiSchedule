@@ -352,7 +352,7 @@ app/modules/quality/
 └── services/
     ├── qc_manual_chapter_service.py  # Lógica de capítulos
     ├── find_chapters.py              # Extracción de capítulos
-    └── Split_sections.py             # División de secciones
+    └── split_sections.py             # División de secciones
 ```
 
 ---

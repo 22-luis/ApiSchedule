@@ -13,7 +13,7 @@ from app.modules.reports.schemas.compare import (
     CompareInputItem
 )
 from app.shared.utils.core.dependencies import get_current_user
-from app.modules.core.models.user import User
+from app.modules.organization.models.user import User
 
 router = APIRouter(prefix="/compare", tags=["compare-reports"])
 

@@ -11,7 +11,7 @@ from app.modules.reports.schemas.historico_comparacion_fechas import (
     HistoricoComparacionFechasOut
 )
 from app.shared.utils.core.dependencies import get_current_user
-from app.modules.core.models.user import User
+from app.modules.organization.models.user import User
 
 router = APIRouter(prefix="/historico-comparacion-fechas", tags=["historico-comparacion-fechas"])
 

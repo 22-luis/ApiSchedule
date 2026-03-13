@@ -7,9 +7,9 @@ from uuid import uuid4
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 from app.modules.programming.models.programming import Programming, ProgrammingStatus
-from app.modules.core.models.team import Team
-from app.modules.core.models.user import User, UserRole
-from app.modules.core.models.state import UserState
+from app.modules.organization.models.team import Team
+from app.modules.organization.models.user import User, UserRole
+from app.modules.organization.models.state import UserState
 
 
 class TestAvailableProgrammingsForTeam:

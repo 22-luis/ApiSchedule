@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 from app.modules.automation.services.base_task_service import BaseTaskService
 from app.modules.automation.services.config import ServiceType, ServiceConfig
-from app.modules.automation.rules.weighning import WeighingRule
+from app.modules.automation.rules.weighing import WeighingRule
 
 
 class WeighingTaskService(BaseTaskService):

@@ -5,8 +5,8 @@ from sqlalchemy.orm import Session
 
 from app.shared.db.session import get_db
 from app.shared.utils.core.dependencies import require_roles, get_current_user
-from app.modules.core.models.user import User
-from app.modules.core.models.role import UserRole
+from app.modules.organization.models.user import User
+from app.modules.organization.models.role import UserRole
 from app.modules.available.schemas.available import AvailableCreate, Available, AvailableUpdate
 from app.modules.available.service.available import (
     create_available,

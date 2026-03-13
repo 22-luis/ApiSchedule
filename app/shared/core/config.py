@@ -123,8 +123,8 @@ class Settings(BaseSettings):
             raise ValueError("POSTGRES_PASSWORD no puede ser 'password'")
         
         # Verificar longitud mínima
-        if len(v) < 8:
-            raise ValueError("POSTGRES_PASSWORD debe tener al menos 8 caracteres")
+        if len(v) < 6:
+            raise ValueError("POSTGRES_PASSWORD debe tener al menos 6 caracteres")
         
         return v
     

@@ -229,7 +229,7 @@ class BaseTaskService(ABC):
                          team_name = None
                          if pt:
                              from app.modules.programming.models.programming import Programming
-                             from app.modules.core.models.team import Team
+                             from app.modules.organization.models.team import Team
                              prog = db.query(Programming).filter(Programming.id == pt.programming_id).first()
                              if prog:
                                  prog_date = str(prog.date)

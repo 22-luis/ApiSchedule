@@ -3,8 +3,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from app.shared.db.session import get_db
 from app.shared.utils.core.dependencies import get_current_user, require_roles
-from app.modules.core.models.user import User
-from app.modules.core.models.role import UserRole
+from app.modules.organization.models.user import User
+from app.modules.organization.models.role import UserRole
 from app.shared.utils.business.business_calculations import BusinessCalculations
 from app.shared.utils.core.time_utils import TimeZoneUtils
 from app.modules.programming.schemas.calculations import (

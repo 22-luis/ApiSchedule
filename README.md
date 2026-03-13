@@ -113,8 +113,8 @@ app/
 │   │   ├── services/     # Servicios de automatización
 │   │   └── rules/        # Reglas de negocio automáticas
 │   │       ├── base_rule.py    # Clase base para reglas
-│   │       ├── Manufactured.py # Reglas de fabricación
-│   │       ├── weighning.py    # Reglas de pesado
+│   │       ├── manufactured.py # Reglas de fabricación
+│   │       ├── weighing.py    # Reglas de pesado
 │   │       ├── packaging.py    # Reglas de empaque
 │   │       └── schedule.py     # Reglas de programación
 │   │

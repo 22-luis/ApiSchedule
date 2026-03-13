@@ -1,8 +1,9 @@
-from sqlalchemy.orm import Session
-from app.modules.programming.models.order import Order
+from sqlalchemy.orm import Session, joinedload
+from app.modules.orders.models.order import Order
 from app.modules.programming.models.task import Task
 from app.modules.programming.models.programming import ProgrammingTask
-from app.modules.programming.models.state import OrderStatus, TaskStatus
+from app.modules.orders.models.state import OrderStatus
+from app.modules.programming.models.state import TaskStatus
 from datetime import datetime, date
 from typing import Optional
 
@@ -72,35 +73,30 @@ class OrderStatusService:
         """
         Verifica si todas las tareas relacionadas con ciertos tipos están completadas.
         Retorna True si existen tareas y todas están completadas.
-        Retorna False si no existen tareas o si alguna no está completada.
         """
-        tasks = db.query(Task).join(ProgrammingTask).filter(Task.lote == lote).all()
-        
-        relevant_tasks = []
-        for task in tasks:
-            if not task.type:
-                continue
-            if task.type in task_types:
-                relevant_tasks.append(task)
+        # Obtener tareas relevantes con sus programaciones asociadas
+        relevant_tasks = db.query(Task).options(
+            joinedload(Task.programming_tasks)
+        ).filter(
+            Task.lote == lote,
+            Task.type.in_(task_types)
+        ).all()
         
         if not relevant_tasks:
             return False
             
-        # Verificar si todas las tareas relevantes están completadas
-        # Una tarea se considera completada si tiene al menos un ProgrammingTask con estado COMPLETED (o is_completed=True)
         for task in relevant_tasks:
-            # Verificar si alguna programación de esta tarea está completada
             is_task_completed = False
-            for prog_task in task.programming_tasks:
-                if prog_task.is_completed:
+            # Una tarea se considera completada si alguna de sus programaciones lo está
+            for pt in task.programming_tasks:
+                if pt.is_completed:
                     is_task_completed = True
                     break
                 
-                # Fallback: Revisar si la cantidad real cumple con lo asignado
+                # Fallback: cantidad real >= cantidad asignada
                 try:
                     qty = float(task.quantity) if task.quantity else 0
-                    real_qty = float(prog_task.real_quantity) if prog_task.real_quantity else 0
-                    
+                    real_qty = float(pt.real_quantity) if pt.real_quantity else 0
                     if qty > 0 and real_qty >= qty:
                         is_task_completed = True
                         break

@@ -6,11 +6,11 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from app.modules.programming.models.task import Task
-from app.modules.core.models.team import Team
+from app.modules.organization.models.team import Team
 from app.modules.programming.models.programming import Programming, ProgrammingTask
 from app.modules.codes.models.code import Code
 from app.modules.codes.models.preparation import Preparation
-from app.modules.core.models.user import User
+from app.modules.organization.models.user import User
 
 class TestTasks:
     """Test task management endpoints."""

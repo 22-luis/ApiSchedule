@@ -4,7 +4,7 @@ from app.shared.db.session import SessionLocal
 from app.shared.utils.core.logging import get_logger
 from app.modules.automation.services.task_config import extract_created_orders_data
 from app.modules.automation.services.factory import TaskServiceFactory
-from app.modules.programming.models import order as order_model
+from app.modules.orders.models import order as order_model
 
 logger = get_logger("services.auto")
 
@@ -152,7 +152,7 @@ def create_tasks_for_lotes(lotes: List[int], username: str):
                                     if not team_name and prog_id and str(prog_id).lower() != "none":
                                         try:
                                             from app.modules.programming.models.programming import Programming
-                                            from app.modules.core.models.team import Team
+                                            from app.modules.organization.models.team import Team
                                             
                                             logger.warning(f"Missing team_name for programming {prog_id} in {service_name}. Fetching from DB.")
                                             prog_obj = db.query(Programming).filter(Programming.id == str(prog_id)).first()

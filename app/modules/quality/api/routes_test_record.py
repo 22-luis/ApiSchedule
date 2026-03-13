@@ -4,7 +4,7 @@ from fastapi.params import Depends
 from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from app.modules.core.models.role import UserRole
+from app.modules.organization.models.role import UserRole
 from app.modules.quality.models.test_record import TestRecord
 from app.modules.quality.schemas.test_record import TestOut, TestUpdate
 from app.shared.db.session import get_db

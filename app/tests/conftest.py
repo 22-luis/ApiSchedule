@@ -14,15 +14,15 @@ from datetime import datetime, date, timedelta
 from app.main import app
 from app.shared.db.database import Base
 from app.shared.db.dependency import get_db
-from app.modules.core.models.user import User
-from app.modules.core.models.team import Team
+from app.modules.organization.models.user import User
+from app.modules.organization.models.team import Team
 from app.modules.programming.models.task import Task
-from app.modules.programming.models.order import Order
+from app.modules.orders.models.order import Order
 from app.modules.codes.models.preparation import Preparation
 from app.modules.codes.models.code import Code
 from app.modules.programming.models.programming import Programming, ProgrammingTask
-from app.modules.core.models.role import UserRole
-from app.modules.core.models.state import UserState
+from app.modules.organization.models.role import UserRole
+from app.modules.organization.models.state import UserState
 from app.shared.utils.security.jwt import create_access_token
 
 # Test database configuration
@@ -293,6 +293,8 @@ def test_task(db: Session, test_task_data: Dict[str, Any], test_code: Code, test
         del task_data["teamIds"]
     if "programming_id" in task_data:
         del task_data["programming_id"]
+    if "total_time" in task_data:
+        del task_data["total_time"]
     
     task = Task(**task_data)
     db.add(task)

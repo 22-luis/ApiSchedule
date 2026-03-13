@@ -3,7 +3,7 @@ from sqlalchemy import Column, String, Integer, ForeignKey, DateTime, Float, Boo
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
 from app.shared.db.database import Base
-from app.modules.core.models.team import task_team_association
+from app.modules.organization.models.team import task_team_association
 from app.modules.codes.models.code import Code
 
 class Task(Base):
@@ -22,7 +22,7 @@ class Task(Base):
     created_by_user_id = Column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=True)
     created_by_user = relationship('User', foreign_keys=[created_by_user_id])
     # Información principal de la tarea
-    lote = Column(String, nullable=True)
+    lote = Column(String, nullable=True, index=True)
     # Campo para almacenar el lote original de empaque cuando se usa el lote de fabricación
     original_packaging_lote = Column(String, nullable=True)
     quantity = Column(Float, nullable=True)

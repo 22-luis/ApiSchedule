@@ -5,9 +5,9 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 
 try:
     print("Importing User...")
-    from app.modules.core.models.user import User
+    from app.modules.organization.models.user import User
     print("Importing Team...")
-    from app.modules.core.models.team import Team
+    from app.modules.organization.models.team import Team
     print("Importing Code...")
     from app.modules.codes.models.code import Code
     print("Importing Preparation...")
@@ -17,7 +17,7 @@ try:
     print("Importing Task...")
     from app.modules.programming.models.task import Task
     print("Importing Order...")
-    from app.modules.programming.models.order import Order
+    from app.modules.orders.models.order import Order
     
     print("All imports successful.")
     

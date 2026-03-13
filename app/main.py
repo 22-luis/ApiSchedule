@@ -15,17 +15,17 @@ from app.modules.codes.api.routes_code import router as code_router
 from app.modules.quality.api.routes_code_test import router as code_test_router
 from app.modules.codes.api.routes_preparation import router as preparation_router
 # Import Routers
-from app.modules.core.api.routes_auth import router as auth_router
-from app.modules.core.api.routes_team import router as team_router
-from app.modules.core.api.routes_user import router as user_router
+from app.modules.organization.api.routes_auth import router as auth_router
+from app.modules.organization.api.routes_team import router as team_router
+from app.modules.organization.api.routes_user import router as user_router
 from app.modules.monitoring.api.routes import router as monitoring_router
 from app.modules.programming.api.routes_calculations import router as calculations_router
 from app.modules.programming.api.routes_notification import router as notification_router
-from app.modules.programming.api.routes_order import router as order_router
+from app.modules.orders.api.routes import router as order_router
 from app.modules.programming.api.routes_programming import router as programming_router
 from app.modules.programming.api.routes_task import router as task_router
 from app.modules.programming.api.routes_task_status_log import router as task_status_log_router
-from app.modules.programming.api.routes_surplus import router as surplus_router
+from app.modules.orders.api.routes_surplus import router as surplus_router
 from app.modules.quality.api.routes_manual import router as manual_router
 from app.modules.quality.api.routes_qctest import router as qc_router
 from app.modules.quality.api.routes_test_question import router as test_question_router
@@ -75,6 +75,7 @@ async def lifespan(_app: FastAPI):
 
 if settings.is_development:
     print(f"🚀 ApiSchedule iniciado correctamente! Health: http://localhost:8000/api/v1/health")
+    print(f"   Documentacion: http://localhost:8000/docs")
 
 # Start Application
 app = FastAPI(
@@ -148,6 +149,7 @@ app.add_exception_handler(Exception, generic_exception_handler)
 
 # --- Routes ---
 
+from app.modules.supervisor.api.routes_timer import router as supervisor_timer_router
 api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(auth_router, tags=["auth"])
 api_router.include_router(user_router, tags=["users"])
@@ -162,6 +164,7 @@ api_router.include_router(code_test_router, tags=["codes"])
 api_router.include_router(programming_router, tags=["programmings"])
 api_router.include_router(calculations_router, tags=["calculations"])
 api_router.include_router(timer_router, tags=["Timer"])
+api_router.include_router(supervisor_timer_router, tags=["Supervisor Timer"])
 api_router.include_router(record_stopwatch_router, tags=["Record Stopwatch"])
 api_router.include_router(report_router, tags=["reports"])
 api_router.include_router(available_router, tags=["available"])
