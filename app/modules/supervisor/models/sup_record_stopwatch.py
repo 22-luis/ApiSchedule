@@ -25,6 +25,7 @@ class SupRecordStopwatch(Base):
     informacion_correcta = Column(Boolean, default=False, nullable=False)
     etiquetas_correctas = Column(Boolean, default=False, nullable=False)
     contenedores_correctos = Column(Boolean, default=False, nullable=False)
+    verificacion_utensilios = Column(Boolean, default=False, nullable=False)
     
     task = relationship('Task', backref='sup_record_stopwatch')
     supervisor = relationship('User', backref='sup_records')

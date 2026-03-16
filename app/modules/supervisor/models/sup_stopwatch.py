@@ -28,6 +28,7 @@ class SupStopwatch(Base):
     informacion_correcta = Column(Boolean, default=False, nullable=False)
     etiquetas_correctas = Column(Boolean, default=False, nullable=False)
     contenedores_correctos = Column(Boolean, default=False, nullable=False)
+    verificacion_utensilios = Column(Boolean, default=False, nullable=False)
     medidas_tomadas = sa.Column(sa.String, nullable=True) if 'sa' in locals() else Column(sa.String, nullable=True)
     
     task = relationship('Task', backref='sup_stopwatch')
