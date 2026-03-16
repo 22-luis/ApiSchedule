@@ -45,7 +45,7 @@ from app.modules.timer.models.stopwatch import Stopwatch
 from app.modules.timer.models.record_stopwatch import RecordStopwatch
 from app.modules.warehouse.models.history import WarehouseHistory
 from app.modules.available.models.availableModel import Available
-from app.modules.supervisor.models import SupStopwatch, SupRecordStopwatch, SupTask, SupTaskHistory
+from app.modules.supervisor.models import SupStopwatch, SupRecordStopwatch
 
 target_metadata = Base.metadata
 

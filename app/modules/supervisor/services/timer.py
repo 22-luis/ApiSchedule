@@ -59,6 +59,7 @@ class SupTimerService:
             informacion_correcta=last_record.informacion_correcta if last_record else False,
             etiquetas_correctas=last_record.etiquetas_correctas if last_record else False,
             contenedores_correctos=last_record.contenedores_correctos if last_record else False,
+            verificacion_utensilios=last_record.verificacion_utensilios if last_record else False,
             medidas_tomadas=last_record.medidas_tomadas if last_record else None
         )
         self.db.add(sup_stopwatch)
@@ -146,6 +147,7 @@ class SupTimerService:
             "informacion_correcta": sup_stopwatch.informacion_correcta,
             "etiquetas_correctas": sup_stopwatch.etiquetas_correctas,
             "contenedores_correctos": sup_stopwatch.contenedores_correctos,
+            "verificacion_utensilios": sup_stopwatch.verificacion_utensilios,
             "medidas_tomadas": sup_stopwatch.medidas_tomadas
         }
         
@@ -169,7 +171,8 @@ class SupTimerService:
             contenedores_limpios=final_data["contenedores_limpios"],
             informacion_correcta=final_data["informacion_correcta"],
             etiquetas_correctas=final_data["etiquetas_correctas"],
-            contenedores_correctos=final_data["contenedores_correctos"]
+            contenedores_correctos=final_data["contenedores_correctos"],
+            verificacion_utensilios=final_data["verificacion_utensilios"]
         )
         self.db.add(record)
         
@@ -215,6 +218,7 @@ class SupTimerService:
                     "informacion_correcta": timer.informacion_correcta,
                     "etiquetas_correctas": timer.etiquetas_correctas,
                     "contenedores_correctos": timer.contenedores_correctos,
+                    "verificacion_utensilios": timer.verificacion_utensilios,
                     "medidas_tomadas": timer.medidas_tomadas
                 }
             active_map[tid]["accumulated_duration"] = float(active_map[tid]["accumulated_duration"]) + live_duration
@@ -245,6 +249,7 @@ class SupTimerService:
                     "informacion_correcta": rec.informacion_correcta,
                     "etiquetas_correctas": rec.etiquetas_correctas,
                     "contenedores_correctos": rec.contenedores_correctos,
+                    "verificacion_utensilios": rec.verificacion_utensilios,
                     "medidas_tomadas": rec.medidas_tomadas
                 }
             
@@ -263,6 +268,7 @@ class SupTimerService:
                     "informacion_correcta": rec.informacion_correcta,
                     "etiquetas_correctas": rec.etiquetas_correctas,
                     "contenedores_correctos": rec.contenedores_correctos,
+                    "verificacion_utensilios": rec.verificacion_utensilios,
                     "medidas_tomadas": rec.medidas_tomadas
                 })
 

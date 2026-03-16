@@ -12,6 +12,7 @@ class SupVerificationFields(BaseModel):
     informacion_correcta: bool = False
     etiquetas_correctas: bool = False
     contenedores_correctos: bool = False
+    verificacion_utensilios: bool = False
     medidas_tomadas: Optional[str] = None
 
 class SupStopwatchBase(BaseModel):
@@ -60,5 +61,6 @@ class SupTaskStatusResponse(BaseModel):
     informacion_correcta: bool = False
     etiquetas_correctas: bool = False
     contenedores_correctos: bool = False
+    verificacion_utensilios: bool = False
     medidas_tomadas: Optional[str] = None
     comments: Optional[str] = None
