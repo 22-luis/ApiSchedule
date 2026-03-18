@@ -608,20 +608,27 @@ class ProgrammingService:
             sum_perf = 0.0
             for pt in valid_tasks:
                 task = pt.task
-                # Tiempos planeados: Task.minutes o Code.time como fallback
-                p_min = float(task.minutes or (task.code.time if task.code else 0.0) or 0.0)
+                # Tiempos planeados: Scheduled Duration (end_time - start_time) como en ReportExcel.tsx
+                p_min = 0.0
+                if pt.start_time and pt.end_time:
+                    delta_p = pt.end_time - pt.start_time
+                    p_min = float(round(delta_p.total_seconds() / 60.0))
+                else:
+                    # Fallback a Task.minutes o Code.time si no hay programación de horarios
+                    p_min = float(round(task.minutes or (task.code.time if task.code else 0.0) or 0.0))
                 
-                # Tiempos reales con fallbacks
-                r_min = float(real_minutes_map.get(str(pt.task_id).lower(), (pt.duration_in_hours or 0.0) * 60))
-                if r_min == 0 and pt.real_start_time and pt.real_end_time:
-                    delta = pt.real_end_time - pt.real_start_time
-                    r_min = delta.total_seconds() / 60.0
+                # Tiempos reales con fallbacks (Mismo comportamiento que get_by_team_date)
+                r_min_val = float(real_minutes_map.get(str(pt.task_id).lower(), (pt.duration_in_hours or 0.0) * 60))
+                if r_min_val == 0 and pt.real_start_time and pt.real_end_time:
+                    delta_r = pt.real_end_time - pt.real_start_time
+                    r_min_val = delta_r.total_seconds() / 60.0
                 
+                r_min = float(round(r_min_val))
+
                 # Cantidades (Mismo comportamiento que ReportExcel.tsx)
-                # cPlan = (t.quantity && t.quantity > 0) ? t.quantity : 1
-                c_plan = float(task.quantity) if (task.quantity and task.quantity > 0) else 1.0
-                # cReal = t.real_quantity || 0
-                c_real = float(pt.real_quantity or 0.0)
+                has_planned_qty = (task.quantity is not None and task.quantity > 0)
+                c_plan = float(task.quantity) if has_planned_qty else 1.0
+                c_real = float(pt.real_quantity if pt.real_quantity is not None else 0.0) if has_planned_qty else 1.0
                 
                 # R = (T.Plan * C.Real) / (T.Real * C.Plan)
                 if r_min > 0 and c_plan > 0:
