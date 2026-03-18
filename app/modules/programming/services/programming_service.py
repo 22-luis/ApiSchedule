@@ -124,10 +124,19 @@ class ProgrammingService:
                 t['is_completed'] = getattr(pt, 'is_completed', None)
                 tasks.append(t)
 
+            from app.modules.organization.services.team_service import TeamService
+            from app.modules.organization.repositories import team_repository
+            
+            team_obj = team_repository.find_team_by_id(db, team_id)
+            team_data = None
+            if team_obj:
+                team_data = TeamService._build_team_out(db, team_obj, date_obj).model_dump()
+
             return {
                 "id": programming.id,
                 "date": programming.date,
                 "team_id": str(programming.team_id) if not isinstance(programming.team_id, UUID) else programming.team_id,
+                "team": team_data,
                 "tasks": tasks
             }
         except HTTPException:
@@ -689,5 +698,82 @@ class ProgrammingService:
                 "code": task_obj.code.code if task_obj.code else None
             } if task_obj else None
         }
+
+    @staticmethod
+    def remove_task_from_programming(db: Session, programming_id: UUID, task_id: UUID):
+        """
+        Removes a task from a specific programming schedule without deleting the global Task.
+        This prevents progress loss for other teams share the same task.
+        """
+        from app.modules.programming.repositories import task_repository
+        from app.shared.utils.business.programming_availability import (
+            update_programming_availability_by_task, restore_programmings_availability
+        )
+        
+        pt = task_repository.find_programming_task(db, programming_id, task_id)
+        if not pt:
+            raise HTTPException(status_code=404, detail="Task association not found in this programming")
+        
+        # Guardar info de la tarea para efectos secundarios
+        task = pt.task
+        
+        # Eliminar solo la asociación ProgrammingTask
+        db.delete(pt)
+        
+        # Actualizar disponibilidad de la programación
+        db.flush()
+        update_programming_availability_by_task(db, str(task_id))
+        
+        # Sincronizar estado de la orden
+        if task:
+            from app.shared.utils.business.order_status_service import OrderStatusService
+            OrderStatusService.update_order_status_for_task_deletion(db, task)
+            
+        db.commit()
+        
+        # Restaurar disponibilidad global por si acaso
+        restore_programmings_availability(db)
+        
+        return {"success": True, "message": "Task removed from programming successfully"}
+
+    @staticmethod
+    def bulk_remove_tasks_from_programming(db: Session, programming_id: UUID, task_ids: List[UUID]):
+        """
+        Removes multiple tasks from a specific programming schedule without deleting the global Tasks.
+        """
+        from app.modules.programming.repositories import task_repository
+        from app.shared.utils.business.programming_availability import (
+            update_programming_availability_by_task, restore_programmings_availability
+        )
+        from app.shared.utils.business.order_status_service import OrderStatusService
+        
+        pts = db.query(ProgrammingTask).filter(
+            ProgrammingTask.programming_id == programming_id,
+            ProgrammingTask.task_id.in_(task_ids)
+        ).all()
+        
+        if not pts:
+            return {"success": False, "message": "No task associations found in this programming"}
+        
+        count = 0
+        for pt in pts:
+            task = pt.task
+            task_id = pt.task_id
+            
+            db.delete(pt)
+            db.flush()
+            
+            if task_id:
+                update_programming_availability_by_task(db, str(task_id))
+            
+            if task:
+                OrderStatusService.update_order_status_for_task_deletion(db, task)
+            
+            count += 1
+            
+        db.commit()
+        restore_programmings_availability(db)
+        
+        return {"success": True, "message": f"Successfully removed {count} tasks from programming"}
 
 programming_service = ProgrammingService()
