@@ -1,6 +1,7 @@
 import uuid
 from pydantic import BaseModel, ConfigDict
 from typing import List, Optional
+from app.modules.quality.schemas.catalog_test import CatalogTestOut
 
 class CodeCreate(BaseModel):
     code: str
@@ -34,8 +35,6 @@ class CodeUpdate(BaseModel):
     fabricationCode: Optional[str] = None
     usefulLife: Optional[str] = None
     verification: Optional[bool] = None
-
-from app.modules.quality.schemas.catalog_test import CatalogTestOut
 
 class CodeOut(BaseModel):
     id: uuid.UUID

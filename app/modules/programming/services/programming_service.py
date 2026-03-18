@@ -4,7 +4,7 @@ from typing import List, Optional
 from datetime import date, datetime, time
 from pytz import timezone
 from sqlalchemy import func
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 from uuid import UUID
 
 from app.modules.programming.models.programming import Programming, ProgrammingTask
@@ -212,13 +212,19 @@ class ProgrammingService:
                 team_ids = [team.id for team in getattr(current_user, "teams", [])]
                 programmings_query = db.query(Programming).filter(Programming.team_id.in_(team_ids))
             
-            # Optimización: Cargar todas las programaciones de la fecha con eager loading completo
+            # Optimización: Cargar todas las programaciones de la fecha con eager loading optimizado
+            # Se usa selectinload para las colecciones para evitar el producto cartesiano (join explosion)
+            # Se carga User.team_associations para evitar N+1 durante la serialización del esquema UserOut
             programmings = programmings_query.options(
-                joinedload(Programming.team).joinedload(Team.supervisor),
-                joinedload(Programming.team).joinedload(Team.member_associations).joinedload(UserTeam.user),
-                joinedload(Programming.programming_tasks).joinedload(ProgrammingTask.task).joinedload(Task.code),
-                joinedload(Programming.programming_tasks).joinedload(ProgrammingTask.task).joinedload(Task.teams),
-                joinedload(Programming.programming_tasks).joinedload(ProgrammingTask.task).joinedload(Task.created_by_user)
+                joinedload(Programming.team).options(
+                    joinedload(Team.supervisor).selectinload(User.team_associations),
+                    selectinload(Team.member_associations).joinedload(UserTeam.user).selectinload(User.team_associations)
+                ),
+                selectinload(Programming.programming_tasks).joinedload(ProgrammingTask.task).options(
+                    joinedload(Task.code),
+                    selectinload(Task.teams),
+                    joinedload(Task.created_by_user).selectinload(User.team_associations)
+                )
             ).filter(
                 Programming.date == date_obj
             ).all()
@@ -602,20 +608,27 @@ class ProgrammingService:
             sum_perf = 0.0
             for pt in valid_tasks:
                 task = pt.task
-                # Tiempos planeados: Task.minutes o Code.time como fallback
-                p_min = float(task.minutes or (task.code.time if task.code else 0.0) or 0.0)
+                # Tiempos planeados: Scheduled Duration (end_time - start_time) como en ReportExcel.tsx
+                p_min = 0.0
+                if pt.start_time and pt.end_time:
+                    delta_p = pt.end_time - pt.start_time
+                    p_min = float(round(delta_p.total_seconds() / 60.0))
+                else:
+                    # Fallback a Task.minutes o Code.time si no hay programación de horarios
+                    p_min = float(round(task.minutes or (task.code.time if task.code else 0.0) or 0.0))
                 
-                # Tiempos reales con fallbacks
-                r_min = float(real_minutes_map.get(str(pt.task_id).lower(), (pt.duration_in_hours or 0.0) * 60))
-                if r_min == 0 and pt.real_start_time and pt.real_end_time:
-                    delta = pt.real_end_time - pt.real_start_time
-                    r_min = delta.total_seconds() / 60.0
+                # Tiempos reales con fallbacks (Mismo comportamiento que get_by_team_date)
+                r_min_val = float(real_minutes_map.get(str(pt.task_id).lower(), (pt.duration_in_hours or 0.0) * 60))
+                if r_min_val == 0 and pt.real_start_time and pt.real_end_time:
+                    delta_r = pt.real_end_time - pt.real_start_time
+                    r_min_val = delta_r.total_seconds() / 60.0
                 
+                r_min = float(round(r_min_val))
+
                 # Cantidades (Mismo comportamiento que ReportExcel.tsx)
-                # cPlan = (t.quantity && t.quantity > 0) ? t.quantity : 1
-                c_plan = float(task.quantity) if (task.quantity and task.quantity > 0) else 1.0
-                # cReal = t.real_quantity || 0
-                c_real = float(pt.real_quantity or 0.0)
+                has_planned_qty = (task.quantity is not None and task.quantity > 0)
+                c_plan = float(task.quantity) if has_planned_qty else 1.0
+                c_real = float(pt.real_quantity if pt.real_quantity is not None else 0.0) if has_planned_qty else 1.0
                 
                 # R = (T.Plan * C.Real) / (T.Real * C.Plan)
                 if r_min > 0 and c_plan > 0:

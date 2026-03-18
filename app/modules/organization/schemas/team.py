@@ -11,6 +11,7 @@ class TeamMemberConfig(BaseModel):
 class TeamMemberOut(BaseModel):
     userId: uuid.UUID
     username: Optional[str] = None
+    fullName: Optional[str] = None
     startDate: date
     endDate: Optional[date] = None
 

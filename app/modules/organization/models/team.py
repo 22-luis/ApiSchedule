@@ -50,6 +50,7 @@ class Team(Base):
             {
                 "userId": ma.user_id,
                 "username": ma.user.username if ma.user else None,
+                "fullName": ma.user.full_name if ma.user else None,
                 "startDate": ma.start_date,
                 "endDate": ma.end_date
             }
