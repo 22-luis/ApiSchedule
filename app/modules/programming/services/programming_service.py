@@ -4,7 +4,7 @@ from typing import List, Optional
 from datetime import date, datetime, time
 from pytz import timezone
 from sqlalchemy import func
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 from uuid import UUID
 
 from app.modules.programming.models.programming import Programming, ProgrammingTask
@@ -212,13 +212,19 @@ class ProgrammingService:
                 team_ids = [team.id for team in getattr(current_user, "teams", [])]
                 programmings_query = db.query(Programming).filter(Programming.team_id.in_(team_ids))
             
-            # Optimización: Cargar todas las programaciones de la fecha con eager loading completo
+            # Optimización: Cargar todas las programaciones de la fecha con eager loading optimizado
+            # Se usa selectinload para las colecciones para evitar el producto cartesiano (join explosion)
+            # Se carga User.team_associations para evitar N+1 durante la serialización del esquema UserOut
             programmings = programmings_query.options(
-                joinedload(Programming.team).joinedload(Team.supervisor),
-                joinedload(Programming.team).joinedload(Team.member_associations).joinedload(UserTeam.user),
-                joinedload(Programming.programming_tasks).joinedload(ProgrammingTask.task).joinedload(Task.code),
-                joinedload(Programming.programming_tasks).joinedload(ProgrammingTask.task).joinedload(Task.teams),
-                joinedload(Programming.programming_tasks).joinedload(ProgrammingTask.task).joinedload(Task.created_by_user)
+                joinedload(Programming.team).options(
+                    joinedload(Team.supervisor).selectinload(User.team_associations),
+                    selectinload(Team.member_associations).joinedload(UserTeam.user).selectinload(User.team_associations)
+                ),
+                selectinload(Programming.programming_tasks).joinedload(ProgrammingTask.task).options(
+                    joinedload(Task.code),
+                    selectinload(Task.teams),
+                    joinedload(Task.created_by_user).selectinload(User.team_associations)
+                )
             ).filter(
                 Programming.date == date_obj
             ).all()
