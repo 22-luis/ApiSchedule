@@ -18,6 +18,7 @@ class TeamService:
                     active_members_map[association.user_id] = TeamMemberOut(
                         userId=association.user_id,
                         username=association.user.username if association.user else None,
+                        fullName=association.user.full_name if association.user else None,
                         startDate=association.start_date,
                         endDate=association.end_date
                     )

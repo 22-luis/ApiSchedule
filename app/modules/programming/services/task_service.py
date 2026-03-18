@@ -218,6 +218,14 @@ class TaskService:
 
         try:
             for task in tasks_to_delete:
+                # Verificar si la tarea está asociada a otras programaciones
+                usage_count = db.query(ProgrammingTask).filter(ProgrammingTask.task_id == task.id).count()
+                if usage_count > 0:
+                    # Si todavía está en uso en alguna programación, NO borrar el objeto Task globalmente,
+                    # solo limpiar asociaciones secundarias si es necesario o saltar.
+                    # Nota: La remoción contextual debe hacerse vía remove_task_from_programming.
+                    continue
+
                 OrderStatusService.update_order_status_for_task_deletion(db, task)
                 update_programming_availability_by_task(db, str(task.id))
                 db.execute(task_team_association.delete().where(task_team_association.c.task_id == task.id))

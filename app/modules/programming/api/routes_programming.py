@@ -146,3 +146,28 @@ def get_last_task(
         # Instead of 404, we return None/empty so frontend doesn't crash if it's a valid call but no tasks exist
         return None
     return result
+
+@router.delete("/{programming_id}/tasks/{task_id}")
+def remove_task_from_programming(
+    programming_id: UUID,
+    task_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
+):
+    """
+    Dissociates a task from a programming without deleting the Task globally.
+    Used for safe removal from a specific team/date schedule.
+    """
+    return programming_service.remove_task_from_programming(db, programming_id, task_id)
+
+@router.post("/{programming_id}/tasks/bulk-delete")
+def bulk_remove_tasks_from_programming(
+    programming_id: UUID,
+    task_ids: List[UUID] = Body(..., embed=True),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
+):
+    """
+    Dissociates multiple tasks from a programming without deleting the Tasks globally.
+    """
+    return programming_service.bulk_remove_tasks_from_programming(db, programming_id, task_ids)
