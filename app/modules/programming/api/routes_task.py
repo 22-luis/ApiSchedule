@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
 import datetime
-
+from app.modules.programming.repositories import task_repository
 from app.shared.db.session import get_db
 from app.modules.organization.models.user import User
 from app.modules.organization.models.role import UserRole
@@ -59,7 +59,7 @@ def get_tasks(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.TIMEKEEPER, UserRole.USER))
 ):
-    from app.modules.programming.repositories import task_repository
+    
     return task_repository.find_all(db) if hasattr(task_repository, 'find_all') else db.query(task_service.Task).all()
 
 @router.get("/{task_id}", response_model=TaskOut)
