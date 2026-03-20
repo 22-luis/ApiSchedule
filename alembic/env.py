@@ -30,6 +30,7 @@ from app.modules.programming.models.task import Task
 from app.modules.programming.models.task_creation_notification import TaskCreationNotification
 from app.modules.programming.models.task_status_log import TaskStatusLog
 from app.modules.orders.models.order_surplus import OrderSurplus
+from app.modules.orders.models.special_code import SpecialCode
 from app.modules.quality.models.test_record import TestRecord
 from app.modules.quality.models.catalog_test import CatalogTest
 from app.modules.quality.models.code_test import CodeTest
@@ -41,11 +42,11 @@ from app.modules.quality.models.quality_manual import QualityManual
 from app.modules.quality.models.qc_manual_chapter import QcManualChapter
 from app.modules.reports.models.compare import ProductionReport
 from app.modules.reports.models.historico_comparacion_fechas import HistoricoComparacionFechas
-from app.modules.timer.models.stopwatch import Stopwatch
-from app.modules.timer.models.record_stopwatch import RecordStopwatch
+from app.modules.timing.models.stopwatch import Stopwatch
+from app.modules.timing.models.record_stopwatch import RecordStopwatch
 from app.modules.warehouse.models.history import WarehouseHistory
 from app.modules.available.models.availableModel import Available
-from app.modules.supervisor.models import SupStopwatch, SupRecordStopwatch
+from app.modules.timing.models import SupStopwatch, SupRecordStopwatch
 
 target_metadata = Base.metadata
 

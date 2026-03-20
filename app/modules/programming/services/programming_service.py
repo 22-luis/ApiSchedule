@@ -16,7 +16,7 @@ from app.modules.organization.models.role import UserRole
 from app.modules.programming.models.task_creation_notification import TaskCreationNotification
 from app.modules.programming.schemas.task import TaskOut
 from app.modules.organization.schemas.user import UserOut
-from app.modules.timer.models.record_stopwatch import RecordStopwatch
+from app.modules.timing.models.record_stopwatch import RecordStopwatch
 from app.shared.utils.business.programming_availability import update_programming_availability
 from app.modules.automation.services.utils.programming_utils import ProgrammingUtils
 from app.modules.quality.models.test_record import TestRecord as Test
@@ -256,8 +256,8 @@ class ProgrammingService:
             # Optimización: Obtener estados de supervisión para todas las tareas
             global_sup_status_map = {}
             if all_task_ids:
-                from app.modules.supervisor.models.sup_stopwatch import SupStopwatch
-                from app.modules.supervisor.models.sup_record_stopwatch import SupRecordStopwatch
+                from app.modules.timing.models.sup_stopwatch import SupStopwatch
+                from app.modules.timing.models.sup_record_stopwatch import SupRecordStopwatch
                 
                 # Buscar temporizadores activos
                 active_sup = db.query(SupStopwatch.task_id, SupStopwatch.status).filter(

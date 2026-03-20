@@ -1,7 +1,6 @@
-import logging
-from typing import List, Union, Optional, Tuple
+from typing import List, Optional
 from sqlalchemy.orm import Session
-from datetime import date, datetime
+from datetime import date
 from fastapi import BackgroundTasks, HTTPException
 
 from app.modules.orders.models.order import Order
@@ -12,8 +11,8 @@ from app.modules.organization.models.user import User
 from app.shared.utils.business.data_cleaning import clean_order_data
 from app.modules.automation.services.task_config import extract_created_orders_data, get_orders_summary
 from app.modules.automation.services.factory import TaskServiceFactory
-from app.modules.automation.services.auto import create_tasks_for_lotes
-from app.shared.utils.business.order_status_service import OrderStatusService
+from app.modules.automation.repositories.automation_repository import AutomationRepository
+from app.modules.automation.services.automation_service import AutomationService
 from app.shared.utils.core.logging import get_logger
 
 logger = get_logger("order_service")
@@ -121,11 +120,12 @@ class OrderService:
         
         if auto_create_tasks and other_orders:
             other_lotes = [o.lote for o in other_orders]
+            automation_service = AutomationService(AutomationRepository(db))
             if background_tasks is not None:
-                background_tasks.add_task(create_tasks_for_lotes, other_lotes, current_user.username)
+                background_tasks.add_task(automation_service.create_tasks_for_lotes, other_lotes, current_user.username)
                 response_data.update({"task_creation_scheduled": True})
             else:
-                create_tasks_for_lotes(other_lotes, current_user.username)
+                automation_service.create_tasks_for_lotes(other_lotes, current_user.username)
                 response_data.update({"task_creation_scheduled": False})
         
         if bin8_failed:

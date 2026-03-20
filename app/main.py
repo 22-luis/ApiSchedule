@@ -25,6 +25,7 @@ from app.modules.orders.api.routes import router as order_router
 from app.modules.programming.api.routes_programming import router as programming_router
 from app.modules.programming.api.routes_task import router as task_router
 from app.modules.programming.api.routes_task_status_log import router as task_status_log_router
+from app.modules.orders.api.routes_special_code import router as special_code_router
 from app.modules.orders.api.routes_surplus import router as surplus_router
 from app.modules.quality.api.routes_manual import router as manual_router
 from app.modules.quality.api.routes_qctest import router as qc_router
@@ -32,8 +33,8 @@ from app.modules.quality.api.routes_test_question import router as test_question
 from app.modules.quality.api.routes_test_record import router as test_record_router
 from app.modules.quality.api.routes_catalog_test import router as catalog_test_router
 from app.modules.reports.api.routes_report import router as report_router
-from app.modules.timer.api.routes_record_stopwatch import router as record_stopwatch_router
-from app.modules.timer.api.routes_timer import router as timer_router
+from app.modules.timing.api.routes_record_stopwatch import router as record_stopwatch_router
+from app.modules.timing.api.operator_routes_timer import router as timer_router
 from app.modules.warehouse.api.routes_history import router as warehouse_history_router
 from app.shared.core.config import settings, validate_critical_settings
 from app.shared.utils.core.exception_handlers import (
@@ -149,7 +150,7 @@ app.add_exception_handler(Exception, generic_exception_handler)
 
 # --- Routes ---
 
-from app.modules.supervisor.api.routes_timer import router as supervisor_timer_router
+from app.modules.timing.api.supervisor_routes_timer import router as supervisor_timer_router
 api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(auth_router, tags=["auth"])
 api_router.include_router(user_router, tags=["users"])
@@ -175,6 +176,7 @@ api_router.include_router(qc_router, tags=["qctest"])
 api_router.include_router(test_question_router, tags=["test-questions"])
 api_router.include_router(test_record_router, tags=["test-record"])
 api_router.include_router(warehouse_history_router, tags=["warehouse"])
+api_router.include_router(special_code_router, tags=["orders"])
 api_router.include_router(surplus_router, tags=["surplus"])
 
 app.include_router(api_router)
