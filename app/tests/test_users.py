@@ -7,7 +7,6 @@ from sqlalchemy.orm import Session
 from app.modules.organization.models.user import User
 from app.modules.organization.models.team import Team
 from app.modules.organization.models.role import UserRole
-from app.modules.organization.models.state import UserState
 
 class TestUsers:
     """Test user management endpoints."""
@@ -27,7 +26,6 @@ class TestUsers:
             assert "id" in user
             assert "username" in user
             assert "role" in user
-            assert "state" in user
     
     def test_get_users_unauthorized(self, client: TestClient):
         """Test getting users without authentication."""
@@ -80,8 +78,7 @@ class TestUsers:
         user_data = {
             "username": "newuser",
             "password": "newpassword123",
-            "role": "USER",
-            "state": "ACTIVE"
+            "role": "USER"
         }
         
         response = client.post("/api/v1/users/", json=user_data, headers=admin_auth_headers)
@@ -99,8 +96,7 @@ class TestUsers:
         user_data = {
             "username": "testuser",  # Same as existing user
             "password": "newpassword123",
-            "role": "USER",
-            "state": "ACTIVE"
+            "role": "USER"
         }
         
         response = client.post("/api/v1/users/", json=user_data, headers=admin_auth_headers)
@@ -126,8 +122,7 @@ class TestUsers:
         """Test updating a user with admin access."""
         update_data = {
             "username": "updateduser",
-            "role": "SUPERVISOR",
-            "state": "INACTIVE"
+            "role": "SUPERVISOR"
         }
         
         response = client.put(f"/api/v1/users/{test_user.id}", json=update_data, headers=admin_auth_headers)
@@ -179,8 +174,7 @@ class TestUsers:
         user_data = {
             "username": "user_to_delete",
             "password": "password123",
-            "role": "USER",
-            "state": "ACTIVE"
+            "role": "USER"
         }
         
         create_response = client.post("/api/v1/users/", json=user_data, headers=admin_auth_headers)

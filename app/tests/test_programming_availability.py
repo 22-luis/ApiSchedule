@@ -9,7 +9,6 @@ from sqlalchemy.orm import Session
 from app.modules.programming.models.programming import Programming, ProgrammingStatus
 from app.modules.organization.models.team import Team
 from app.modules.organization.models.user import User, UserRole
-from app.modules.organization.models.state import UserState
 
 
 class TestAvailableProgrammingsForTeam:
@@ -195,8 +194,7 @@ def admin_user(db: Session) -> User:
         id=uuid4(),
         name="Admin User",
         email="admin@test.com",
-        role=UserRole.admin,
-        state=UserState.ACTIVE
+        role=UserRole.admin
     )
     db.add(user)
     db.commit()
@@ -211,8 +209,7 @@ def regular_user(db: Session) -> User:
         id=uuid4(),
         name="Regular User",
         email="user@test.com",
-        role=UserRole.user,
-        state=UserState.ACTIVE
+        role=UserRole.user
     )
     db.add(user)
     db.commit()

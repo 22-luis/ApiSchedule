@@ -22,7 +22,6 @@ from app.modules.codes.models.preparation import Preparation
 from app.modules.codes.models.code import Code
 from app.modules.programming.models.programming import Programming, ProgrammingTask
 from app.modules.organization.models.role import UserRole
-from app.modules.organization.models.state import UserState
 from app.shared.utils.security.jwt import create_access_token
 
 # Test database configuration
@@ -80,8 +79,7 @@ def test_user_data() -> Dict[str, Any]:
     return {
         "username": "testuser",
         "password": "testpassword123",
-        "role": UserRole.USER,
-        "state": UserState.ACTIVE
+        "role": UserRole.USER
     }
 
 @pytest.fixture
@@ -90,8 +88,7 @@ def test_admin_data() -> Dict[str, Any]:
     return {
         "username": "admin",
         "password": "adminpassword123",
-        "role": UserRole.ADMIN,
-        "state": UserState.ACTIVE
+        "role": UserRole.ADMIN
     }
 
 @pytest.fixture
@@ -100,8 +97,7 @@ def test_supervisor_data() -> Dict[str, Any]:
     return {
         "username": "supervisor",
         "password": "supervisorpassword123",
-        "role": UserRole.SUPERVISOR,
-        "state": UserState.ACTIVE
+        "role": UserRole.SUPERVISOR
     }
 
 @pytest.fixture
@@ -110,8 +106,7 @@ def test_planner_data() -> Dict[str, Any]:
     return {
         "username": "planner",
         "password": "plannerpassword123",
-        "role": UserRole.PLANNER,
-        "state": UserState.ACTIVE
+        "role": UserRole.PLANNER
     }
 
 @pytest.fixture

@@ -27,15 +27,12 @@ class AutomationService:
             # Import OrderFlowService for bin 8 orders
             from app.modules.automation.services.order_flow_service import OrderFlowService
 
-            from app.modules.orders.models.state import OrderStatus
-            
-            # Separate orders by type and status
-            bin_8_orders = [o for o in orders if o.bin == 8 and o.status != OrderStatus.not_programmable]
+            # Separate orders by type
+            bin_8_orders = [o for o in orders if o.bin == 8]
             
             # Only Bin 10 and 100 should have tasks auto-created (besides Bin 8)
-            # Skip orders marked as not_programmable (e.g. from special codes table)
             programmable_bins = [10, 100]
-            other_orders = [o for o in orders if o.bin in programmable_bins and o.status != OrderStatus.not_programmable]
+            other_orders = [o for o in orders if o.bin in programmable_bins]
             
             # Process Bin 8 orders
             processed_bin_8 = []

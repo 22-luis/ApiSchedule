@@ -7,7 +7,6 @@ from typing import List, Optional, Union
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 
 from app.modules.organization.models.role import UserRole
-from app.modules.organization.models.state import UserState
 
 
 class UserBase(BaseModel):
@@ -16,9 +15,7 @@ class UserBase(BaseModel):
     full_name: Optional[str] = None
     cargo: Optional[str] = None
     role: Optional[UserRole] = None
-    state: Optional[UserState] = None
     teamIds: Optional[List[uuid.UUID]] = None
-    document_name: Optional[str] = None
 
     @field_validator('username')
     @classmethod
@@ -59,7 +56,6 @@ class UserCreate(UserBase):
     username: str = Field(..., min_length=3, max_length=50)
     password: str = Field(..., min_length=6, max_length=128)
     role: UserRole = Field(default=UserRole.USER)
-    state: UserState = Field(default=UserState.ACTIVE)
     teamIds: Optional[List[uuid.UUID]] = Field(default=[])
 
     model_config = ConfigDict(
@@ -69,9 +65,7 @@ class UserCreate(UserBase):
                 "username": "john_doe",
                 "password": "mypassword123",
                 "role": "USER",
-                "state": "ACTIVE",
-                "teamIds": [],
-                "document_name": None
+                "teamIds": []
             }
         }
     )
@@ -82,10 +76,8 @@ class UserOut(BaseModel):
     full_name: Optional[str] = Field(None, description="Nombre completo")
     cargo: Optional[str] = Field(None, description="Cargo o puesto")
     role: UserRole = Field(..., description="Rol del usuario")
-    state: UserState = Field(default=UserState.ACTIVE, description="Estado del usuario")
     teamIds: Optional[List[uuid.UUID]] = Field(default=[], description="IDs de equipos")
     signature: Optional[str] = Field(None, description="Firma del usuario")
-    document_name: Optional[str] = Field(None, description="Nombre del documento firmado")
 
     @field_validator('signature', mode='before')
     @classmethod
@@ -106,10 +98,8 @@ class UserOut(BaseModel):
                 "id": "123e4567-e89b-12d3-a456-426614174000",
                 "username": "john_doe",
                 "role": "USER",
-                "state": "ACTIVE",
                 "teamIds": [],
-                "signature": None,
-                "document_name": None
+                "signature": None
             }
         }
     )
@@ -138,21 +128,16 @@ class UserUpdate(UserBase):
                 "username": "john_doe",
                 "password": "mypassword123",
                 "role": "USER",
-                "state": "ACTIVE",
                 "teamIds": [],
                 "signature": None
             }
         }
     )
 
-class UserStateUpdate(BaseModel):
-    state: UserState
-
 class User(BaseModel):
     id: uuid.UUID = Field(..., description="ID único del usuario")
     username: str = Field(..., description="Nombre de usuario")
     role: UserRole = Field(..., description="Rol del usuario")
-    state: UserState = Field(default=UserState.ACTIVE, description="Estado del usuario")
 
     model_config = ConfigDict(
         from_attributes = True

@@ -23,6 +23,7 @@ from app.shared.db.database import Base
 from app.modules.codes.models.code import Code
 from app.modules.codes.models.preparation import Preparation
 from app.modules.organization.models.user import User
+from app.modules.organization.models.user_profile import UserProfile
 from app.modules.organization.models.team import Team, UserTeam, task_team_association
 from app.modules.orders.models.order import Order
 from app.modules.programming.models.programming import Programming, ProgrammingTask
