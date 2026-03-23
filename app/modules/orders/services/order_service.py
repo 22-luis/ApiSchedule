@@ -5,7 +5,7 @@ from fastapi import BackgroundTasks, HTTPException
 
 from app.modules.orders.models.order import Order
 from app.modules.orders.models.state import OrderStatus
-from app.modules.orders.repositories import order_repository
+from app.modules.orders.repositories import order_repository, special_code_repository
 from app.modules.warehouse.models.history import WarehouseHistory, WarehouseHistoryType
 from app.modules.organization.models.user import User
 from app.shared.utils.business.data_cleaning import clean_order_data
@@ -29,15 +29,27 @@ class OrderService:
             
             order_dict = order.dict() if hasattr(order, 'dict') else order.model_dump()
             cleaned_order = clean_order_data(order_dict)
-            
+            order_code = cleaned_order['code']
             initial_status = OrderStatus.unprogrammed
-            if order.bin not in [8, 10, 100]:
+
+            # Aplicar excepciones de código (SpecialCode)
+            special_rule = special_code_repository.find_by_code(db, order_code)
+            if special_rule:
+                if special_rule.programming_code:
+                    logger.info(f"Applying SpecialCode rule: {order_code} -> {special_rule.programming_code}")
+                    order_code = special_rule.programming_code
+                else:
+                    logger.info(f"Applying SpecialCode rule: {order_code} is NOT PROGRAMMABLE")
+                    initial_status = OrderStatus.not_programmable
+
+            # Si no es un bin programable y no fue forzado por SpecialCode, marcar como no programable
+            if initial_status != OrderStatus.not_programmable and order.bin not in [8, 10, 100]:
                 initial_status = OrderStatus.not_programmable
             
             db_order = Order(
                 lote=order.lote,
                 dueDate=order.dueDate,
-                code=cleaned_order['code'],
+                code=order_code,
                 description=cleaned_order['description'],
                 quantity=order.quantity,
                 missing_quantity=order.quantity,

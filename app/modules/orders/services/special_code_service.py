@@ -18,9 +18,7 @@ class SpecialCodeService:
         
         db_obj = SpecialCode(
             code=special_code_in.code,
-            programming_code=special_code_in.programming_code,
-            description=special_code_in.description,
-            is_active=special_code_in.is_active
+            programming_code=special_code_in.programming_code
         )
         return special_code_repository.save(db, db_obj)
 
