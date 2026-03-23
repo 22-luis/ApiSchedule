@@ -207,7 +207,6 @@ def bulk_upload_codes(db: Session, codes: List[dict]) -> dict:
                 "presentation": code_data.get("presentation"),
                 "fabricationCode": fabrication_code,
                 "usefulLife": useful_life,
-                "verification": code_data.get("verification"),
             }
             if item_id:
                 new_values["code"] = code_data.get("code")
@@ -271,16 +270,9 @@ def _apply_changes(existing_code: Code, new_values: dict) -> bool:
 
         curr_val = getattr(existing_code, field)
 
-        if field in ["quantity", "time", "performance", "people", "verification"]:
+        if field in ["quantity", "time", "performance", "people"]:
             if field == "people":
                 n, c = clean_int(new_val_raw), clean_int(curr_val)
-            elif field == "verification":
-                n = (
-                    new_val_raw.lower() in ("true", "1", "t", "y", "yes", "si", "sí")
-                    if isinstance(new_val_raw, str)
-                    else (bool(new_val_raw) if new_val_raw is not None else False)
-                )
-                c = bool(curr_val)
             else:
                 n, c = clean_float(new_val_raw), clean_float(curr_val)
 
@@ -298,16 +290,6 @@ def _apply_changes(existing_code: Code, new_values: dict) -> bool:
 
 def _build_code(code_str, activity_str, code_data, useful_life, fabrication_code) -> Code:
     """Construye un objeto Code nuevo a partir de los datos crudos del Excel."""
-    verification_raw = code_data.get("verification")
-    verification = (
-        verification_raw
-        if isinstance(verification_raw, bool)
-        else (
-            str(verification_raw).lower() in ("true", "1", "t", "y", "yes", "si", "sí")
-            if verification_raw is not None
-            else False
-        )
-    )
     qty_float = clean_float(code_data.get("quantity"))
     return Code(
         code=clean_str_preserve_case(code_str),
@@ -323,5 +305,4 @@ def _build_code(code_str, activity_str, code_data, useful_life, fabrication_code
         presentation=clean_str_preserve_case(code_data.get("presentation")),
         fabricationCode=clean_str_preserve_case(fabrication_code),
         usefulLife=clean_str_preserve_case(useful_life),
-        verification=verification,
     )

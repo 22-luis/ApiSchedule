@@ -20,6 +20,5 @@ class CodeBulkItem(BaseModel):
     presentation: Optional[str] = None
     fabricationCode: Optional[str] = None
     usefulLife: Optional[str] = None
-    verification: Optional[Any] = None
 
     model_config = ConfigDict(extra='allow') # Permitir columnas extra que puedan venir del Excel

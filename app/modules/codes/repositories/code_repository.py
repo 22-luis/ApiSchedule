@@ -114,7 +114,6 @@ def find_lotes_by_code(db: Session, code: str) -> List[str]:
 
 
 def save(db: Session, code: Code, flush: bool = False) -> Code:
-    """Persiste un Code (add + commit/flush + refresh)."""
     db.add(code)
     if flush:
         db.flush()
@@ -125,10 +124,8 @@ def save(db: Session, code: Code, flush: bool = False) -> Code:
 
 
 def delete(db: Session, code: Code) -> None:
-    """Elimina un Code (solo marca para borrar; el commit lo hace el servicio)."""
     db.delete(code)
 
 
 def commit(db: Session) -> None:
-    """Hace commit + refresca la sesión."""
     db.commit()

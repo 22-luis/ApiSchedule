@@ -19,5 +19,4 @@ class Code(Base):
     material = Column(String, nullable=True)
     presentation = Column(String, nullable=True)
     fabricationCode = Column(String, nullable=True, index=True)
-    usefulLife = Column(String, nullable=True)
-    verification = Column(Boolean, default=False, nullable=True)
+    usefulLife = Column(String, nullable=True)
