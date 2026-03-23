@@ -26,19 +26,26 @@ class OrderStatusService:
             # Si el lote no es un número válido, no hacer nada
             pass
     
-    @staticmethod
-    def update_order_status_based_on_missing_quantity(db: Session, order: Order) -> None:
-        """
-        Actualiza el estado de la orden basándose en la cantidad faltante.
-        Si missing_quantity > 0: cambia a 'pending'
-        Si missing_quantity <= 0: cambia a 'completed'
-        """
         if order.missing_quantity is None:
             return
             
-        if order.missing_quantity > 0 and order.status == OrderStatus.programmed:
-            order.status = OrderStatus.pending
-            db.commit()
+        # Solo cambiar a 'pending' si la orden ya estaba en un estado avanzado (pesada, fabricada, empacada, entregada)
+        # O si ya estaba en 'pending' y ahora se completó.
+        # IMPORTANTE: No cambiar de 'programmed' a 'pending' automáticamente si solo tiene faltantes,
+        # ya que eso la haría aparecer en la lista de entregas prematuramente.
+        
+        advanced_statuses = [
+            OrderStatus.weighed, 
+            OrderStatus.manufactured, 
+            OrderStatus.packaged, 
+            OrderStatus.delivered,
+            OrderStatus.pending
+        ]
+
+        if order.missing_quantity > 0 and order.status in advanced_statuses:
+            if order.status != OrderStatus.pending:
+                order.status = OrderStatus.pending
+                db.commit()
         elif order.missing_quantity <= 0 and order.status == OrderStatus.pending:
             order.status = OrderStatus.completed
             db.commit()
@@ -270,11 +277,22 @@ class OrderStatusService:
                 # Si no hay tareas, estado unprogrammed
                 order.status = OrderStatus.unprogrammed
             else:
-                # Si hay tareas, estado programmed
-                order.status = OrderStatus.programmed
+                # Si hay tareas, estado inicial es programmed
+                # Solo cambiar a pending si ya había una transición previa o si hay una razón de peso
+                # Por defecto, se queda en programmed hasta que avance en el flujo
+                if order.status == OrderStatus.unprogrammed:
+                    order.status = OrderStatus.programmed
                 
-                # Verificar missing_quantity para determinar si debe ser pending o completed
-                if order.missing_quantity is not None:
+                # Verificar missing_quantity solo si ya está en un estado que permite ser pending
+                advanced_statuses = [
+                    OrderStatus.weighed, 
+                    OrderStatus.manufactured, 
+                    OrderStatus.packaged, 
+                    OrderStatus.delivered,
+                    OrderStatus.pending
+                ]
+                
+                if order.missing_quantity is not None and order.status in advanced_statuses:
                     if order.missing_quantity > 0:
                         order.status = OrderStatus.pending
                     elif order.missing_quantity <= 0:
