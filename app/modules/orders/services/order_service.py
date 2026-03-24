@@ -20,7 +20,6 @@ logger = get_logger("order_service")
 class OrderService:
     @staticmethod
     def create_orders(db: Session, orders_data: List[any], auto_create_tasks: bool, current_user: User, background_tasks: BackgroundTasks = None):
-        """Crea órdenes y gestiona la creación automática de tareas."""
         created_orders = []
         for order in orders_data:
             if order_repository.find_by_lote(db, order.lote):
@@ -147,7 +146,6 @@ class OrderService:
 
     @staticmethod
     def get_paged_orders(db: Session, filters: dict):
-        """Obtiene órdenes paginadas con sus metadatos."""
         skip = filters.pop("skip", 0)
         limit = filters.pop("limit", 10)
         
@@ -177,7 +175,6 @@ class OrderService:
 
     @staticmethod
     def receive_order(db: Session, order_id: str, custom_status: Optional[str], current_user: User):
-        """Marca una orden como recibida en almacén."""
         db_order = order_repository.find_by_lote(db, order_id)
         if not db_order:
             raise HTTPException(status_code=404, detail="Order not found")
@@ -228,7 +225,6 @@ class OrderService:
 
     @staticmethod
     def deliver_order(db: Session, order_id: int, delivered_quantity: float, observations: Optional[str], current_user: User):
-        """Registra una entrega (salida de producción a almacén)."""
         db_order = order_repository.find_by_lote(db, order_id)
         if not db_order:
             raise HTTPException(status_code=404, detail="Order not found")
@@ -276,7 +272,6 @@ class OrderService:
 
     @staticmethod
     def transfer_surplus(db: Session, source_lote: int, target_lote: int, transfer_quantity: float, current_user: User):
-        """Transfiere sobrantes de una orden a otra."""
         source_order = order_repository.find_by_lote(db, source_lote)
         target_order = order_repository.find_by_lote(db, target_lote)
         
@@ -306,8 +301,69 @@ class OrderService:
         return {"message": "Transferencia completada"}
 
     @staticmethod
+    def delete_order(db: Session, order_id: str):
+        db_order = order_repository.find_by_lote(db, order_id)
+        if not db_order:
+            raise HTTPException(status_code=404, detail="Order not found")
+        order_repository.delete(db, db_order)
+        return {"message": "Order deleted successfully. Tasks were preserved."}
+
+    @staticmethod
+    def update_order_status(db: Session, order_id: str, status: str):
+        db_order = order_repository.find_by_lote(db, order_id)
+        if not db_order:
+            raise HTTPException(status_code=404, detail="Order not found")
+        
+        db_order.status = status
+        db.commit()
+        db.refresh(db_order)
+        return {
+            "lote": db_order.lote, "code": db_order.code, "status": db_order.status,
+            "description": db_order.description, "quantity": db_order.quantity,
+            "bin": db_order.bin, "dueDate": db_order.dueDate, "missing_quantity": db_order.missing_quantity
+        }
+
+    @staticmethod
+    def hide_order(db: Session, order_id: int, is_hidden: bool):
+        db_order = order_repository.find_by_lote(db, order_id)
+        if not db_order:
+            raise HTTPException(status_code=404, detail="Order not found")
+        db_order.is_hidden = is_hidden
+        from datetime import datetime
+        db_order.hidden_at = datetime.now() if is_hidden else None
+        db.commit()
+        return {"message": "Visibilidad de la orden actualizada", "is_hidden": db_order.is_hidden}
+
+    @staticmethod
+    def sync_order_statuses(db: Session, order_ids: Optional[List[int]] = None):
+        from app.shared.utils.business.order_status_service import OrderStatusService
+        
+        query = db.query(Order)
+        if order_ids:
+            query = query.filter(Order.lote.in_(order_ids))
+        orders = query.all()
+        
+        synced_count = 0
+        for order in orders:
+            try:
+                OrderStatusService.sync_order_status_for_lote(db, str(order.lote))
+                synced_count += 1
+            except Exception:
+                continue
+        return {"message": f"Synced {synced_count} out of {len(orders)} orders"}
+
+    @staticmethod
+    def get_available_orders_for_transfer(db: Session, code: str, exclude_lote: Optional[int] = None):
+        code_base = code.split('-')[0].strip()
+        available_orders = order_repository.find_by_code_prefix(db, code_base, exclude_lote)
+        return {"available_orders": [
+            {"lote": o.lote, "code": o.code, "status": o.status, "description": o.description,
+             "quantity": o.quantity, "missing_quantity": o.missing_quantity, "dueDate": o.dueDate}
+            for o in available_orders
+        ]}
+
+    @staticmethod
     def _create_notification(db, username, created_tasks_info, order_count):
-        """Helper to create TaskCreationNotification."""
         try:
             from collections import defaultdict
             from app.modules.programming.models.task_creation_notification import TaskCreationNotification

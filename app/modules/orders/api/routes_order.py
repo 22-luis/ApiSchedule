@@ -9,9 +9,7 @@ from app.modules.organization.models.role import UserRole
 from app.shared.db.session import get_db
 from app.shared.utils.core.dependencies import require_roles
 from app.modules.orders.services.order_service import OrderService
-from app.modules.orders.repositories import order_repository
 from app.modules.automation.services.factory import TaskServiceFactory
-from app.shared.utils.business.order_status_service import OrderStatusService
 from app.shared.utils.core.logging import get_logger
 
 logger = get_logger("routes_order")
@@ -56,26 +54,11 @@ def get_orders(
 
 @router.delete("/{order_id}")
 def delete_order(order_id: str, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER))):
-    db_order = order_repository.find_by_lote(db, order_id)
-    if not db_order:
-        raise HTTPException(status_code=404, detail="Order not found")
-    order_repository.delete(db, db_order)
-    return {"message": "Order deleted successfully. Tasks were preserved."}
+    return OrderService.delete_order(db, order_id)
 
 @router.patch("/{order_id}/status")
 def update_order_status(order_id: str, status_update: OrderStatusUpdate, db: Session = Depends(get_db), current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.WAREHOUSE, UserRole.USER))):
-    db_order = order_repository.find_by_lote(db, order_id)
-    if not db_order:
-        raise HTTPException(status_code=404, detail="Order not found")
-    
-    db_order.status = status_update.status
-    db.commit()
-    db.refresh(db_order)
-    return {
-        "lote": db_order.lote, "code": db_order.code, "status": db_order.status,
-        "description": db_order.description, "quantity": db_order.quantity,
-        "bin": db_order.bin, "dueDate": db_order.dueDate, "missing_quantity": db_order.missing_quantity
-    }
+    return OrderService.update_order_status(db, order_id, status_update.status)
 
 @router.post("/{order_id}/receive")
 def receive_order(
@@ -114,13 +97,7 @@ def hide_order(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.WAREHOUSE))
 ):
-    db_order = order_repository.find_by_lote(db, order_id)
-    if not db_order:
-        raise HTTPException(status_code=404, detail="Order not found")
-    db_order.is_hidden = is_hidden
-    db_order.hidden_at = datetime.now() if is_hidden else None
-    db.commit()
-    return {"message": "Visibilidad de la orden actualizada", "is_hidden": db_order.is_hidden}
+    return OrderService.hide_order(db, order_id, is_hidden)
 
 # Otros endpoints simplificados... (manteniendo funciones de utilidad de automatización si es necesario)
 @router.post("/sync-status")
@@ -129,14 +106,7 @@ def sync_order_status(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR, UserRole.USER))
 ):
-    orders = db.query(Order).filter(Order.lote.in_(order_ids)).all() if order_ids else db.query(Order).all()
-    synced_count = 0
-    for order in orders:
-        try:
-            OrderStatusService.sync_order_status_for_lote(db, str(order.lote))
-            synced_count += 1
-        except Exception: continue
-    return {"message": f"Synced {synced_count} out of {len(orders)} orders"}
+    return OrderService.sync_order_statuses(db, order_ids)
 
 @router.get("/available-for-transfer/{code}")
 def get_available_orders_for_transfer(
@@ -145,10 +115,4 @@ def get_available_orders_for_transfer(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
 ): 
-    code_base = code.split('-')[0].strip()
-    available_orders = order_repository.find_by_code_prefix(db, code_base, exclude_lote)
-    return {"available_orders": [
-        {"lote": o.lote, "code": o.code, "status": o.status, "description": o.description,
-         "quantity": o.quantity, "missing_quantity": o.missing_quantity, "dueDate": o.dueDate}
-        for o in available_orders
-    ]}
+    return OrderService.get_available_orders_for_transfer(db, code, exclude_lote)
