@@ -58,3 +58,12 @@ class CodePageOut(BaseModel):
     total: int
 
     model_config = ConfigDict(from_attributes=True)
+
+class CodeDetailsOut(BaseModel):
+    success: bool
+    code: str
+    activity: str
+    activity_details: CodeOut
+    message: str
+
+    model_config = ConfigDict(from_attributes=True)

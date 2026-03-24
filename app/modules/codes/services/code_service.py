@@ -100,13 +100,7 @@ def get_code_by_code_and_activity(db: Session, code: str, activity: str) -> Code
 
 def get_activity_details(db: Session, code: str, activity: str) -> dict:
     logger.debug(f"Buscando detalles para código '{code}' y actividad '{activity}'")
-    code_obj = code_repository.find_by_code_and_activity(db, code, activity)
-    if not code_obj:
-        logger.warning(f"No se encontró código '{code}' con actividad '{activity}'")
-        raise HTTPException(
-            status_code=404,
-            detail=f"No se encontró código '{code}' con actividad '{activity}'",
-        )
+    code_obj = get_code_by_code_and_activity(db, code, activity)
     return {
         "success": True,
         "code": code,
