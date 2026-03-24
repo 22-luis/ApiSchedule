@@ -4,12 +4,17 @@ from typing import Optional, List, Dict
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+from app.modules.programming.models.programming import ProgrammingTask
+from app.modules.programming.models.task import Task
+from app.modules.organization.models.team import Team
+from app.modules.codes.models.codeVerification import CodeVerification
 from app.modules.organization.models.user import User
 from app.modules.organization.models.user_profile import UserProfile
 from app.modules.organization.models.role import UserRole
 from app.modules.organization.repositories import user_repository, team_repository
 from app.shared.utils.core.dependencies import ROLE_HIERARCHY
 from app.shared.utils.security.security import hash_password
+
 
 
 class UserService:
@@ -101,5 +106,23 @@ class UserService:
 
     @staticmethod
     def delete_user(db: Session, target_user: User):
+        uid = target_user.id
+
+        db.query(ProgrammingTask).filter(
+            ProgrammingTask.completed_by_user_id == uid
+        ).update({ProgrammingTask.completed_by_user_id: None}, synchronize_session=False)
+
+        db.query(Task).filter(
+            Task.created_by_user_id == uid
+        ).update({Task.created_by_user_id: None}, synchronize_session=False)
+
+        db.query(Team).filter(
+            Team.supervisorId == uid
+        ).update({Team.supervisorId: None}, synchronize_session=False)
+
+        db.query(CodeVerification).filter(
+            CodeVerification.userId == uid
+        ).update({CodeVerification.userId: None}, synchronize_session=False)
+
         user_repository.delete(db, target_user)
 
