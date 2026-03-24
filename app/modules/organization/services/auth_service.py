@@ -8,7 +8,6 @@ from app.shared.utils.security.security import verify_password
 class AuthService:
     @staticmethod
     def login(db: Session, username: str, password: str):
-        """Autentica a un usuario y genera un token JWT."""
         user = user_repository.find_by_username(db, username)
         if not user or not user.password:
             raise HTTPException(

@@ -13,19 +13,16 @@ logger = logging.getLogger(__name__)
 
 
 def create_preparation(db: Session, preparation_data: PreparationCreate) -> Preparation:
-    """Crea una nueva preparación en la base de datos."""
     db_preparation = Preparation(**preparation_data.model_dump())
     return preparation_repository.save(db, db_preparation)
 
 
 def get_preparations(db: Session) -> List[PreparationOut]:
-    """Devuelve todas las preparaciones."""
     preparations = preparation_repository.find_all(db)
     return [PreparationOut.model_validate(p) for p in preparations]
 
 
 def get_preparation_by_id(db: Session, preparation_id: str) -> Preparation:
-    """Obtiene una preparación por ID. Lanza 404 si no existe."""
     preparation = preparation_repository.find_by_id(db, preparation_id)
     if not preparation:
         raise HTTPException(status_code=404, detail="Preparation not found")
@@ -35,7 +32,6 @@ def get_preparation_by_id(db: Session, preparation_id: str) -> Preparation:
 def update_preparation(
     db: Session, preparation_id: str, preparation_update: PreparationCreate
 ) -> Preparation:
-    """Actualiza una preparación existente."""
     db_preparation = preparation_repository.find_by_id(db, preparation_id)
     if not db_preparation:
         raise HTTPException(status_code=404, detail="Preparation not found")
@@ -49,7 +45,6 @@ def update_preparation(
 
 
 def delete_preparation(db: Session, preparation_id: str) -> dict:
-    """Elimina una preparación de la base de datos."""
     db_preparation = preparation_repository.find_by_id(db, preparation_id)
     if not db_preparation:
         raise HTTPException(status_code=404, detail="Preparation not found")
@@ -60,9 +55,6 @@ def delete_preparation(db: Session, preparation_id: str) -> dict:
 
 
 def bulk_upload_preparations(db: Session, preparations: list) -> dict:
-    """
-    Sincronización masiva de preparaciones desde un Excel.
-    """
     all_db_preps = preparation_repository.find_all(db)
     existing_preps_map = {clean_str(p.description): p for p in all_db_preps}
     existing_ids_map = {str(p.id): p for p in all_db_preps}

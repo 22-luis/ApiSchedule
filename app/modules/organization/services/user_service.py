@@ -16,7 +16,6 @@ class UserService:
 
     @staticmethod
     def create_user(db: Session, user_data, current_user: User):
-        """Crea un nuevo usuario validando permisos de jerarquía."""
         current_level = ROLE_HIERARCHY.get(current_user.role, 0)
         target_level = ROLE_HIERARCHY.get(user_data.role, 0)
 
@@ -49,7 +48,6 @@ class UserService:
 
     @staticmethod
     def update_user(db: Session, target_user: User, user_update, current_user: User):
-        """Actualiza un usuario protegiendo campos administrativos."""
         update_data = user_update.model_dump(exclude_unset=True)
 
         # Protección de campos administrativos
@@ -90,10 +88,18 @@ class UserService:
 
     @staticmethod
     def get_users_paged(db: Session, filters: dict):
-        """Obtiene usuarios paginados."""
         skip = filters.pop("skip", 0)
         limit = filters.pop("limit", 10)
 
         total = user_repository.count_all(db, **filters)
         users = user_repository.find_all(db, skip=skip, limit=limit, **filters)
         return {"users": users, "total": total}
+
+    @staticmethod
+    def find_by_id(db: Session, user_id: uuid.UUID):
+        return user_repository.find_by_id(db, user_id)
+
+    @staticmethod
+    def delete_user(db: Session, target_user: User):
+        user_repository.delete(db, target_user)
+

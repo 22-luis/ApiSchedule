@@ -16,13 +16,11 @@ from app.shared.utils.business.data_cleaning import (
 
 logger = logging.getLogger(__name__)
 
-
 # ---------------------------------------------------------------------------
 # CRUD básico
 # ---------------------------------------------------------------------------
 
 def create_code(db: Session, code_data: CodeCreate) -> Code:
-    """Crea un nuevo código en la base de datos."""
     db_code = Code(**code_data.model_dump())
     return code_repository.save(db, db_code)
 
@@ -33,7 +31,6 @@ def get_codes(
     limit: int = 20,
     search: Optional[str] = None,
 ) -> CodePageOut:
-    """Lista paginada de códigos con búsqueda opcional."""
     codes, total = code_repository.find_all(db, skip=skip, limit=limit, search=search)
     return CodePageOut(codes=[CodeOut.model_validate(c) for c in codes], total=total)
 
@@ -44,7 +41,6 @@ def get_production_codes(
     limit: int = 20,
     search: Optional[str] = None,
 ) -> CodePageOut:
-    """Lista paginada de códigos productivos con sus pruebas vinculadas."""
     codes, total = code_repository.find_production_codes(db, skip=skip, limit=limit, search=search)
 
     # Cargar pruebas vinculadas
@@ -60,7 +56,6 @@ def get_production_codes(
 
 
 def get_code_by_id(db: Session, code_id: uuid.UUID) -> Code:
-    """Obtiene un código por su UUID. Lanza 404 si no existe."""
     code = code_repository.find_by_id(db, code_id)
     if not code:
         raise HTTPException(status_code=404, detail="Code not found")
@@ -68,7 +63,6 @@ def get_code_by_id(db: Session, code_id: uuid.UUID) -> Code:
 
 
 def update_code(db: Session, code_id: uuid.UUID, code_update: CodeUpdate) -> Code:
-    """Actualiza los campos de un código existente."""
     db_code = code_repository.find_by_id(db, code_id)
     if not db_code:
         raise HTTPException(status_code=404, detail="Code not found")
@@ -82,7 +76,6 @@ def update_code(db: Session, code_id: uuid.UUID, code_update: CodeUpdate) -> Cod
 
 
 def delete_code(db: Session, code_id: uuid.UUID) -> dict:
-    """Elimina un código de la base de datos."""
     db_code = code_repository.find_by_id(db, code_id)
     if not db_code:
         raise HTTPException(status_code=404, detail="Code not found")
@@ -96,7 +89,6 @@ def delete_code(db: Session, code_id: uuid.UUID) -> dict:
 # ---------------------------------------------------------------------------
 
 def get_code_by_code_and_activity(db: Session, code: str, activity: str) -> Code:
-    """Busca un código por el par (code, activity). Lanza 404 si no existe."""
     code_obj = code_repository.find_by_code_and_activity(db, code, activity)
     if not code_obj:
         raise HTTPException(
@@ -107,7 +99,6 @@ def get_code_by_code_and_activity(db: Session, code: str, activity: str) -> Code
 
 
 def get_activity_details(db: Session, code: str, activity: str) -> dict:
-    """Devuelve detalles de actividad para un par (code, activity). Empaqueta la respuesta."""
     logger.debug(f"Buscando detalles para código '{code}' y actividad '{activity}'")
     code_obj = code_repository.find_by_code_and_activity(db, code, activity)
     if not code_obj:
@@ -126,7 +117,6 @@ def get_activity_details(db: Session, code: str, activity: str) -> dict:
 
 
 def get_code_activities(db: Session, code: str) -> dict:
-    """Devuelve todas las actividades asociadas a un código."""
     code_objs = code_repository.find_by_code(db, code)
     if not code_objs:
         raise HTTPException(status_code=404, detail="Code not found")
@@ -138,7 +128,6 @@ def get_code_activities(db: Session, code: str) -> dict:
 
 
 def get_lotes_by_code(db: Session, code: str) -> dict:
-    """Devuelve los lotes de órdenes activas para un código."""
     lotes = code_repository.find_lotes_by_code(db, code)
     return {"code": code, "lotes": lotes}
 
@@ -262,7 +251,6 @@ def bulk_upload_codes(db: Session, codes: List[dict]) -> dict:
 # ---------------------------------------------------------------------------
 
 def _apply_changes(existing_code: Code, new_values: dict) -> bool:
-    """Compara y aplica cambios campo a campo. Devuelve True si hubo cambios."""
     has_changes = False
     for field, new_val_raw in new_values.items():
         if new_val_raw is None and field not in ["quantity", "time", "people", "performance"]:
@@ -289,7 +277,6 @@ def _apply_changes(existing_code: Code, new_values: dict) -> bool:
 
 
 def _build_code(code_str, activity_str, code_data, useful_life, fabrication_code) -> Code:
-    """Construye un objeto Code nuevo a partir de los datos crudos del Excel."""
     qty_float = clean_float(code_data.get("quantity"))
     return Code(
         code=clean_str_preserve_case(code_str),
