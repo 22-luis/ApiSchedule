@@ -77,12 +77,3 @@ def delete(db: Session, order: Order) -> None:
     db.delete(order)
     db.commit()
 
-def find_by_code_prefix(db: Session, code_prefix: str, exclude_lote: Optional[int] = None) -> List[Order]:
-    query = db.query(Order).filter(
-        Order.code.ilike(f"{code_prefix}%"),
-        Order.status.in_([OrderStatus.unprogrammed, OrderStatus.programmed, OrderStatus.manufactured]),
-        Order.missing_quantity >= 0
-    )
-    if exclude_lote:
-        query = query.filter(Order.lote != exclude_lote)
-    return query.all()

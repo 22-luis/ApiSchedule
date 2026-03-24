@@ -21,7 +21,7 @@ from app.modules.organization.api.routes_user import router as user_router
 from app.modules.monitoring.api.routes import router as monitoring_router
 from app.modules.programming.api.routes_calculations import router as calculations_router
 from app.modules.programming.api.routes_notification import router as notification_router
-from app.modules.orders.api.routes import router as order_router
+from app.modules.orders.api.routes_order import router as order_router
 from app.modules.programming.api.routes_programming import router as programming_router
 from app.modules.programming.api.routes_task import router as task_router
 from app.modules.programming.api.routes_task_status_log import router as task_status_log_router

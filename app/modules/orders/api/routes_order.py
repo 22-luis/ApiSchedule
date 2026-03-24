@@ -78,17 +78,6 @@ def deliver_order(
 ):
     return OrderService.deliver_order(db, order_id, delivery_data.delivered_quantity, delivery_data.submitted_observations, current_user)
 
-@router.post("/{source_lote}/transfer-surplus")
-def transfer_surplus_to_order(
-    source_lote: int,
-    transfer_data: dict = Body(...),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
-):
-    return OrderService.transfer_surplus(
-        db, source_lote, transfer_data.get("target_lote"), 
-        transfer_data.get("transfer_quantity"), current_user
-    )
 
 @router.patch("/{order_id}/hide")
 def hide_order(
@@ -108,11 +97,3 @@ def sync_order_status(
 ):
     return OrderService.sync_order_statuses(db, order_ids)
 
-@router.get("/available-for-transfer/{code}")
-def get_available_orders_for_transfer(
-    code: str,
-    exclude_lote: Optional[int] = Query(None),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
-): 
-    return OrderService.get_available_orders_for_transfer(db, code, exclude_lote)

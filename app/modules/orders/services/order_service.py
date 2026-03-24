@@ -270,35 +270,6 @@ class OrderService:
             "message": f"Entrega realizada exitosamente. Cantidad faltante: {db_order.missing_quantity}"
         }
 
-    @staticmethod
-    def transfer_surplus(db: Session, source_lote: int, target_lote: int, transfer_quantity: float, current_user: User):
-        source_order = order_repository.find_by_lote(db, source_lote)
-        target_order = order_repository.find_by_lote(db, target_lote)
-        
-        if not source_order or not target_order:
-            raise HTTPException(status_code=404, detail="Orden origen o destino no encontrada")
-        
-        if source_order.missing_quantity >= 0:
-            raise HTTPException(status_code=400, detail="La orden origen no tiene sobrantes")
-        
-        if source_order.status != OrderStatus.completed:
-            raise HTTPException(status_code=400, detail="La orden origen debe estar en estado 'completed'")
-        
-        if source_order.code != target_order.code:
-            raise HTTPException(status_code=400, detail="Las órdenes deben tener el mismo código")
-        
-        if transfer_quantity > abs(source_order.missing_quantity):
-            raise HTTPException(status_code=400, detail="Cantidad excede el sobrante disponible")
-        
-        source_order.missing_quantity += transfer_quantity
-        target_order.received_quantity = (target_order.received_quantity or 0) + transfer_quantity
-        target_order.missing_quantity = (target_order.quantity or 0) - target_order.received_quantity
-        
-        db.add(WarehouseHistory(lote=source_order.lote, code=source_order.code, quantity=transfer_quantity, type=WarehouseHistoryType.TRANSFER_SOURCE, user=current_user.username, observations=f"Sobrante transferido al lote {target_lote}"))
-        db.add(WarehouseHistory(lote=target_order.lote, code=target_order.code, quantity=transfer_quantity, type=WarehouseHistoryType.TRANSFER_TARGET, user=current_user.username, observations=f"Sobrante recibido del lote {source_lote}"))
-        
-        db.commit()
-        return {"message": "Transferencia completada"}
 
     @staticmethod
     def delete_order(db: Session, order_id: str):
@@ -352,15 +323,6 @@ class OrderService:
                 continue
         return {"message": f"Synced {synced_count} out of {len(orders)} orders"}
 
-    @staticmethod
-    def get_available_orders_for_transfer(db: Session, code: str, exclude_lote: Optional[int] = None):
-        code_base = code.split('-')[0].strip()
-        available_orders = order_repository.find_by_code_prefix(db, code_base, exclude_lote)
-        return {"available_orders": [
-            {"lote": o.lote, "code": o.code, "status": o.status, "description": o.description,
-             "quantity": o.quantity, "missing_quantity": o.missing_quantity, "dueDate": o.dueDate}
-            for o in available_orders
-        ]}
 
     @staticmethod
     def _create_notification(db, username, created_tasks_info, order_count):
