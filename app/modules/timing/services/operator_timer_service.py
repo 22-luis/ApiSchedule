@@ -36,7 +36,7 @@ class TimerService:
             raise ValueError("Stopwatch already exists for this task with the same programming flag")
 
         if start_time is None:
-            start_time = datetime.now(timezone.utc) - timedelta(hours=6)
+            start_time = datetime.now()
 
         stopwatch = Stopwatch(
             task_id=task_id,
@@ -44,20 +44,24 @@ class TimerService:
             quantity=0, # Quantity will be set at stop
             accumulated_duration=0,
             is_from_programming=is_from_programming,
-            created_at=start_time
+            created_at=start_time,
+            real_start_time=start_time
         )
         return timer_repository.save_stopwatch(self.db, stopwatch)
 
     def pause_stopwatch(self, task_id: uuid.UUID):
         from app.modules.timing.repositories import timer_repository
-        now = datetime.now(timezone.utc) - timedelta(hours=6)
+        now = datetime.now()
         
         stopwatch = timer_repository.find_running_stopwatch(self.db, task_id)
 
         if not stopwatch:
             raise ValueError("No running stopwatch found for this task")
 
-        last_start_time = (stopwatch.update_at or stopwatch.created_at).astimezone(timezone.utc)
+        last_start_time = (stopwatch.update_at or stopwatch.created_at)
+        if last_start_time and last_start_time.tzinfo:
+            last_start_time = last_start_time.replace(tzinfo=None)
+
         elapsed_time = (now - last_start_time).total_seconds() / 3600  # Convert to hours
 
         stopwatch.accumulated_duration += elapsed_time
@@ -74,7 +78,7 @@ class TimerService:
         if not stopwatch:
             raise ValueError("No paused stopwatch found for this task")
 
-        now = datetime.now(timezone.utc) - timedelta(hours=6)
+        now = datetime.now()
         stopwatch.status = TimerStatus.RUNNING
         stopwatch.update_at = now
 
@@ -84,7 +88,7 @@ class TimerService:
         from app.modules.timing.repositories import timer_repository
         from app.modules.programming.repositories import task_repository
         
-        now = datetime.now(timezone.utc) - timedelta(hours=6)
+        now = datetime.now()
         
         stopwatch = timer_repository.find_stopwatch_by_task_any_status(self.db, task_id)
 
@@ -97,7 +101,10 @@ class TimerService:
         accumulated_duration: float = float(stopwatch.accumulated_duration)
 
         if stopwatch.status == TimerStatus.RUNNING:
-            last_start_time = (stopwatch.update_at or stopwatch.created_at).astimezone(timezone.utc)
+            last_start_time = (stopwatch.update_at or stopwatch.created_at)
+            if last_start_time and last_start_time.tzinfo:
+                last_start_time = last_start_time.replace(tzinfo=None)
+
             time_difference = now - last_start_time
             elapsed_time = time_difference.total_seconds() / 3600  # Convert to hours
             accumulated_duration += elapsed_time
@@ -108,7 +115,9 @@ class TimerService:
             task_id=task_id,
             quantity=real_quantity,
             accumulated_duration=accumulated_duration_value,
-            creation_date=now # Use the same 'now' for consistency
+            creation_date=now, # Use the same 'now' for consistency
+            real_start_time=stopwatch.real_start_time,
+            real_end_time=now
         )
         timer_repository.save_record_stopwatch(self.db, record_stopwatch)
 
@@ -170,14 +179,25 @@ class TimerService:
     def get_tasks_status(self, task_ids: list[uuid.UUID]):
         logger.info(f"get_tasks_status called for task_ids: {task_ids}")
         # Get tasks from Stopwatch (running, paused)
-        stopwatch_tasks = self.db.query(Stopwatch.task_id, Stopwatch.status, Stopwatch.id, Stopwatch.is_from_programming).filter(
+        stopwatch_tasks = self.db.query(
+            Stopwatch.task_id, 
+            Stopwatch.status, 
+            Stopwatch.id, 
+            Stopwatch.is_from_programming,
+            Stopwatch.real_start_time,
+            Stopwatch.real_end_time
+        ).filter(
             Stopwatch.task_id.in_(task_ids),
             Stopwatch.is_from_programming == True
         ).all()
         logger.info(f"Stopwatch tasks found: {stopwatch_tasks}")
 
         # Get tasks from ProgrammingTask (completed/done, from programming)
-        programming_completed_tasks = self.db.query(ProgrammingTask.task_id).filter(
+        programming_completed_tasks = self.db.query(
+            ProgrammingTask.task_id,
+            ProgrammingTask.real_start_time,
+            ProgrammingTask.real_end_time
+        ).filter(
             ProgrammingTask.task_id.in_(task_ids),
             ProgrammingTask.real_end_time.isnot(None)
         ).all()
@@ -187,19 +207,36 @@ class TimerService:
         task_statuses = {}
 
         # Add running/paused tasks from Stopwatch
-        for task_id, status, stopwatch_id, is_from_programming in stopwatch_tasks:
-            task_statuses[str(task_id)] = {"status": status.value, "record_id": str(stopwatch_id), "is_from_programming": is_from_programming}
+        for task_id, status, stopwatch_id, is_from_programming, r_start, r_end in stopwatch_tasks:
+            task_statuses[str(task_id)] = {
+                "status": status.value, 
+                "record_id": str(stopwatch_id), 
+                "is_from_programming": is_from_programming,
+                "real_start_time": r_start.replace(tzinfo=None) if r_start else None,
+                "real_end_time": r_end.replace(tzinfo=None) if r_end else None
+            }
 
         # Add completed tasks from ProgrammingTask (is_from_programming = True)
         for result in programming_completed_tasks:
-            # the result is a Row object or a tuple depending on sqlalchemy version/query style.
-            # Since we only queried one column, it might be a single value or a tuple with one element.
-            # safely accessing task_id
-            task_id_prog_completed = result.task_id if hasattr(result, 'task_id') else result[0]
+            # result is a named tuple (task_id, real_start_time, real_end_time)
+            task_id_prog_completed = result.task_id
             
-            task_statuses[str(task_id_prog_completed)] = {"status": TimerStatus.STOPPED.value, "record_id": None, "is_from_programming": True}
+            task_statuses[str(task_id_prog_completed)] = {
+                "status": TimerStatus.STOPPED.value, 
+                "record_id": None, 
+                "is_from_programming": True,
+                "real_start_time": result.real_start_time.replace(tzinfo=None) if result.real_start_time else None,
+                "real_end_time": result.real_end_time.replace(tzinfo=None) if result.real_end_time else None
+            }
 
-        final_statuses = [{"task_id": task_id, "status": data["status"], "record_id": data["record_id"], "is_from_programming": data["is_from_programming"]} for task_id, data in task_statuses.items()]
+        final_statuses = [{
+            "task_id": task_id, 
+            "status": data["status"], 
+            "record_id": data["record_id"], 
+            "is_from_programming": data["is_from_programming"],
+            "real_start_time": data.get("real_start_time"),
+            "real_end_time": data.get("real_end_time")
+        } for task_id, data in task_statuses.items()]
         logger.info(f"Final statuses returned: {final_statuses}")
         return final_statuses
 
@@ -238,8 +275,8 @@ class TimerService:
 
     def get_daily_record_stopwatches(self):
         from app.modules.timing.repositories import timer_repository
-        # Get current UTC datetime, adjust by 6 hours, then extract the date part
-        current_datetime_adjusted = datetime.now(timezone.utc) - timedelta(hours=6)
+        # Get current local datetime, then extract the date part
+        current_datetime_adjusted = datetime.now()
         today = current_datetime_adjusted.date()
 
         daily_records_query = timer_repository.find_daily_records_with_details(self.db, today)
@@ -266,13 +303,32 @@ class TimerService:
 
         # Add running/paused tasks from Stopwatch
         for sw in stopwatch_tasks:
-            task_statuses[str(sw.task_id)] = {"status": sw.status.value, "record_id": str(sw.id), "is_from_programming": sw.is_from_programming}
+            task_statuses[str(sw.task_id)] = {
+                "status": sw.status.value, 
+                "record_id": str(sw.id), 
+                "is_from_programming": sw.is_from_programming,
+                "real_start_time": sw.real_start_time.replace(tzinfo=None) if sw.real_start_time else None,
+                "real_end_time": sw.real_end_time.replace(tzinfo=None) if sw.real_end_time else None
+            }
 
         for rec in record_stopwatch_tasks:
             if str(rec.task_id) not in task_statuses:
-                task_statuses[str(rec.task_id)] = {"status": TimerStatus.STOPPED.value, "record_id": str(rec.id), "is_from_programming": False}
+                task_statuses[str(rec.task_id)] = {
+                    "status": TimerStatus.STOPPED.value, 
+                    "record_id": str(rec.id), 
+                    "is_from_programming": False,
+                    "real_start_time": rec.real_start_time.replace(tzinfo=None) if rec.real_start_time else None,
+                    "real_end_time": rec.real_end_time.replace(tzinfo=None) if rec.real_end_time else None
+                }
 
-        final_statuses = [{"task_id": task_id, "status": data["status"], "record_id": data["record_id"], "is_from_programming": data["is_from_programming"]} for task_id, data in task_statuses.items()]
+        final_statuses = [{
+            "task_id": task_id, 
+            "status": data["status"], 
+            "record_id": data["record_id"], 
+            "is_from_programming": data["is_from_programming"],
+            "real_start_time": data.get("real_start_time"),
+            "real_end_time": data.get("real_end_time")
+        } for task_id, data in task_statuses.items()]
         logger.info(f"Final statuses returned: {final_statuses}")
         return final_statuses
 

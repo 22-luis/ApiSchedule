@@ -15,6 +15,8 @@ class Stopwatch(Base):
     quantity = Column(Float, nullable=False)
     accumulated_duration = Column(Float, default=0, nullable=False) # in hours
     is_from_programming = Column(Boolean, default=False, nullable=False)
-    created_at = Column(DateTime(timezone=True), nullable=True, default=lambda: datetime.now(timezone.utc))
-    update_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=False), nullable=True, default=lambda: datetime.now())
+    update_at = Column(DateTime(timezone=False), nullable=True)
+    real_start_time = Column(DateTime(timezone=False), nullable=True)
+    real_end_time = Column(DateTime(timezone=False), nullable=True)
     task = relationship('Task', back_populates='stopwatch')

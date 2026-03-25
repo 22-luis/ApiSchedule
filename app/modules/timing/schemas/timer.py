@@ -1,5 +1,5 @@
 import uuid
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from datetime import datetime
 from typing import Optional, List
 
@@ -16,6 +16,13 @@ class RecordStopwatchDetailSchema(BaseModel):
     task_people: int
     comments: Optional[str] = None
 
+    @field_validator('creation_date', mode='before')
+    @classmethod
+    def strip_tzinfo(cls, v):
+        if isinstance(v, datetime):
+            return v.replace(tzinfo=None)
+        return v
+
 class TaskStatusRequest(BaseModel):
     task_ids: List[uuid.UUID]
 
@@ -24,6 +31,15 @@ class TaskStatusResponse(BaseModel):
     status: str
     record_id: Optional[str] = None
     is_from_programming: bool
+    real_start_time: Optional[datetime] = None
+    real_end_time: Optional[datetime] = None
+
+    @field_validator('real_start_time', 'real_end_time', mode='before')
+    @classmethod
+    def strip_tzinfo(cls, v):
+        if isinstance(v, datetime):
+            return v.replace(tzinfo=None)
+        return v
 
 class TimerStartPayload(BaseModel):
     start_time: Optional[datetime] = None
@@ -56,6 +72,13 @@ class SupStopwatch(SupVerificationFields):
     created_at: datetime
     updated_at: Optional[datetime] = None
 
+    @field_validator('real_start_time', 'real_end_time', 'created_at', 'updated_at', mode='before')
+    @classmethod
+    def strip_tzinfo(cls, v):
+        if isinstance(v, datetime):
+            return v.replace(tzinfo=None)
+        return v
+
     class Config:
         from_attributes = True
 
@@ -69,6 +92,13 @@ class SupRecordStopwatch(SupVerificationFields):
     real_start_time: Optional[datetime] = None
     real_end_time: Optional[datetime] = None
 
+    @field_validator('creation_date', 'real_start_time', 'real_end_time', mode='before')
+    @classmethod
+    def strip_tzinfo(cls, v):
+        if isinstance(v, datetime):
+            return v.replace(tzinfo=None)
+        return v
+
     class Config:
         from_attributes = True
 
@@ -81,3 +111,10 @@ class SupTaskStatusResponse(SupVerificationFields):
     accumulated_duration: float
     real_start_time: Optional[datetime] = None
     real_end_time: Optional[datetime] = None
+
+    @field_validator('real_start_time', 'real_end_time', mode='before')
+    @classmethod
+    def strip_tzinfo(cls, v):
+        if isinstance(v, datetime):
+            return v.replace(tzinfo=None)
+        return v

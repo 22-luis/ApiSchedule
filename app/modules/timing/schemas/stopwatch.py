@@ -1,5 +1,5 @@
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 import uuid
 from datetime import datetime
 from app.modules.timing.models.state import TimerStatus
@@ -19,10 +19,18 @@ class StopwatchUpdate(BaseModel):
     is_from_programming: bool | None = None
 
 class StopwatchInDBBase(StopwatchBase):
-    id: uuid.UUID
     created_at: datetime
     update_at: datetime | None = None
+    real_start_time: datetime | None = None
+    real_end_time: datetime | None = None
     is_from_programming: bool
+
+    @field_validator('created_at', 'update_at', 'real_start_time', 'real_end_time', mode='before')
+    @classmethod
+    def strip_tzinfo(cls, v):
+        if isinstance(v, datetime):
+            return v.replace(tzinfo=None)
+        return v
 
     model_config = ConfigDict(from_attributes=True)
 
