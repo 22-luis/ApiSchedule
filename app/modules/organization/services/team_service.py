@@ -9,7 +9,6 @@ from app.modules.organization.schemas.team import TeamOut, TeamMemberOut
 class TeamService:
     @staticmethod
     def _build_team_out(db: Session, team: Team, target_date: date) -> TeamOut:
-        """Helper para construir el esquema TeamOut filtrando miembros por fecha."""
         active_members_map = {}
         for association in team.member_associations:
             if association.start_date <= target_date and (
@@ -35,13 +34,11 @@ class TeamService:
 
     @staticmethod
     def get_all_teams(db: Session, target_date: date):
-        """Obtiene todos los equipos formateados para una fecha específica."""
         teams = team_repository.find_all_teams(db)
         return [TeamService._build_team_out(db, team, target_date) for team in teams]
 
     @staticmethod
     def create_team(db: Session, team_in):
-        """Crea un equipo y sus asociaciones iniciales."""
         team = Team(
             name=team_in.name,
             supervisorId=team_in.supervisorId
@@ -64,7 +61,6 @@ class TeamService:
 
     @staticmethod
     def update_team_members(db: Session, team_id: uuid.UUID, update_data):
-        """Actualiza los miembros de un equipo manejando fechas de inicio/fin."""
         team = team_repository.find_team_by_id(db, team_id)
         if not team:
             return None
@@ -100,3 +96,27 @@ class TeamService:
         db.commit()
         db.refresh(team)
         return TeamService._build_team_out(db, team, target_date)
+
+    @staticmethod
+    def update_team(db: Session, team_id: uuid.UUID, team_update, target_date: date):
+        team = team_repository.find_team_by_id(db, team_id)
+        if not team:
+            return None
+        
+        if team_update.name is not None:
+            team.name = team_update.name
+        if team_update.supervisorId is not None:
+            team.supervisorId = team_update.supervisorId
+            
+        db.commit()
+        db.refresh(team)
+        return TeamService._build_team_out(db, team, target_date)
+
+    @staticmethod
+    def delete_team(db: Session, team_id: uuid.UUID):
+        team = team_repository.find_team_by_id(db, team_id)
+        if not team:
+            return False
+        
+        team_repository.delete_team(db, team)
+        return True

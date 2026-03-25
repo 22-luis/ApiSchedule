@@ -16,7 +16,6 @@ class CodeCreate(BaseModel):
     material: Optional[str] = None
     presentation: Optional[str] = None
     usefulLife: Optional[str] = None
-    verification: Optional[bool] = False
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -34,7 +33,6 @@ class CodeUpdate(BaseModel):
     presentation: Optional[str] = None
     fabricationCode: Optional[str] = None
     usefulLife: Optional[str] = None
-    verification: Optional[bool] = None
 
 class CodeOut(BaseModel):
     id: uuid.UUID
@@ -51,7 +49,6 @@ class CodeOut(BaseModel):
     presentation: Optional[str] = None
     fabricationCode: Optional[str] = None
     usefulLife: Optional[str] = None
-    verification: Optional[bool] = False
     tests: List[CatalogTestOut] = []
 
     model_config = ConfigDict(from_attributes=True)
@@ -61,3 +58,12 @@ class CodePageOut(BaseModel):
     total: int
 
     model_config = ConfigDict(from_attributes=True)
+
+class CodeDetailsOut(BaseModel):
+    success: bool
+    code: str
+    activity: str
+    activity_details: CodeOut
+    message: str
+
+    model_config = ConfigDict(from_attributes=True)

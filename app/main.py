@@ -21,10 +21,11 @@ from app.modules.organization.api.routes_user import router as user_router
 from app.modules.monitoring.api.routes import router as monitoring_router
 from app.modules.programming.api.routes_calculations import router as calculations_router
 from app.modules.programming.api.routes_notification import router as notification_router
-from app.modules.orders.api.routes import router as order_router
+from app.modules.orders.api.routes_order import router as order_router
 from app.modules.programming.api.routes_programming import router as programming_router
 from app.modules.programming.api.routes_task import router as task_router
 from app.modules.programming.api.routes_task_status_log import router as task_status_log_router
+from app.modules.orders.api.routes_special_code import router as special_code_router
 from app.modules.orders.api.routes_surplus import router as surplus_router
 from app.modules.quality.api.routes_manual import router as manual_router
 from app.modules.quality.api.routes_qctest import router as qc_router
@@ -32,9 +33,14 @@ from app.modules.quality.api.routes_test_question import router as test_question
 from app.modules.quality.api.routes_test_record import router as test_record_router
 from app.modules.quality.api.routes_catalog_test import router as catalog_test_router
 from app.modules.reports.api.routes_report import router as report_router
-from app.modules.timer.api.routes_record_stopwatch import router as record_stopwatch_router
-from app.modules.timer.api.routes_timer import router as timer_router
+from app.modules.timing.api.routes_record_stopwatch import router as record_stopwatch_router
+from app.modules.timing.api.operator_routes_timer import router as timer_router
 from app.modules.warehouse.api.routes_history import router as warehouse_history_router
+from app.modules.codes.api.routes_verifications import router as code_verification_router
+from app.modules.automation.api.routes_auto import router as automation_router
+from app.modules.quality.api.routes_test_results import router as test_results_router
+from app.modules.reports.api.historico_comparacion_fechas import router as historico_fechas_router
+from app.modules.reports.api.compare import router as compare_reports_router
 from app.shared.core.config import settings, validate_critical_settings
 from app.shared.utils.core.exception_handlers import (
     http_exception_handler,
@@ -149,11 +155,13 @@ app.add_exception_handler(Exception, generic_exception_handler)
 
 # --- Routes ---
 
-from app.modules.supervisor.api.routes_timer import router as supervisor_timer_router
+from app.modules.timing.api.supervisor_routes_timer import router as supervisor_timer_router
 api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(auth_router, tags=["auth"])
 api_router.include_router(user_router, tags=["users"])
 api_router.include_router(team_router, tags=["teams"])
+api_router.include_router(special_code_router, tags=["special-codes"])
+api_router.include_router(surplus_router, tags=["surplus"])
 api_router.include_router(order_router, tags=["orders"])
 api_router.include_router(task_router, tags=["tasks"])
 api_router.include_router(task_status_log_router, tags=["tasks"])
@@ -175,6 +183,10 @@ api_router.include_router(qc_router, tags=["qctest"])
 api_router.include_router(test_question_router, tags=["test-questions"])
 api_router.include_router(test_record_router, tags=["test-record"])
 api_router.include_router(warehouse_history_router, tags=["warehouse"])
-api_router.include_router(surplus_router, tags=["surplus"])
+api_router.include_router(code_verification_router, tags=["verifications"])
+api_router.include_router(automation_router, tags=["orders-auto"])
+api_router.include_router(test_results_router, tags=["test-results"])
+api_router.include_router(historico_fechas_router, tags=["historico-comparacion-fechas"])
+api_router.include_router(compare_reports_router, tags=["compare-reports"])
 
 app.include_router(api_router)

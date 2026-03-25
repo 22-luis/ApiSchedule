@@ -13,7 +13,6 @@ from app.shared.core.enums import WeighingActivities, ManufacturingActivities
 
 
 def find_by_id(db: Session, code_id: uuid.UUID) -> Optional[Code]:
-    """Devuelve un Code por su UUID, o None si no existe."""
     return db.query(Code).filter(Code.id == code_id).first()
 
 
@@ -23,7 +22,6 @@ def find_all(
     limit: int = 20,
     search: Optional[str] = None,
 ) -> Tuple[List[Code], int]:
-    """Lista paginada de todos los codes. Devuelve (registros, total)."""
     query = db.query(Code)
     if search:
         pattern = f"%{search.lower()}%"
@@ -36,19 +34,16 @@ def find_all(
 
 
 def find_all_no_filter(db: Session) -> List[Code]:
-    """Devuelve todos los codes sin paginación (usado en bulk operations)."""
     return db.query(Code).all()
 
 
 def find_by_code_and_activity(
     db: Session, code: str, activity: str
 ) -> Optional[Code]:
-    """Busca un Code por el par (code, activity)."""
     return db.query(Code).filter(Code.code == code, Code.activity == activity).first()
 
 
 def find_by_code(db: Session, code: str) -> List[Code]:
-    """Devuelve todos los codes que comparten el mismo código."""
     return db.query(Code).filter(Code.code == code).all()
 
 
@@ -58,10 +53,6 @@ def find_production_codes(
     limit: int = 20,
     search: Optional[str] = None,
 ) -> Tuple[List[Code], int]:
-    """
-    Lista paginada de codes con actividades productivas (un registro por código único).
-    Devuelve (registros, total).
-    """
     production_activities = [
         WeighingActivities.PESADO,
         ManufacturingActivities.FABRICACION,
@@ -93,7 +84,6 @@ def find_production_codes(
 def find_tests_for_codes(
     db: Session, code_ids: List[uuid.UUID]
 ) -> List[Tuple[uuid.UUID, CatalogTest]]:
-    """Devuelve los pares (code_id, CatalogTest) para una lista de IDs."""
     if not code_ids:
         return []
     return (
@@ -105,7 +95,6 @@ def find_tests_for_codes(
 
 
 def find_lotes_by_code(db: Session, code: str) -> List[str]:
-    """Devuelve la lista de lotes activos para un código."""
     rows = db.query(Order.lote).filter(
         Order.code == code,
         Order.status != "completed",
@@ -114,7 +103,6 @@ def find_lotes_by_code(db: Session, code: str) -> List[str]:
 
 
 def save(db: Session, code: Code, flush: bool = False) -> Code:
-    """Persiste un Code (add + commit/flush + refresh)."""
     db.add(code)
     if flush:
         db.flush()
@@ -125,10 +113,8 @@ def save(db: Session, code: Code, flush: bool = False) -> Code:
 
 
 def delete(db: Session, code: Code) -> None:
-    """Elimina un Code (solo marca para borrar; el commit lo hace el servicio)."""
     db.delete(code)
 
 
 def commit(db: Session) -> None:
-    """Hace commit + refresca la sesión."""
     db.commit()

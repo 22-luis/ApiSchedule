@@ -23,16 +23,7 @@ def create_preparation(
     _current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER)),
 ):
     return preparation_service.create_preparation(db, preparation)
-
-
-@router.post("/bulk_upload")
-def bulk_upload_preparations(
-    preparations: list[dict],
-    db: Session = Depends(get_db),
-    _current_user=Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER)),
-):
-    return preparation_service.bulk_upload_preparations(db, preparations)
-
+    
 
 @router.get("/", response_model=List[PreparationOut])
 def get_preparations(

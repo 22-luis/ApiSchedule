@@ -17,7 +17,6 @@ class OrderCreate(BaseModel):
     @field_validator('code', 'description')
     @classmethod
     def clean_string_fields(cls, v: str) -> str:
-        """Limpia espacios en blanco al inicio y final de los campos string"""
         if isinstance(v, str):
             return v.strip()
         return v
@@ -44,7 +43,6 @@ class OrderOut(BaseModel):
     @field_validator('code', 'description')
     @classmethod
     def clean_string_fields(cls, v: str) -> str:
-        """Limpia espacios en blanco al inicio y final de los campos string"""
         if isinstance(v, str):
             return v.strip()
         return v
@@ -58,7 +56,6 @@ class OrderDeliver(BaseModel):
     delivered_quantity: float
     submitted_observations: Optional[str] = None
 
-# Esquema para respuesta paginada
 class OrderPageOut(BaseModel):
     orders: list[OrderOut]
     total: int

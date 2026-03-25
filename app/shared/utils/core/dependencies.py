@@ -45,9 +45,6 @@ def get_current_user(
 def get_current_active_user(
     current_user: User = Depends(get_current_user),
 ) -> User:
-    from app.modules.organization.models.state import UserState
-    if current_user.state != UserState.ACTIVE:
-        raise HTTPException(status_code=400, detail="Inactive user")
     return current_user
 
 

@@ -10,6 +10,8 @@ def find_all(
     code: Optional[str] = None,
     user: Optional[str] = None,
     history_type: Optional[WarehouseHistoryType] = None,
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None,
     target_date: Optional[date] = None,
     skip: int = 0,
     limit: int = 100
@@ -27,6 +29,12 @@ def find_all(
         query = query.filter(WarehouseHistory.user == user)
     if history_type:
         query = query.filter(WarehouseHistory.type == history_type)
+    
+    if start_date:
+        query = query.filter(func.date(WarehouseHistory.timestamp) >= start_date)
+    if end_date:
+        query = query.filter(func.date(WarehouseHistory.timestamp) <= end_date)
+    
     if target_date:
         query = query.filter(func.date(WarehouseHistory.timestamp) == target_date)
         

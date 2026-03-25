@@ -37,19 +37,10 @@ def update_team(
     db: Session = Depends(get_db),
     _current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
 ):
-    from app.modules.organization.repositories import team_repository
-    team = team_repository.find_team_by_id(db, team_id)
-    if not team:
+    result = TeamService.update_team(db, team_id, team_update, date.today())
+    if not result:
         raise HTTPException(status_code=404, detail="Team not found")
-    
-    if team_update.name is not None:
-        team.name = team_update.name
-    if team_update.supervisorId is not None:
-        team.supervisorId = team_update.supervisorId
-        
-    db.commit()
-    db.refresh(team)
-    return TeamService._build_team_out(db, team, date.today())
+    return result
 
 @router.put("/{team_id}/members", response_model=TeamOut)
 def update_team_members(
@@ -69,10 +60,7 @@ def delete_team(
     db: Session = Depends(get_db),
     _current_user: User = Depends(require_roles(UserRole.ADMIN))
 ):
-    from app.modules.organization.repositories import team_repository
-    team = team_repository.find_team_by_id(db, team_id)
-    if not team:
+    success = TeamService.delete_team(db, team_id)
+    if not success:
         raise HTTPException(status_code=404, detail="Team not found")
-    
-    team_repository.delete_team(db, team)
     return None

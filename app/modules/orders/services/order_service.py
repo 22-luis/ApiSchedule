@@ -1,19 +1,18 @@
-import logging
-from typing import List, Union, Optional, Tuple
+from typing import List, Optional
 from sqlalchemy.orm import Session
-from datetime import date, datetime
+from datetime import date
 from fastapi import BackgroundTasks, HTTPException
 
 from app.modules.orders.models.order import Order
 from app.modules.orders.models.state import OrderStatus
-from app.modules.orders.repositories import order_repository
+from app.modules.orders.repositories import order_repository, special_code_repository
 from app.modules.warehouse.models.history import WarehouseHistory, WarehouseHistoryType
 from app.modules.organization.models.user import User
 from app.shared.utils.business.data_cleaning import clean_order_data
 from app.modules.automation.services.task_config import extract_created_orders_data, get_orders_summary
 from app.modules.automation.services.factory import TaskServiceFactory
-from app.modules.automation.services.auto import create_tasks_for_lotes
-from app.shared.utils.business.order_status_service import OrderStatusService
+from app.modules.automation.repositories.automation_repository import AutomationRepository
+from app.modules.automation.services.automation_service import AutomationService
 from app.shared.utils.core.logging import get_logger
 
 logger = get_logger("order_service")
@@ -21,7 +20,6 @@ logger = get_logger("order_service")
 class OrderService:
     @staticmethod
     def create_orders(db: Session, orders_data: List[any], auto_create_tasks: bool, current_user: User, background_tasks: BackgroundTasks = None):
-        """Crea órdenes y gestiona la creación automática de tareas."""
         created_orders = []
         for order in orders_data:
             if order_repository.find_by_lote(db, order.lote):
@@ -30,15 +28,27 @@ class OrderService:
             
             order_dict = order.dict() if hasattr(order, 'dict') else order.model_dump()
             cleaned_order = clean_order_data(order_dict)
-            
+            order_code = cleaned_order['code']
             initial_status = OrderStatus.unprogrammed
-            if order.bin not in [8, 10, 100]:
+
+            # Aplicar excepciones de código (SpecialCode)
+            special_rule = special_code_repository.find_by_code(db, order_code)
+            if special_rule:
+                if special_rule.programming_code:
+                    logger.info(f"Applying SpecialCode rule: {order_code} -> {special_rule.programming_code}")
+                    order_code = special_rule.programming_code
+                else:
+                    logger.info(f"Applying SpecialCode rule: {order_code} is NOT PROGRAMMABLE")
+                    initial_status = OrderStatus.not_programmable
+
+            # Si no es un bin programable y no fue forzado por SpecialCode, marcar como no programable
+            if initial_status != OrderStatus.not_programmable and order.bin not in [8, 10, 100]:
                 initial_status = OrderStatus.not_programmable
             
             db_order = Order(
                 lote=order.lote,
                 dueDate=order.dueDate,
-                code=cleaned_order['code'],
+                code=order_code,
                 description=cleaned_order['description'],
                 quantity=order.quantity,
                 missing_quantity=order.quantity,
@@ -121,11 +131,12 @@ class OrderService:
         
         if auto_create_tasks and other_orders:
             other_lotes = [o.lote for o in other_orders]
+            automation_service = AutomationService(AutomationRepository(db))
             if background_tasks is not None:
-                background_tasks.add_task(create_tasks_for_lotes, other_lotes, current_user.username)
+                background_tasks.add_task(automation_service.create_tasks_for_lotes, other_lotes, current_user.username)
                 response_data.update({"task_creation_scheduled": True})
             else:
-                create_tasks_for_lotes(other_lotes, current_user.username)
+                automation_service.create_tasks_for_lotes(other_lotes, current_user.username)
                 response_data.update({"task_creation_scheduled": False})
         
         if bin8_failed:
@@ -135,7 +146,6 @@ class OrderService:
 
     @staticmethod
     def get_paged_orders(db: Session, filters: dict):
-        """Obtiene órdenes paginadas con sus metadatos."""
         skip = filters.pop("skip", 0)
         limit = filters.pop("limit", 10)
         
@@ -165,7 +175,6 @@ class OrderService:
 
     @staticmethod
     def receive_order(db: Session, order_id: str, custom_status: Optional[str], current_user: User):
-        """Marca una orden como recibida en almacén."""
         db_order = order_repository.find_by_lote(db, order_id)
         if not db_order:
             raise HTTPException(status_code=404, detail="Order not found")
@@ -216,7 +225,6 @@ class OrderService:
 
     @staticmethod
     def deliver_order(db: Session, order_id: int, delivered_quantity: float, observations: Optional[str], current_user: User):
-        """Registra una entrega (salida de producción a almacén)."""
         db_order = order_repository.find_by_lote(db, order_id)
         if not db_order:
             raise HTTPException(status_code=404, detail="Order not found")
@@ -262,40 +270,62 @@ class OrderService:
             "message": f"Entrega realizada exitosamente. Cantidad faltante: {db_order.missing_quantity}"
         }
 
+
     @staticmethod
-    def transfer_surplus(db: Session, source_lote: int, target_lote: int, transfer_quantity: float, current_user: User):
-        """Transfiere sobrantes de una orden a otra."""
-        source_order = order_repository.find_by_lote(db, source_lote)
-        target_order = order_repository.find_by_lote(db, target_lote)
+    def delete_order(db: Session, order_id: str):
+        db_order = order_repository.find_by_lote(db, order_id)
+        if not db_order:
+            raise HTTPException(status_code=404, detail="Order not found")
+        order_repository.delete(db, db_order)
+        return {"message": "Order deleted successfully. Tasks were preserved."}
+
+    @staticmethod
+    def update_order_status(db: Session, order_id: str, status: str):
+        db_order = order_repository.find_by_lote(db, order_id)
+        if not db_order:
+            raise HTTPException(status_code=404, detail="Order not found")
         
-        if not source_order or not target_order:
-            raise HTTPException(status_code=404, detail="Orden origen o destino no encontrada")
-        
-        if source_order.missing_quantity >= 0:
-            raise HTTPException(status_code=400, detail="La orden origen no tiene sobrantes")
-        
-        if source_order.status != OrderStatus.completed:
-            raise HTTPException(status_code=400, detail="La orden origen debe estar en estado 'completed'")
-        
-        if source_order.code != target_order.code:
-            raise HTTPException(status_code=400, detail="Las órdenes deben tener el mismo código")
-        
-        if transfer_quantity > abs(source_order.missing_quantity):
-            raise HTTPException(status_code=400, detail="Cantidad excede el sobrante disponible")
-        
-        source_order.missing_quantity += transfer_quantity
-        target_order.received_quantity = (target_order.received_quantity or 0) + transfer_quantity
-        target_order.missing_quantity = (target_order.quantity or 0) - target_order.received_quantity
-        
-        db.add(WarehouseHistory(lote=source_order.lote, code=source_order.code, quantity=transfer_quantity, type=WarehouseHistoryType.TRANSFER_SOURCE, user=current_user.username, observations=f"Sobrante transferido al lote {target_lote}"))
-        db.add(WarehouseHistory(lote=target_order.lote, code=target_order.code, quantity=transfer_quantity, type=WarehouseHistoryType.TRANSFER_TARGET, user=current_user.username, observations=f"Sobrante recibido del lote {source_lote}"))
-        
+        db_order.status = status
         db.commit()
-        return {"message": "Transferencia completada"}
+        db.refresh(db_order)
+        return {
+            "lote": db_order.lote, "code": db_order.code, "status": db_order.status,
+            "description": db_order.description, "quantity": db_order.quantity,
+            "bin": db_order.bin, "dueDate": db_order.dueDate, "missing_quantity": db_order.missing_quantity
+        }
+
+    @staticmethod
+    def hide_order(db: Session, order_id: int, is_hidden: bool):
+        db_order = order_repository.find_by_lote(db, order_id)
+        if not db_order:
+            raise HTTPException(status_code=404, detail="Order not found")
+        db_order.is_hidden = is_hidden
+        from datetime import datetime
+        db_order.hidden_at = datetime.now() if is_hidden else None
+        db.commit()
+        return {"message": "Visibilidad de la orden actualizada", "is_hidden": db_order.is_hidden}
+
+    @staticmethod
+    def sync_order_statuses(db: Session, order_ids: Optional[List[int]] = None):
+        from app.shared.utils.business.order_status_service import OrderStatusService
+        
+        query = db.query(Order)
+        if order_ids:
+            query = query.filter(Order.lote.in_(order_ids))
+        orders = query.all()
+        
+        synced_count = 0
+        for order in orders:
+            try:
+                OrderStatusService.sync_order_status_for_lote(db, str(order.lote))
+                synced_count += 1
+            except Exception:
+                continue
+        return {"message": f"Synced {synced_count} out of {len(orders)} orders"}
+
 
     @staticmethod
     def _create_notification(db, username, created_tasks_info, order_count):
-        """Helper to create TaskCreationNotification."""
         try:
             from collections import defaultdict
             from app.modules.programming.models.task_creation_notification import TaskCreationNotification

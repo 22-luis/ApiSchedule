@@ -5,7 +5,7 @@ from typing import List
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from app.modules.codes.schemas.code import CodeCreate, CodeOut, CodePageOut, CodeUpdate
+from app.modules.codes.schemas.code import CodeCreate, CodeOut, CodePageOut, CodeUpdate, CodeDetailsOut
 from app.modules.codes.services import code_service
 from app.modules.organization.models.role import UserRole
 from app.modules.organization.models.user import User
@@ -124,7 +124,7 @@ def get_code_by_code_and_activity(
     return code_service.get_code_by_code_and_activity(db, code, activity)
 
 
-@router.get("/by_code_and_activity_details")
+@router.get("/by_code_and_activity_details", response_model=CodeDetailsOut)
 @cache_response(ttl=600, key_fields=["code", "activity"])
 def get_activity_details_by_code_and_activity(
     code: str,

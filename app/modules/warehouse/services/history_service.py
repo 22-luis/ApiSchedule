@@ -11,6 +11,8 @@ def get_history(
     code: Optional[str] = None,
     user: Optional[str] = None,
     history_type: Optional[WarehouseHistoryType] = None,
+    start_date_str: Optional[str] = None,
+    end_date_str: Optional[str] = None,
     date_str: Optional[str] = None,
     skip: int = 0,
     limit: int = 100
@@ -25,12 +27,28 @@ def get_history(
         except ValueError:
             raise HTTPException(status_code=400, detail="Formato de fecha inválido. Use YYYY-MM-DD")
             
+    start_date = None
+    if start_date_str:
+        try:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Formato de fecha de inicio inválido. Use YYYY-MM-DD")
+
+    end_date = None
+    if end_date_str:
+        try:
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Formato de fecha de fin inválido. Use YYYY-MM-DD")
+
     return history_repository.find_all(
         db, 
         lote=lote, 
         code=code, 
         user=user, 
         history_type=history_type, 
+        start_date=start_date,
+        end_date=end_date,
         target_date=target_date, 
         skip=skip, 
         limit=limit

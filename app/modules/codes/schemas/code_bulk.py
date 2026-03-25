@@ -3,9 +3,6 @@ from typing import Optional, Any
 from pydantic import BaseModel, ConfigDict
 
 class CodeBulkItem(BaseModel):
-    """
-    Schema para representar un ítem de código en una carga masiva desde Excel.
-    """
     id: Optional[uuid.UUID] = None
     code: str
     activity: Optional[str] = None
@@ -20,6 +17,5 @@ class CodeBulkItem(BaseModel):
     presentation: Optional[str] = None
     fabricationCode: Optional[str] = None
     usefulLife: Optional[str] = None
-    verification: Optional[Any] = None
 
     model_config = ConfigDict(extra='allow') # Permitir columnas extra que puedan venir del Excel
