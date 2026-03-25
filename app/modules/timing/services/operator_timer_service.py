@@ -11,6 +11,7 @@ from datetime import datetime, timezone, timedelta
 import uuid
 import logging
 import sys
+from app.shared.utils.core.time_utils import TimeZoneUtils
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -36,7 +37,7 @@ class TimerService:
             raise ValueError("Stopwatch already exists for this task with the same programming flag")
 
         if start_time is None:
-            start_time = datetime.now()
+            start_time = TimeZoneUtils.get_now()
 
         stopwatch = Stopwatch(
             task_id=task_id,
@@ -51,7 +52,7 @@ class TimerService:
 
     def pause_stopwatch(self, task_id: uuid.UUID):
         from app.modules.timing.repositories import timer_repository
-        now = datetime.now()
+        now = TimeZoneUtils.get_now()
         
         stopwatch = timer_repository.find_running_stopwatch(self.db, task_id)
 
@@ -78,7 +79,7 @@ class TimerService:
         if not stopwatch:
             raise ValueError("No paused stopwatch found for this task")
 
-        now = datetime.now()
+        now = TimeZoneUtils.get_now()
         stopwatch.status = TimerStatus.RUNNING
         stopwatch.update_at = now
 
@@ -88,7 +89,7 @@ class TimerService:
         from app.modules.timing.repositories import timer_repository
         from app.modules.programming.repositories import task_repository
         
-        now = datetime.now()
+        now = TimeZoneUtils.get_now()
         
         stopwatch = timer_repository.find_stopwatch_by_task_any_status(self.db, task_id)
 
@@ -276,7 +277,7 @@ class TimerService:
     def get_daily_record_stopwatches(self):
         from app.modules.timing.repositories import timer_repository
         # Get current local datetime, then extract the date part
-        current_datetime_adjusted = datetime.now()
+        current_datetime_adjusted = TimeZoneUtils.get_now()
         today = current_datetime_adjusted.date()
 
         daily_records_query = timer_repository.find_daily_records_with_details(self.db, today)

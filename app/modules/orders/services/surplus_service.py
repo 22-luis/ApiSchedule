@@ -5,6 +5,7 @@ from app.modules.orders.repositories import surplus_repository
 from app.modules.orders.repositories import order_repository
 from app.modules.orders.schemas.order_surplus import OrderSurplusCreate
 from app.modules.orders.models.order_surplus import OrderSurplus
+from app.shared.utils.core.time_utils import TimeZoneUtils
 
 def get_all(db: Session) -> List[OrderSurplus]:
     return surplus_repository.find_all(db)
@@ -26,7 +27,7 @@ def create_surplus_batch(db: Session, surplus_list: List[OrderSurplusCreate]) ->
             db_order = order_repository.find_by_lote(db, surplus_data.lote)
             if db_order:
                 db_order.is_hidden = True
-                db_order.hidden_at = datetime.now()
+                db_order.hidden_at = TimeZoneUtils.get_now()
         
         db.commit()
         return {"message": f"Successfully processed {len(surplus_list)} surplus orders"}

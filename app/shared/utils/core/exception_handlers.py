@@ -169,6 +169,12 @@ def database_exception_handler(request: Request, exc: SQLAlchemyError):
         suggestion = "Contacta al administrador del sistema"
     
     # Log del error
+    print("\n" + "="*50)
+    print(f"DATABASE ERROR DEBUG: {error_type}")
+    import traceback
+    print("".join(traceback.format_exception(type(exc), exc, exc.__traceback__)))
+    print("="*50 + "\n")
+    
     logger.error(
         f"Database Error: {message}",
         extra={

@@ -6,6 +6,7 @@ from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
 
 from app.modules.codes.models.code import Code
+from app.shared.utils.core.time_utils import TimeZoneUtils
 from app.modules.orders.models.order import Order
 # from app.modules.codes.models.preparation import Preparation
 from app.modules.programming.models.programming import Programming, ProgrammingTask
@@ -22,8 +23,8 @@ class ProgrammingUtils:
         """
         # Debug logging to file
         try:
-            with open("debug_extract.log", "a") as f:
-                f.write(f"[{datetime.now()}] extract_order_data called with {len(orders) if orders else 0} orders\n")
+            with open("debug_automation.log", "a") as f:
+                f.write(f"[{TimeZoneUtils.get_now()}] extract_order_data called with {len(orders) if orders else 0} orders\n")
                 if orders:
                     for i, o in enumerate(orders):
                         f.write(f"  Order {i}: Lote={o.lote}, Code={o.code}, Qty={o.quantity}, Bin={o.bin}\n")
@@ -44,8 +45,8 @@ class ProgrammingUtils:
                 })
         
         try:
-            with open("debug_extract.log", "a") as f:
-                f.write(f"[{datetime.now()}] extracted_data result: {len(extracted_data)} items\n")
+            with open("debug_automation.log", "a") as f:
+                f.write(f"[{TimeZoneUtils.get_now()}] extracted_data result: {len(extracted_data)} items\n")
         except ValueError:
             pass
             

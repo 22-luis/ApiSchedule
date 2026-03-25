@@ -12,6 +12,8 @@ from sqlalchemy.orm import Session
 
 from app.modules.automation.rules.schedule import ScheduleRule
 from app.modules.automation.services.utils.auto_create_programming import create_programming_if_not_exists
+from app.shared.utils.core.time_utils import TimeZoneUtils
+from app.shared.utils.core.logging import get_logger
 from app.modules.automation.services.utils.programming_utils import ProgrammingUtils
 from app.shared.utils.business.order_status_service import OrderStatusService
 from app.shared.utils.business.programming_availability import restore_programmings_availability
@@ -194,8 +196,8 @@ class BaseTaskService(ABC):
 
                 # DEBUG LOG START
                 try:
-                    with open("scheduling_debug.log", "a") as f:
-                        f.write(f"[{datetime.now()}] Order={target_lote}, Code={order_data.get('code')}, Activity={activity_name}, CalcMins={task_minutes}\n")
+                    with open("debug_calculation.log", "a") as f:
+                        f.write(f"[{TimeZoneUtils.get_now()}] Order={target_lote}, Code={order_data.get('code')}, Activity={activity_name}, CalcMins={task_minutes}\n")
                 except:
                     pass
                 # DEBUG LOG END
@@ -214,8 +216,6 @@ class BaseTaskService(ABC):
                          # Retrieve programming info for the existing task if possible
                          pt = db.query(ProgrammingTask).filter(ProgrammingTask.task_id == existing_task.id).first()
                          
-                         from app.shared.utils.core.logging import get_logger
-                         logger = get_logger(__name__)
                          logger.info(f"Existing task found for order {target_lote} type {activity_type or activity_name}. SKIPPING CREATION.")
                          
                          # Update order status to 'programmed' even if a task already exists

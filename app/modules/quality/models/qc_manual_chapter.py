@@ -5,7 +5,7 @@ from sqlalchemy import Integer, String, Text, DateTime, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from app.shared.db.database import Base
-from app.modules.quality.models.qc_manual import get_time
+from app.shared.utils.core.time_utils import TimeZoneUtils
 
 
 class QcManualChapter(Base):
@@ -26,9 +26,9 @@ class QcManualChapter(Base):
     order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # Display order within parent
     
     # Audit fields
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=get_time, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), default=TimeZoneUtils.get_now, nullable=False)
     created_by: Mapped[str] = mapped_column(String, nullable=False)
-    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), onupdate=get_time, nullable=True)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=False), onupdate=TimeZoneUtils.get_now, nullable=True)
     updated_by: Mapped[str | None] = mapped_column(String, nullable=True)
     
     # Relationships

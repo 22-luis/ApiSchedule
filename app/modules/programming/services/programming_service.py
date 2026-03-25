@@ -14,6 +14,7 @@ from app.modules.organization.models.team import Team, UserTeam
 from app.modules.organization.models.user import User
 from app.modules.organization.models.role import UserRole
 from app.modules.programming.models.task_creation_notification import TaskCreationNotification
+from app.shared.utils.core.time_utils import TimeZoneUtils
 from app.modules.programming.schemas.task import TaskOut
 from app.modules.organization.schemas.user import UserOut
 from app.modules.timing.models.record_stopwatch import RecordStopwatch
@@ -499,7 +500,7 @@ class ProgrammingService:
     @staticmethod
     def get_recent_task_creation_notifications(db: Session):
         from datetime import timedelta
-        cutoff_time = datetime.utcnow() - timedelta(hours=24)
+        cutoff_time = TimeZoneUtils.get_now() - timedelta(hours=24)
         notifications = db.query(TaskCreationNotification).filter(
             TaskCreationNotification.created_at >= cutoff_time
         ).order_by(

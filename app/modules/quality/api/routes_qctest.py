@@ -4,6 +4,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session, joinedload
 from app.shared.db.session import get_db
+from app.shared.utils.core.time_utils import TimeZoneUtils
 from app.shared.utils.core.dependencies import get_current_user
 from app.modules.quality.models.test_record import TestRecord as Test
 from app.modules.quality.schemas.test_record import TestCreate, TestUpdate, TestOut, TestSessionCreate, TestSessionOut
@@ -19,7 +20,7 @@ router = APIRouter(prefix="/qctest", tags=["qctest"])
 
 def get_next_analysis_number(db: Session) -> int:
     """Gets the next sequential analysis number for the current month."""
-    now = datetime.now()
+    now = TimeZoneUtils.get_now()
     year = now.year
     month = now.month
     
@@ -85,7 +86,7 @@ def save_session(
                 code_id=session_data.code_id,
                 status=TestStatus.pending, # Mark as pending when first saved with results
                 performed_by=current_user.username if hasattr(current_user, 'username') else str(current_user.id),
-                performed_at=datetime.now(),
+                performed_at=TimeZoneUtils.get_now(),
                 comment=session_data.comment,
                 analysis_number=get_next_analysis_number(db)
             )
@@ -94,7 +95,7 @@ def save_session(
         else:
             # Update existing session metadata
             session.performed_by = current_user.username if hasattr(current_user, 'username') else str(current_user.id)
-            session.performed_at = datetime.now()
+            session.performed_at = TimeZoneUtils.get_now()
             session.comment = session_data.comment
             session.status = TestStatus.pending # Re-mark as pending for re-review if updated
 
@@ -145,7 +146,7 @@ def update_session_status(
              
              # Auto-set approval fields
              test_record.approved_by = current_user.username
-             test_record.approved_at = datetime.now()
+             test_record.approved_at = TimeZoneUtils.get_now()
 
         for key, value in update_data.items():
             setattr(test_record, key, value)

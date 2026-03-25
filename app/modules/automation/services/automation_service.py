@@ -1,6 +1,7 @@
 from typing import List, Dict, Any
 from datetime import datetime
 from app.shared.utils.core.logging import get_logger
+from app.shared.utils.core.time_utils import TimeZoneUtils
 from app.modules.automation.services.task_config import extract_created_orders_data
 from app.modules.automation.services.factory import TaskServiceFactory
 from app.modules.automation.repositories.automation_repository import AutomationRepository
@@ -115,7 +116,7 @@ class AutomationService:
                 "lotes": lotes,
                 "created_orders_count": len(orders),
                 "summary": summary,
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": TimeZoneUtils.get_now().isoformat()
             }
         except Exception as e:
             logger.exception(f"Error in automation for lotes={lotes}: {e}")

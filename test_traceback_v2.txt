@@ -1,0 +1,133 @@
+
+> DATABASE ERROR DEBUG: 
+database_error
+  Traceback (most recent call 
+last):
+    File "C:\Users\PC IT\AppDa
+ta\Local\Programs\Python\Pytho
+n313\Lib\site-packages\sqlalch
+emy\engine\base.py", line 
+1815, in _execute_context
+      context = constructor(
+          dialect, self, 
+conn, execution_options, 
+*args, **kw
+      )
+    File "C:\Users\PC IT\AppDa
+ta\Local\Programs\Python\Pytho
+n313\Lib\site-packages\sqlalch
+emy\engine\default.py", line 
+1493, in _init_compiled
+      flattened_processors[key
+](compiled_params[key])
+      ~~~~~~~~~~~~~~~~~~~~~~~~
+~^^^^^^^^^^^^^^^^^^^^^^
+    File "C:\Users\PC IT\AppDa
+ta\Local\Programs\Python\Pytho
+n313\Lib\site-packages\sqlalch
+emy\sql\sqltypes.py", line 
+3734, in process
+      value = value.hex
+              ^^^^^^^^^
+  AttributeError: 'str' 
+object has no attribute 'hex'
+  
+  The above exception was the 
+direct cause of the following 
+exception:
+  
+  Traceback (most recent call 
+last):
+    File "C:\Users\PC IT\AppDa
+ta\Local\Programs\Python\Pytho
+n313\Lib\site-packages\starlet
+te\_exception_handler.py", 
+line 42, in wrapped_app
+      await app(scope, 
+receive, sender)
+    File "C:\Users\PC IT\AppDa
+ta\Local\Programs\Python\Pytho
+n313\Lib\site-packages\starlet
+te\routing.py", line 75, in 
+app
+      response = await 
+f(request)
+                 
+^^^^^^^^^^^^^^^^
+    File "C:\Users\PC IT\AppDa
+ta\Local\Programs\Python\Pytho
+n313\Lib\site-packages\fastapi
+\routing.py", line 292, in app
+      solved_result = await 
+solve_dependencies(
+                      
+^^^^^^^^^^^^^^^^^^^^^^^^^
+      ...<6 lines>...
+      )
+      ^
+    File "C:\Users\PC IT\AppDa
+ta\Local\Programs\Python\Pytho
+n313\Lib\site-packages\fastapi
+\dependencies\utils.py", line 
+615, in solve_dependencies
+      solved_result = await 
+solve_dependencies(
+                      
+^^^^^^^^^^^^^^^^^^^^^^^^^
+      ...<9 lines>...
+      )
+      ^
+    File "C:\Users\PC IT\AppDa
+ta\Local\Programs\Python\Pytho
+n313\Lib\site-packages\fastapi
+\dependencies\utils.py", line 
+640, in solve_dependencies
+      solved = await 
+run_in_threadpool(call, 
+**solved_result.values)
+               ^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^
+    File "C:\Users\PC IT\AppDa
+ta\Local\Programs\Python\Pytho
+n313\Lib\site-packages\starlet
+te\concurrency.py", line 38, 
+in run_in_threadpool
+      return await 
+anyio.to_thread.run_sync(func)
+             ^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^
+    File "C:\Users\PC IT\AppDa
+ta\Local\Programs\Python\Pytho
+n313\Lib\site-packages\anyio\t
+o_thread.py", line 56, in 
+run_sync
+      return await get_async_b
+ackend().run_sync_in_worker_th
+read(
+             ^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^
+          func, args, abandon_
+on_cancel=abandon_on_cancel, 
+limiter=limiter
+          ^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^
+      )
+      ^
+    File "C:\Users\PC IT\AppDa
+ta\Local\Programs\Python\Pytho
+n313\Lib\site-packages\anyio\_
+backends\_asyncio.py", line 
+2476, in 
+run_sync_in_worker_thread
+      return await future
+             ^^^^^^^^^^^^
+    File "C:\Users\PC IT\AppDa
+ta\Local\Programs\Python\Pytho
+n313\Lib\site-packages\anyio\_
+backends\_asyncio.py", line 
+967, in run
+
+

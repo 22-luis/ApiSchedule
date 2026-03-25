@@ -9,6 +9,12 @@ class TimeZoneUtils:
         return pytz.timezone('America/El_Salvador')
     
     @staticmethod
+    def get_now() -> datetime:
+        """Retorna la hora actual de El Salvador como datetime naive."""
+        el_salvador_tz = TimeZoneUtils.get_el_salvador_timezone()
+        return datetime.now(el_salvador_tz).replace(tzinfo=None)
+    
+    @staticmethod
     def convert_to_el_salvador_time(utc_datetime: datetime) -> datetime:
         if utc_datetime.tzinfo is None:
             utc_datetime = pytz.UTC.localize(utc_datetime)
@@ -70,9 +76,8 @@ class TimeZoneUtils:
                 datetime.combine(target_date, time(base_hour, base_minute))
             )
             
-            # Convertir a UTC
-            utc_datetime = local_datetime.astimezone(pytz.UTC)
-            return utc_datetime
+            # Retornar datetime NAIVE en hora local de El Salvador (sin conversión a UTC)
+            return local_datetime.replace(tzinfo=None)
             
         except Exception as e:
             print(f"Error calculando hora base UTC: {e}")

@@ -46,6 +46,18 @@ SessionLocal = sessionmaker(
 
 # Eventos para logging de conexiones
 @event.listens_for(engine, "connect")
+def set_postgresql_timezone(dbapi_connection, connection_record):
+    """Configurar la zona horaria en PostgreSQL a America/El_Salvador"""
+    if engine.dialect.name == "postgresql":
+        cursor = dbapi_connection.cursor()
+        try:
+            cursor.execute("SET TIME ZONE 'America/El_Salvador'")
+        except Exception as e:
+            logger.warning(f"Could not set timezone: {e}")
+        finally:
+            cursor.close()
+
+@event.listens_for(engine, "connect")
 def set_sqlite_pragma(dbapi_connection, connection_record):
     """Configurar pragmas para SQLite (solo en testing)"""
     if settings.ENVIRONMENT == "testing":

@@ -5,6 +5,7 @@ import sqlalchemy as sa
 from sqlalchemy.orm import relationship
 from app.shared.db.database import Base
 from sqlalchemy.dialects.postgresql import UUID
+from app.shared.utils.core.time_utils import TimeZoneUtils
 from app.modules.timing.models.state import TimerStatus
 
 
@@ -15,10 +16,10 @@ class SupStopwatch(Base):
     supervisor_id = Column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=False)
     status = Column(Enum(TimerStatus), nullable=False)
     accumulated_duration = Column(Float, default=0, nullable=False) # in hours
-    real_start_time = Column(DateTime, nullable=True)
-    real_end_time = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, nullable=True, default=datetime.now)
-    updated_at = Column(DateTime, nullable=True, onupdate=datetime.now)
+    real_start_time = Column(DateTime(timezone=False), nullable=True)
+    real_end_time = Column(DateTime(timezone=False), nullable=True)
+    created_at = Column(DateTime(timezone=False), nullable=True, default=TimeZoneUtils.get_now)
+    updated_at = Column(DateTime(timezone=False), nullable=True, onupdate=TimeZoneUtils.get_now)
 
     # Verification fields
     area_limpia = Column(Boolean, default=False, nullable=False)

@@ -214,7 +214,7 @@ class HealthChecker:
         
         return {
             "status": overall_status,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now().isoformat(),
             "uptime_seconds": round(time.time() - self.start_time, 2),
             "response_time_ms": round((time.time() - start_time) * 1000, 2),
             "checks": checks,
@@ -237,7 +237,7 @@ async def get_health_status() -> Dict[str, Any]:
 async def get_quick_health_status() -> Dict[str, Any]:
     return {
         "status": "healthy",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now().isoformat(),
         "uptime_seconds": round(time.time() - health_checker.start_time, 2),
         "app_info": {
             "name": settings.APP_NAME,

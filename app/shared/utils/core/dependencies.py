@@ -37,7 +37,15 @@ def get_current_user(
     user_id = payload.get("sub")
     if user_id is None:
         raise credentials_exception
-    user = db.query(User).filter(User.id == user_id).first()
+    
+    # Convertir a UUID para evitar problemas con SQLAlchemy y SQLite en tests
+    import uuid
+    try:
+        user_uuid = uuid.UUID(user_id) if isinstance(user_id, str) else user_id
+    except ValueError:
+        raise credentials_exception
+        
+    user = db.query(User).filter(User.id == user_uuid).first()
     if user is None:
         raise credentials_exception
     return user
@@ -73,8 +81,14 @@ def require_roles(*roles: UserRole):
 
 
 # 2. Crear una dependencia para obtener el usuario objetivo y manejar el 404.
-def get_target_user(user_id: str, db: Session = Depends(get_db)) -> type[User]:
-    user = db.query(User).filter(User.id == user_id).first()
+def get_target_user(user_id: str, db: Session = Depends(get_db)) -> User:
+    import uuid
+    try:
+        user_uuid = uuid.UUID(user_id) if isinstance(user_id, str) else user_id
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid user ID format")
+        
+    user = db.query(User).filter(User.id == user_uuid).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return user

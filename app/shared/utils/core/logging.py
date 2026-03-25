@@ -5,13 +5,14 @@ from datetime import datetime
 from typing import Any, Dict, Optional
 from pathlib import Path
 from app.shared.core.config import settings
+from app.shared.utils.core.time_utils import TimeZoneUtils
 
 
 class JSONFormatter(logging.Formatter):
     
     def format(self, record: logging.LogRecord) -> str:
         log_entry = {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": TimeZoneUtils.get_now().isoformat(),
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),

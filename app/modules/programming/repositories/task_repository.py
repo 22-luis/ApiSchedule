@@ -8,9 +8,21 @@ def find_all(db: Session) -> List[Task]:
     return db.query(Task).all()
 
 def find_by_id(db: Session, task_id: str) -> Optional[Task]:
+    import uuid
+    if isinstance(task_id, str):
+        try:
+            task_id = uuid.UUID(task_id)
+        except ValueError:
+            return None
     return db.query(Task).get(task_id)
 
 def find_with_relations(db: Session, task_id: str) -> Optional[Task]:
+    import uuid
+    if isinstance(task_id, str):
+        try:
+            task_id = uuid.UUID(task_id)
+        except ValueError:
+            return None
     return db.query(Task).options(
         joinedload(Task.code),
         joinedload(Task.preparation),

@@ -1,8 +1,8 @@
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
-from datetime import datetime, timezone, timedelta
 import uuid
 import logging
+from app.shared.utils.core.time_utils import TimeZoneUtils
 
 from app.modules.programming.models.task import Task
 from app.modules.timing.models.sup_stopwatch import SupStopwatch
@@ -27,7 +27,7 @@ class SupTimerService:
                 return existing
             # If paused, resume
             existing.status = TimerStatus.RUNNING
-            existing.real_start_time = datetime.now()
+            existing.real_start_time = TimeZoneUtils.get_now()
             self.db.commit()
             self.db.refresh(existing)
             return existing
@@ -43,7 +43,7 @@ class SupTimerService:
         # Inherit latest verification state
         last_record = historical_records[0] if historical_records else None
         
-        now_local = datetime.now()
+        now_local = TimeZoneUtils.get_now()
         sup_stopwatch = SupStopwatch(
             task_id=task_id,
             supervisor_id=supervisor_id,
@@ -82,7 +82,7 @@ class SupTimerService:
         if sup_stopwatch.status != TimerStatus.RUNNING:
             return sup_stopwatch
 
-        now_local = datetime.now()
+        now_local = TimeZoneUtils.get_now()
         last_start = (sup_stopwatch.real_start_time if sup_stopwatch.real_start_time else sup_stopwatch.created_at).replace(tzinfo=None)
         
         elapsed = (now_local - last_start).total_seconds() / 3600
@@ -122,7 +122,7 @@ class SupTimerService:
         if not sup_stopwatch:
             raise ValueError("No supervision timer found")
 
-        now_local = datetime.now()
+        now_local = TimeZoneUtils.get_now()
         accumulated = float(sup_stopwatch.accumulated_duration or 0)
 
         if sup_stopwatch.status == TimerStatus.RUNNING:
@@ -199,7 +199,7 @@ class SupTimerService:
             tid = str(timer.task_id)
             live_duration = float(timer.accumulated_duration or 0)
             if timer.status == TimerStatus.RUNNING:
-                now_local = datetime.now()
+                now_local = TimeZoneUtils.get_now()
                 last_start = (timer.real_start_time if timer.real_start_time else timer.created_at).replace(tzinfo=None)
                 elapsed = (now_local - last_start).total_seconds() / 3600
                 live_duration += elapsed

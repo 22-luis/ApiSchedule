@@ -4,6 +4,7 @@ from sqlalchemy import Column, Float, DateTime, ForeignKey, Enum, Boolean
 from sqlalchemy.orm import relationship
 from app.shared.db.database import Base
 from sqlalchemy.dialects.postgresql import UUID
+from app.shared.utils.core.time_utils import TimeZoneUtils
 from app.modules.timing.models.state import TimerStatus
 
 
@@ -15,7 +16,7 @@ class Stopwatch(Base):
     quantity = Column(Float, nullable=False)
     accumulated_duration = Column(Float, default=0, nullable=False) # in hours
     is_from_programming = Column(Boolean, default=False, nullable=False)
-    created_at = Column(DateTime(timezone=False), nullable=True, default=lambda: datetime.now())
+    created_at = Column(DateTime(timezone=False), nullable=True, default=TimeZoneUtils.get_now)
     update_at = Column(DateTime(timezone=False), nullable=True)
     real_start_time = Column(DateTime(timezone=False), nullable=True)
     real_end_time = Column(DateTime(timezone=False), nullable=True)

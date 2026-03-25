@@ -5,6 +5,8 @@ from sqlalchemy.dialects.postgresql import UUID
 import uuid
 from app.shared.db.database import Base
 
+from app.shared.utils.core.time_utils import TimeZoneUtils
+
 class WarehouseHistoryType(str, enum.Enum):
     SENT = "SENT"
     RECEIVED = "RECEIVED"
@@ -19,5 +21,5 @@ class WarehouseHistory(Base):
     quantity = Column(Float, nullable=False)
     type = Column(Enum(WarehouseHistoryType), nullable=False)
     user = Column(String, nullable=False)
-    timestamp = Column(DateTime, default=datetime.now)
+    timestamp = Column(DateTime(timezone=False), default=TimeZoneUtils.get_now)
     observations = Column(String, nullable=True)

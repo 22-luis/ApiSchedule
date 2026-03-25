@@ -1,4 +1,5 @@
 from datetime import datetime
+from app.shared.utils.core.time_utils import TimeZoneUtils
 from sqlalchemy import Column, DateTime, Integer, ForeignKey, String, Date, UniqueConstraint, Boolean, Enum, Float
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
@@ -10,12 +11,12 @@ class ProgrammingTask(Base):
     __tablename__ = "programming_task"
     programming_id = Column(UUID(as_uuid=True), ForeignKey("programming.id"), primary_key=True)
     task_id = Column(UUID(as_uuid=True), ForeignKey("task.id"), primary_key=True)
-    created_at = Column('created_at', DateTime, default=datetime.now)
+    created_at = Column('created_at', DateTime(timezone=False), default=TimeZoneUtils.get_now)
     order = Column(Integer, nullable=False)
-    start_time = Column(DateTime, nullable=True)
-    end_time = Column(DateTime, nullable=True)
-    real_start_time = Column(DateTime, nullable=True)
-    real_end_time = Column(DateTime, nullable=True)
+    start_time = Column(DateTime(timezone=False), nullable=True)
+    end_time = Column(DateTime(timezone=False), nullable=True)
+    real_start_time = Column(DateTime(timezone=False), nullable=True)
+    real_end_time = Column(DateTime(timezone=False), nullable=True)
     real_quantity = Column(Float, nullable=True)
     duration_in_hours = Column(Float, nullable=True)
     comment = Column(String, nullable=True)

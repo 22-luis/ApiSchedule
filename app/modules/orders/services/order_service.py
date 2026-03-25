@@ -14,6 +14,7 @@ from app.modules.automation.services.factory import TaskServiceFactory
 from app.modules.automation.repositories.automation_repository import AutomationRepository
 from app.modules.automation.services.automation_service import AutomationService
 from app.shared.utils.core.logging import get_logger
+from app.shared.utils.core.time_utils import TimeZoneUtils
 
 logger = get_logger("order_service")
 
@@ -300,8 +301,7 @@ class OrderService:
         if not db_order:
             raise HTTPException(status_code=404, detail="Order not found")
         db_order.is_hidden = is_hidden
-        from datetime import datetime
-        db_order.hidden_at = datetime.now() if is_hidden else None
+        db_order.hidden_at = TimeZoneUtils.get_now() if is_hidden else None
         db.commit()
         return {"message": "Visibilidad de la orden actualizada", "is_hidden": db_order.is_hidden}
 

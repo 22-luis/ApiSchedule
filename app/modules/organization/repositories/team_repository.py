@@ -7,6 +7,11 @@ def find_all_teams(db: Session) -> List[Team]:
     return db.query(Team).all()
 
 def find_team_by_id(db: Session, team_id: uuid.UUID) -> Optional[Team]:
+    if isinstance(team_id, str):
+        try:
+            team_id = uuid.UUID(team_id)
+        except ValueError:
+            return None
     return db.query(Team).filter(Team.id == team_id).first()
 
 def find_user_team_association(db: Session, user_id: uuid.UUID, team_id: uuid.UUID) -> Optional[UserTeam]:

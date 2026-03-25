@@ -4,6 +4,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.shared.db.database import Base
 from sqlalchemy.dialects.postgresql import UUID
+from app.shared.utils.core.time_utils import TimeZoneUtils
 
 class SupRecordStopwatch(Base):
     __tablename__ = 'sup_record_stopwatch'
@@ -13,9 +14,9 @@ class SupRecordStopwatch(Base):
     accumulated_duration = Column(Float, default=0, nullable=False) # in hours
     comments = Column(String, nullable=True)
     medidas_tomadas = Column(String, nullable=True)
-    creation_date = Column(DateTime, server_default=func.now())
-    real_start_time = Column(DateTime, nullable=True)
-    real_end_time = Column(DateTime, nullable=True)
+    creation_date = Column(DateTime(timezone=False), default=TimeZoneUtils.get_now)
+    real_start_time = Column(DateTime(timezone=False), nullable=True)
+    real_end_time = Column(DateTime(timezone=False), nullable=True)
     
     # Verification fields
     area_limpia = Column(Boolean, default=False, nullable=False)

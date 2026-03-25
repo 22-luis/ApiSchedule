@@ -2,6 +2,7 @@ import datetime
 from typing import Dict, Any, Optional, Set, List
 
 from sqlalchemy.orm import Session
+from app.shared.utils.core.time_utils import TimeZoneUtils
 
 from app.modules.automation.rules.base_rule import BaseAutomationRule
 from app.modules.automation.services.config import ServiceType
@@ -43,7 +44,7 @@ class PackagingRule(BaseAutomationRule):
     def _log_debug(message: str):
         try:
             with open("debug_rules.log", "a") as f:
-                timestamp = datetime.datetime.now().isoformat()
+                timestamp = TimeZoneUtils.get_now().isoformat()
                 f.write(f"[{timestamp}] {message}\n")
         except (PermissionError, IOError):
             pass

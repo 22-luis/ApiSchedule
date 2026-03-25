@@ -1,8 +1,10 @@
 import datetime
 from uuid import UUID
+import uuid
 from typing import List, Dict, Any, Optional, cast
 from sqlalchemy.orm import Session, joinedload
 from fastapi import HTTPException
+from app.shared.utils.core.time_utils import TimeZoneUtils
 from pytz import timezone
 
 from app.modules.programming.models.task import Task
@@ -33,13 +35,16 @@ class TaskService:
     @staticmethod
     def create_task(db: Session, task_data: Dict[str, Any], team_ids: List[str], programming_id: str, current_user: User) -> Task:
         from app.modules.programming.repositories import programming_repository, task_repository
-        programming = programming_repository.find_by_id(db, UUID(programming_id) if isinstance(programming_id, str) else programming_id)
+        
+        prog_id = uuid.UUID(programming_id) if isinstance(programming_id, str) else programming_id
+        programming = programming_repository.find_by_id(db, prog_id)
         if not programming:
             raise HTTPException(status_code=404, detail="Programming not found")
 
         TaskService.check_user_team_permission(current_user, programming)
 
-        teams = db.query(Team).filter(Team.id.in_(team_ids)).all()
+        team_uuids = [uuid.UUID(tid) if isinstance(tid, str) else tid for tid in team_ids]
+        teams = db.query(Team).filter(Team.id.in_(team_uuids)).all()
         if len(teams) != len(team_ids):
             raise HTTPException(status_code=400, detail="One or more teams not found")
 
@@ -87,7 +92,14 @@ class TaskService:
         if not original_task:
             raise HTTPException(status_code=404, detail="Original task not found")
 
-        programming = db.query(Programming).join(ProgrammingTask).filter(ProgrammingTask.task_id == task_id).first()
+        task_uuid = uuid.UUID(task_id) if isinstance(task_id, str) else task_id
+        programming = db.query(Programming).join(ProgrammingTask).filter(ProgrammingTask.task_id == task_uuid).first()
+        if not programming:
+            # Try finding through relationship if join fails on some dialects
+            programming_task = db.query(ProgrammingTask).filter(ProgrammingTask.task_id == task_uuid).first()
+            if programming_task:
+                programming = programming_task.programming
+
         if not programming:
             raise HTTPException(status_code=404, detail="Task not associated with any programming")
 
@@ -107,7 +119,8 @@ class TaskService:
 
     @staticmethod
     def update_task(db: Session, task_id: str, update_data: Dict[str, Any], current_user: User) -> Task:
-        db_task = db.query(Task).filter(Task.id == task_id).first()
+        task_uuid = uuid.UUID(task_id) if isinstance(task_id, str) else task_id
+        db_task = db.query(Task).filter(Task.id == task_uuid).first()
         if not db_task:
             raise HTTPException(status_code=404, detail="Task not found")
         
@@ -118,14 +131,15 @@ class TaskService:
             setattr(db_task, field, value)
             
         if team_ids is not None:
-            teams = db.query(Team).filter(Team.id.in_(team_ids)).all()
+            team_uuids = [uuid.UUID(tid) if isinstance(tid, str) else tid for tid in team_ids]
+            teams = db.query(Team).filter(Team.id.in_(team_uuids)).all()
             if len(teams) != len(team_ids):
                 raise HTTPException(status_code=400, detail="One or more teams not found")
             db_task.teams = teams
         
         if updating_times:
             sv_tz = timezone("America/El_Salvador")
-            programming_tasks = db.query(ProgrammingTask).filter(ProgrammingTask.task_id == task_id).all()
+            programming_tasks = db.query(ProgrammingTask).filter(ProgrammingTask.task_id == task_uuid).all()
             for pt in programming_tasks:
                 if 'start_time' in update_data:
                     st = update_data['start_time']
@@ -140,9 +154,9 @@ class TaskService:
         
         db.commit()
         if updating_times:
-            update_programming_availability_by_task(db, task_id)
+            update_programming_availability_by_task(db, str(task_uuid))
             
-        return TaskService.get_task_with_relations(db, task_id)
+        return TaskService.get_task_with_relations(db, str(task_uuid))
 
     @staticmethod
     def update_task_status(db: Session, task_id: str, new_status: TaskStatus, current_user: User) -> Task:
@@ -158,12 +172,11 @@ class TaskService:
 
         # Auth check for pausing
         if new_status == TaskStatus.PAUSED and current_user.role == UserRole.USER:
-            # Replicating existing logic from routes_task.py
             allowed_task_types = ["M1", "M12", "M13", "M15"]
             if db_task.type not in allowed_task_types:
                 raise HTTPException(status_code=403, detail="You are not authorized to pause this type of task")
 
-        now = datetime.datetime.utcnow()
+        now = TimeZoneUtils.get_now()
         current_log_entry = db.query(TaskStatusLog).filter(
             TaskStatusLog.task_id == db_task.id,
             TaskStatusLog.end_time == None
@@ -181,23 +194,23 @@ class TaskService:
 
     @staticmethod
     def change_task_status(db: Session, task_id: str, new_status_val: str) -> TaskStatusLog:
-        from app.modules.programming.models.task import Task
-        task = db.query(Task).filter(Task.id == task_id).first()
+        task_uuid = uuid.UUID(task_id) if isinstance(task_id, str) else task_id
+        task = db.query(Task).filter(Task.id == task_uuid).first()
         if not task:
             raise HTTPException(status_code=404, detail="Task not found")
 
-        latest_log = db.query(TaskStatusLog).filter(TaskStatusLog.task_id == task_id).order_by(TaskStatusLog.start_time.desc()).first()
+        latest_log = db.query(TaskStatusLog).filter(TaskStatusLog.task_id == task_uuid).order_by(TaskStatusLog.start_time.desc()).first()
 
         if latest_log:
             if latest_log.status == new_status_val:
                 return latest_log
-            latest_log.end_time = datetime.datetime.utcnow()
+            latest_log.end_time = TimeZoneUtils.get_now()
             db.add(latest_log)
 
         new_log = TaskStatusLog(
-            task_id=task_id,
+            task_id=task_uuid,
             status=new_status_val,
-            start_time=datetime.datetime.utcnow()
+            start_time=TimeZoneUtils.get_now()
         )
         db.add(new_log)
         task.status = new_status_val
@@ -208,22 +221,20 @@ class TaskService:
 
     @staticmethod
     def get_status_logs(db: Session, task_id: str) -> List[TaskStatusLog]:
-        return db.query(TaskStatusLog).filter(TaskStatusLog.task_id == task_id).order_by(TaskStatusLog.start_time.asc()).all()
+        task_uuid = uuid.UUID(task_id) if isinstance(task_id, str) else task_id
+        return db.query(TaskStatusLog).filter(TaskStatusLog.task_id == task_uuid).order_by(TaskStatusLog.start_time.asc()).all()
 
     @staticmethod
     def delete_tasks(db: Session, task_ids: List[str]) -> bool:
-        tasks_to_delete = db.query(Task).filter(Task.id.in_(task_ids)).all()
-        if len(tasks_to_delete) != len(set(task_ids)):
+        task_uuids = [uuid.UUID(tid) if isinstance(tid, str) else tid for tid in task_ids]
+        tasks_to_delete = db.query(Task).filter(Task.id.in_(task_uuids)).all()
+        if len(tasks_to_delete) != len(set(task_uuids)):
             return False
 
         try:
             for task in tasks_to_delete:
-                # Verificar si la tarea está asociada a otras programaciones
                 usage_count = db.query(ProgrammingTask).filter(ProgrammingTask.task_id == task.id).count()
                 if usage_count > 0:
-                    # Si todavía está en uso en alguna programación, NO borrar el objeto Task globalmente,
-                    # solo limpiar asociaciones secundarias si es necesario o saltar.
-                    # Nota: La remoción contextual debe hacerse vía remove_task_from_programming.
                     continue
 
                 OrderStatusService.update_order_status_for_task_deletion(db, task)
@@ -236,16 +247,18 @@ class TaskService:
         except Exception:
             db.rollback()
             raise
+
     @staticmethod
     def get_task_real_time(db: Session, task_id: str) -> dict:
         """Calculate real time for a task from its status logs."""
+        task_uuid = uuid.UUID(task_id) if isinstance(task_id, str) else task_id
         from app.modules.programming.repositories import task_repository
-        db_task = task_repository.find_by_id(db, task_id)
+        db_task = task_repository.find_by_id(db, task_uuid)
         if not db_task:
             raise HTTPException(status_code=404, detail="Task not found")
 
         log_entries = db.query(TaskStatusLog).filter(
-            TaskStatusLog.task_id == task_id,
+            TaskStatusLog.task_id == task_uuid,
             TaskStatusLog.status == TaskStatus.IN_PROGRESS.value
         ).all()
 
@@ -254,8 +267,8 @@ class TaskService:
             if entry.end_time:
                 total_time += entry.end_time - entry.start_time
             else:
-                total_time += datetime.datetime.utcnow() - entry.start_time
+                total_time += TimeZoneUtils.get_now() - entry.start_time
 
-        return {"task_id": task_id, "real_time_seconds": total_time.total_seconds()}
+        return {"task_id": str(task_uuid), "real_time_seconds": total_time.total_seconds()}
 
 task_service = TaskService()

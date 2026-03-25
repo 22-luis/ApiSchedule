@@ -5,6 +5,8 @@ from sqlalchemy.dialects.postgresql import UUID
 from app.shared.db.database import Base
 
 
+from app.shared.utils.core.time_utils import TimeZoneUtils
+
 class TaskCreationNotification(Base):
     """
     Model to store notifications about automatic task creation.
@@ -13,7 +15,7 @@ class TaskCreationNotification(Base):
     __tablename__ = "task_creation_notification"
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime(timezone=False), nullable=False, default=TimeZoneUtils.get_now)
     created_by = Column(String, nullable=False)
     
     # JSON field storing list of programming info:

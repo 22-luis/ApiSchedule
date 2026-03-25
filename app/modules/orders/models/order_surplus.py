@@ -4,15 +4,17 @@ from sqlalchemy import Column, Integer, String, Float, DateTime, Date, ForeignKe
 from sqlalchemy.dialects.postgresql import UUID
 from app.shared.db.database import Base
 
+from app.shared.utils.core.time_utils import TimeZoneUtils
+
 class OrderSurplus(Base):
     __tablename__ = "order_surplus"
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     lote = Column(Integer, ForeignKey("order.lote"), nullable=False)
-    date = Column(Date, nullable=False, default=datetime.now().date())
+    date = Column(Date, nullable=False, default=lambda: TimeZoneUtils.get_now().date())
     code = Column(String, nullable=False)
     description = Column(String, nullable=True)
     original_quantity = Column(Float, nullable=False)
     received_quantity = Column(Float, nullable=False)
     surplus = Column(Float, nullable=False)
-    created_at = Column(DateTime, default=datetime.now)
+    created_at = Column(DateTime(timezone=False), default=TimeZoneUtils.get_now)

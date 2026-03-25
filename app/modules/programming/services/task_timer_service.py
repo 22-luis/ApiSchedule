@@ -1,6 +1,6 @@
 import traceback
 from datetime import datetime, timezone as dt_timezone
-from pytz import timezone
+from app.shared.utils.core.time_utils import TimeZoneUtils
 from sqlalchemy.orm import Session, joinedload
 from fastapi import HTTPException
 
@@ -21,7 +21,6 @@ class TaskTimerService:
         if not pt:
             return None, "ProgrammingTask not found"
         
-        sv_tz = timezone("America/El_Salvador")
         if data and data.get("real_start_time"):
             val = data["real_start_time"]
             if isinstance(val, str):
@@ -29,7 +28,7 @@ class TaskTimerService:
             else:
                 pt.real_start_time = val
         else:
-            pt.real_start_time = datetime.now(sv_tz)
+            pt.real_start_time = TimeZoneUtils.get_now()
         
         pt.completed_by_user_id = current_user.id
         
@@ -56,7 +55,6 @@ class TaskTimerService:
         if not pt:
             return None, "ProgrammingTask not found"
         
-        sv_tz = timezone("America/El_Salvador")
         # Use real_end_time from data if available, otherwise now
         val_end = None
         if data and hasattr(data, 'real_end_time') and data.real_end_time:
@@ -68,7 +66,7 @@ class TaskTimerService:
             else:
                 pt.real_end_time = val_end
         else:
-            pt.real_end_time = datetime.now(sv_tz)
+            pt.real_end_time = TimeZoneUtils.get_now()
         
         # Use real_quantity from argument if provided, otherwise from data
         final_quantity = real_quantity

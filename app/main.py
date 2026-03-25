@@ -80,7 +80,7 @@ async def lifespan(_app: FastAPI):
     logger.info(f"Finalizando {settings.APP_NAME}")
 
 if settings.is_development:
-    print(f"🚀 ApiSchedule iniciado correctamente! Health: http://localhost:8000/api/v1/health")
+    print(f"ApiSchedule iniciado correctamente! Health: http://localhost:8000/api/v1/health")
     print(f"   Documentacion: http://localhost:8000/docs")
 
 # Start Application
