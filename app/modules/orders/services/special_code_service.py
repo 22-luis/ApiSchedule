@@ -7,8 +7,8 @@ from app.modules.orders.schemas.special_code import SpecialCodeCreate, SpecialCo
 
 class SpecialCodeService:
     @staticmethod
-    def get_all(db: Session, skip: int = 0, limit: int = 100) -> List[SpecialCode]:
-        return special_code_repository.find_all(db, skip=skip, limit=limit)
+    def get_all(db: Session, skip: int = 0, limit: int = 100, search: Optional[str] = None) -> List[SpecialCode]:
+        return special_code_repository.find_all(db, skip=skip, limit=limit, search=search)
 
     @staticmethod
     def create(db: Session, special_code_in: SpecialCodeCreate) -> SpecialCode:

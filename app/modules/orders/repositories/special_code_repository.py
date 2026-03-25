@@ -8,8 +8,11 @@ def find_by_id(db: Session, special_code_id: str) -> Optional[SpecialCode]:
 def find_by_code(db: Session, code: str) -> Optional[SpecialCode]:
     return db.query(SpecialCode).filter(SpecialCode.code == code).first()
 
-def find_all(db: Session, skip: int = 0, limit: int = 100) -> List[SpecialCode]:
-    return db.query(SpecialCode).offset(skip).limit(limit).all()
+def find_all(db: Session, skip: int = 0, limit: int = 100, search: Optional[str] = None) -> List[SpecialCode]:
+    query = db.query(SpecialCode)
+    if search:
+        query = query.filter(SpecialCode.code.ilike(f"%{search}%"))
+    return query.offset(skip).limit(limit).all()
 
 def save(db: Session, special_code: SpecialCode) -> SpecialCode:
     db.add(special_code)

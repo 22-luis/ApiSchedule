@@ -19,6 +19,7 @@ class StopwatchUpdate(BaseModel):
     is_from_programming: bool | None = None
 
 class StopwatchInDBBase(StopwatchBase):
+    id: uuid.UUID
     created_at: datetime
     update_at: datetime | None = None
     real_start_time: datetime | None = None

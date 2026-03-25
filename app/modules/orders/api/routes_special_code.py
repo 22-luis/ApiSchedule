@@ -14,10 +14,11 @@ router = APIRouter(prefix="/orders/special-codes", tags=["orders"])
 def get_special_codes(
     skip: int = 0,
     limit: int = 100,
+    search: str = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PLANNER, UserRole.SUPERVISOR))
 ):
-    return SpecialCodeService.get_all(db, skip=skip, limit=limit)
+    return SpecialCodeService.get_all(db, skip=skip, limit=limit, search=search)
 
 @router.post("/", response_model=SpecialCode)
 def create_special_code(
