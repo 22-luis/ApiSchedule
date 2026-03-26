@@ -11,8 +11,10 @@ class TimeZoneUtils:
     @staticmethod
     def get_now() -> datetime:
         """Retorna la hora actual de El Salvador como datetime naive."""
+        # Usar UTC como base para evitar problemas con la hora del sistema
+        utc_now = datetime.now(pytz.UTC)
         el_salvador_tz = TimeZoneUtils.get_el_salvador_timezone()
-        return datetime.now(el_salvador_tz).replace(tzinfo=None)
+        return utc_now.astimezone(el_salvador_tz).replace(tzinfo=None)
     
     @staticmethod
     def convert_to_el_salvador_time(utc_datetime: datetime) -> datetime:

@@ -2,6 +2,7 @@
 from pydantic import BaseModel, ConfigDict, field_validator
 import uuid
 from datetime import datetime
+import pytz
 from app.modules.timing.models.state import TimerStatus
 
 class StopwatchBase(BaseModel):
@@ -20,17 +21,17 @@ class StopwatchUpdate(BaseModel):
 
 class StopwatchInDBBase(StopwatchBase):
     id: uuid.UUID
-    created_at: datetime
-    update_at: datetime | None = None
-    real_start_time: datetime | None = None
-    real_end_time: datetime | None = None
+    created_at: str
+    update_at: str | None = None
+    real_start_time: str | None = None
+    real_end_time: str | None = None
     is_from_programming: bool
 
     @field_validator('created_at', 'update_at', 'real_start_time', 'real_end_time', mode='before')
     @classmethod
-    def strip_tzinfo(cls, v):
+    def format_datetime(cls, v):
         if isinstance(v, datetime):
-            return v.replace(tzinfo=None)
+            return v.isoformat()
         return v
 
     model_config = ConfigDict(from_attributes=True)

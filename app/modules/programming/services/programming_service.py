@@ -25,6 +25,18 @@ from fastapi import HTTPException
 
 class ProgrammingService:
     @staticmethod
+    def _convert_to_utc(dt):
+        if dt is None:
+            return None
+        if dt.tzinfo is None:
+            # Assume it's in El Salvador timezone
+            sv_tz = timezone('America/El_Salvador')
+            localized = sv_tz.localize(dt)
+            return localized.astimezone(timezone('UTC')).replace(tzinfo=None)
+        else:
+            return dt.astimezone(timezone('UTC')).replace(tzinfo=None)
+
+    @staticmethod
     def user_belongs_to_team(user: User, team_id: str) -> bool:
         return any(str(team.id) == str(team_id) for team in getattr(user, "teams", []))
 
@@ -104,8 +116,8 @@ class ProgrammingService:
                 t['start_time'] = pt.start_time
                 t['end_time'] = pt.end_time
                 t['order'] = pt.order
-                t['real_start_time'] = getattr(pt, 'real_start_time', None)
-                t['real_end_time'] = getattr(pt, 'real_end_time', None)
+                t['real_start_time'] = pt.real_start_time.isoformat() if pt.real_start_time else None
+                t['real_end_time'] = pt.real_end_time.isoformat() if pt.real_end_time else None
                 t['real_quantity'] = getattr(pt, 'real_quantity', None)
                 t['duration_in_hours'] = getattr(pt, 'duration_in_hours', 0)
                 
@@ -295,8 +307,8 @@ class ProgrammingService:
                     t['start_time'] = pt.start_time
                     t['end_time'] = pt.end_time
                     t['order'] = pt.order
-                    t['real_start_time'] = getattr(pt, 'real_start_time', None)
-                    t['real_end_time'] = getattr(pt, 'real_end_time', None)
+                    t['real_start_time'] = pt.real_start_time.isoformat() if pt.real_start_time else None
+                    t['real_end_time'] = pt.real_end_time.isoformat() if pt.real_end_time else None
                     t['real_quantity'] = getattr(pt, 'real_quantity', None)
                     t['duration_in_hours'] = getattr(pt, 'duration_in_hours', 0)
                     

@@ -2,13 +2,14 @@ import uuid
 from pydantic import BaseModel, field_validator
 from datetime import datetime
 from typing import Optional, List
+import pytz
 
 class RecordStopwatchDetailSchema(BaseModel):
     id: uuid.UUID
     task_id: uuid.UUID
     quantity: float
     accumulated_duration: float
-    creation_date: datetime
+    creation_date: str
     code_code: str
     task_description: str
     task_type: Optional[str] = None
@@ -18,9 +19,9 @@ class RecordStopwatchDetailSchema(BaseModel):
 
     @field_validator('creation_date', mode='before')
     @classmethod
-    def strip_tzinfo(cls, v):
+    def format_datetime(cls, v):
         if isinstance(v, datetime):
-            return v.replace(tzinfo=None)
+            return v.isoformat()
         return v
 
 class TaskStatusRequest(BaseModel):
@@ -31,14 +32,14 @@ class TaskStatusResponse(BaseModel):
     status: str
     record_id: Optional[str] = None
     is_from_programming: bool
-    real_start_time: Optional[datetime] = None
-    real_end_time: Optional[datetime] = None
+    real_start_time: Optional[str] = None
+    real_end_time: Optional[str] = None
 
     @field_validator('real_start_time', 'real_end_time', mode='before')
     @classmethod
-    def strip_tzinfo(cls, v):
+    def format_datetime(cls, v):
         if isinstance(v, datetime):
-            return v.replace(tzinfo=None)
+            return v.isoformat()
         return v
 
 class TimerStartPayload(BaseModel):
@@ -67,16 +68,16 @@ class SupStopwatch(SupVerificationFields):
     supervisor_id: uuid.UUID
     status: str
     accumulated_duration: float
-    real_start_time: Optional[datetime] = None
-    real_end_time: Optional[datetime] = None
-    created_at: datetime
-    updated_at: Optional[datetime] = None
+    real_start_time: Optional[str] = None
+    real_end_time: Optional[str] = None
+    created_at: str
+    updated_at: Optional[str] = None
 
     @field_validator('real_start_time', 'real_end_time', 'created_at', 'updated_at', mode='before')
     @classmethod
-    def strip_tzinfo(cls, v):
+    def format_datetime(cls, v):
         if isinstance(v, datetime):
-            return v.replace(tzinfo=None)
+            return v.isoformat()
         return v
 
     class Config:
@@ -88,15 +89,15 @@ class SupRecordStopwatch(SupVerificationFields):
     supervisor_id: uuid.UUID
     accumulated_duration: float
     comments: Optional[str] = None
-    creation_date: datetime
-    real_start_time: Optional[datetime] = None
-    real_end_time: Optional[datetime] = None
+    creation_date: str
+    real_start_time: Optional[str] = None
+    real_end_time: Optional[str] = None
 
     @field_validator('creation_date', 'real_start_time', 'real_end_time', mode='before')
     @classmethod
-    def strip_tzinfo(cls, v):
+    def format_datetime(cls, v):
         if isinstance(v, datetime):
-            return v.replace(tzinfo=None)
+            return v.isoformat()
         return v
 
     class Config:
@@ -109,12 +110,12 @@ class SupTaskStatusResponse(SupVerificationFields):
     task_id: str
     status: str
     accumulated_duration: float
-    real_start_time: Optional[datetime] = None
-    real_end_time: Optional[datetime] = None
+    real_start_time: Optional[str] = None
+    real_end_time: Optional[str] = None
 
     @field_validator('real_start_time', 'real_end_time', mode='before')
     @classmethod
-    def strip_tzinfo(cls, v):
+    def format_datetime(cls, v):
         if isinstance(v, datetime):
-            return v.replace(tzinfo=None)
+            return v.isoformat()
         return v

@@ -8,6 +8,7 @@ from app.modules.programming.models.programming import ProgrammingTask
 from app.modules.codes.models.code import Code
 from app.modules.timing.models.state import TimerStatus
 from datetime import datetime, timezone, timedelta
+import pytz
 import uuid
 import logging
 import sys
@@ -136,7 +137,7 @@ class TimerService:
             if not task:
                 raise ValueError(f"Task with id {task_id} not found.")
 
-            prog_task.real_start_time = stopwatch.created_at
+            prog_task.real_start_time = stopwatch.real_start_time.replace(tzinfo=None) if stopwatch.real_start_time else None
             prog_task.real_end_time = now
             prog_task.real_quantity = real_quantity
 
@@ -251,9 +252,21 @@ class TimerService:
             "task_id": str(record.task_id),
             "quantity": record.quantity,
             "accumulated_duration": record.accumulated_duration,
-            "creation_date": record.creation_date,
+            "creation_date": record.creation_date.isoformat() if record.creation_date else None,
             "comments": record.comments
         }
+
+    @staticmethod
+    def _convert_to_utc(dt):
+        if dt is None:
+            return None
+        if dt.tzinfo is None:
+            # Assume it's in El Salvador timezone
+            el_salvador_tz = pytz.timezone('America/El_Salvador')
+            localized = el_salvador_tz.localize(dt)
+            return localized.astimezone(pytz.UTC).replace(tzinfo=None)
+        else:
+            return dt.astimezone(pytz.UTC).replace(tzinfo=None)
 
     @staticmethod
     def _format_record_stopwatch_result(query_results):
@@ -264,7 +277,7 @@ class TimerService:
                 "task_id": record_stopwatch.task_id,
                 "quantity": record_stopwatch.quantity,
                 "accumulated_duration": record_stopwatch.accumulated_duration,
-                "creation_date": record_stopwatch.creation_date,
+                "creation_date": record_stopwatch.creation_date.isoformat() if record_stopwatch.creation_date else None,
                 "code_code": task_code,
                 "task_description": task_description,
                 "task_type": task_type or code_type,

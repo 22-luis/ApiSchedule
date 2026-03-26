@@ -1,6 +1,7 @@
 from pydantic import BaseModel, ConfigDict, field_validator
 import uuid
 from datetime import datetime
+import pytz
 
 class RecordStopwatchBase(BaseModel):
     task_id: uuid.UUID
@@ -16,15 +17,15 @@ class RecordStopwatchUpdate(BaseModel):
 
 class RecordStopwatchInDBBase(RecordStopwatchBase):
     id: uuid.UUID
-    creation_date: datetime
-    real_start_time: datetime | None = None
-    real_end_time: datetime | None = None
+    creation_date: str
+    real_start_time: str | None = None
+    real_end_time: str | None = None
 
     @field_validator('creation_date', 'real_start_time', 'real_end_time', mode='before')
     @classmethod
-    def strip_tzinfo(cls, v):
+    def format_datetime(cls, v):
         if isinstance(v, datetime):
-            return v.replace(tzinfo=None)
+            return v.isoformat()
         return v
 
     model_config = ConfigDict(from_attributes=True)

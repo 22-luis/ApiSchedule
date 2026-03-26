@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
 import uuid
 import logging
+import pytz
 from app.shared.utils.core.time_utils import TimeZoneUtils
 
 from app.modules.programming.models.task import Task
@@ -14,6 +15,18 @@ logger = logging.getLogger(__name__)
 class SupTimerService:
     def __init__(self, db: Session):
         self.db = db
+
+    @staticmethod
+    def _convert_to_utc(dt):
+        if dt is None:
+            return None
+        if dt.tzinfo is None:
+            # Assume it's in El Salvador timezone
+            el_salvador_tz = pytz.timezone('America/El_Salvador')
+            localized = el_salvador_tz.localize(dt)
+            return localized.astimezone(pytz.UTC).replace(tzinfo=None)
+        else:
+            return dt.astimezone(pytz.UTC).replace(tzinfo=None)
 
     def start_supervision(self, task_id: uuid.UUID, supervisor_id: uuid.UUID):
         # Check if already supervising
@@ -83,7 +96,7 @@ class SupTimerService:
             return sup_stopwatch
 
         now_local = TimeZoneUtils.get_now()
-        last_start = (sup_stopwatch.real_start_time if sup_stopwatch.real_start_time else sup_stopwatch.created_at).replace(tzinfo=None)
+        last_start = (sup_stopwatch.real_start_time or sup_stopwatch.created_at).replace(tzinfo=None)
         
         elapsed = (now_local - last_start).total_seconds() / 3600
         
@@ -126,7 +139,7 @@ class SupTimerService:
         accumulated = float(sup_stopwatch.accumulated_duration or 0)
 
         if sup_stopwatch.status == TimerStatus.RUNNING:
-            last_start = (sup_stopwatch.real_start_time if sup_stopwatch.real_start_time else sup_stopwatch.created_at).replace(tzinfo=None)
+            last_start = (sup_stopwatch.real_start_time or sup_stopwatch.created_at).replace(tzinfo=None)
             elapsed = (now_local - last_start).total_seconds() / 3600
             accumulated += elapsed
 
@@ -163,7 +176,7 @@ class SupTimerService:
             comments=comments,
             medidas_tomadas=final_data["medidas_tomadas"],
             creation_date=now_local,
-            real_start_time=sup_stopwatch.created_at.replace(tzinfo=None) if sup_stopwatch.created_at else None,
+            real_start_time=sup_stopwatch.real_start_time.replace(tzinfo=None) if sup_stopwatch.real_start_time else None,
             real_end_time=now_local,
             area_limpia=final_data["area_limpia"],
             peso_verificado=final_data["peso_verificado"],
@@ -200,7 +213,7 @@ class SupTimerService:
             live_duration = float(timer.accumulated_duration or 0)
             if timer.status == TimerStatus.RUNNING:
                 now_local = TimeZoneUtils.get_now()
-                last_start = (timer.real_start_time if timer.real_start_time else timer.created_at).replace(tzinfo=None)
+                last_start = (timer.real_start_time or timer.created_at).replace(tzinfo=None)
                 elapsed = (now_local - last_start).total_seconds() / 3600
                 live_duration += elapsed
             
@@ -209,8 +222,8 @@ class SupTimerService:
                     "task_id": tid,
                     "status": timer.status.value,
                     "accumulated_duration": 0.0,
-                    "real_start_time": timer.real_start_time,
-                    "real_end_time": timer.real_end_time,
+                    "real_start_time": timer.real_start_time.isoformat() if timer.real_start_time else None,
+                    "real_end_time": timer.real_end_time.isoformat() if timer.real_end_time else None,
                     "area_limpia": timer.area_limpia,
                     "peso_verificado": timer.peso_verificado,
                     "selladas": timer.selladas,
@@ -240,8 +253,8 @@ class SupTimerService:
                     "task_id": tid,
                     "status": "stopped",
                     "accumulated_duration": 0.0,
-                    "real_start_time": rec.real_start_time,
-                    "real_end_time": rec.real_end_time,
+                    "real_start_time": rec.real_start_time.isoformat() if rec.real_start_time else None,
+                    "real_end_time": rec.real_end_time.isoformat() if rec.real_end_time else None,
                     "area_limpia": rec.area_limpia,
                     "peso_verificado": rec.peso_verificado,
                     "selladas": rec.selladas,
@@ -260,7 +273,7 @@ class SupTimerService:
                 results_map[tid]["accumulated_duration"] += float(rec.accumulated_duration or 0)
                 # Actualizar campos al más reciente
                 results_map[tid].update({
-                    "real_end_time": rec.real_end_time,
+                    "real_end_time": rec.real_end_time.isoformat() if rec.real_end_time else None,
                     "area_limpia": rec.area_limpia,
                     "peso_verificado": rec.peso_verificado,
                     "selladas": rec.selladas,
