@@ -2,17 +2,17 @@ from pydantic import BaseModel
 from typing import Optional
 from uuid import UUID
 
-class SpecialCodeBase(BaseModel):
+class OrderRuleBase(BaseModel):
     code: str
     programming_code: Optional[str] = None
 
-class SpecialCodeCreate(SpecialCodeBase):
+class OrderRuleCreate(OrderRuleBase):
     pass
 
-class SpecialCodeUpdate(BaseModel):
+class OrderRuleUpdate(BaseModel):
     programming_code: Optional[str] = None
 
-class SpecialCode(SpecialCodeBase):
+class OrderRule(OrderRuleBase):
     id: UUID
 
     class Config:
