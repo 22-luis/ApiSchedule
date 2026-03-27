@@ -25,7 +25,7 @@ from app.modules.orders.api.routes_order import router as order_router
 from app.modules.programming.api.routes_programming import router as programming_router
 from app.modules.programming.api.routes_task import router as task_router
 from app.modules.programming.api.routes_task_status_log import router as task_status_log_router
-from app.modules.orders.api.routes_special_code import router as special_code_router
+from app.modules.orders.api.routes_order_rule import router as order_rule_router
 from app.modules.orders.api.routes_surplus import router as surplus_router
 from app.modules.quality.api.routes_manual import router as manual_router
 from app.modules.quality.api.routes_qctest import router as qc_router
@@ -160,7 +160,7 @@ api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(auth_router, tags=["auth"])
 api_router.include_router(user_router, tags=["users"])
 api_router.include_router(team_router, tags=["teams"])
-api_router.include_router(special_code_router, tags=["special-codes"])
+api_router.include_router(order_rule_router, tags=["special-codes"])
 api_router.include_router(surplus_router, tags=["surplus"])
 api_router.include_router(order_router, tags=["orders"])
 api_router.include_router(task_router, tags=["tasks"])

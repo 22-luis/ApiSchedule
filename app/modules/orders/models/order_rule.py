@@ -3,8 +3,8 @@ from sqlalchemy import Column, String, Enum, Integer, Date, Float, Boolean, Date
 from sqlalchemy.dialects.postgresql import UUID
 from app.shared.db.database import Base
 
-class SpecialCode(Base):
-    __tablename__ = 'special_codes'
+class OrderRule(Base):
+    __tablename__ = 'order_rules'
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     code = Column(String, unique=True, index=True)
     programming_code = Column(String, nullable=True)

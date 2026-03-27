@@ -22,7 +22,7 @@ from app.shared.db.database import Base
 # Import all models here so Alembic can see them
 from app.modules.codes.models.code import Code
 from app.modules.codes.models.codeVerification import CodeVerification
-from app.modules.codes.models.preparation import Preparation
+from app.modules.programming.models.preparation import Preparation
 from app.modules.organization.models.user import User
 from app.modules.organization.models.user_profile import UserProfile
 from app.modules.organization.models.team import Team, UserTeam, task_team_association
@@ -32,7 +32,7 @@ from app.modules.programming.models.task import Task
 from app.modules.programming.models.task_creation_notification import TaskCreationNotification
 from app.modules.programming.models.task_status_log import TaskStatusLog
 from app.modules.orders.models.order_surplus import OrderSurplus
-from app.modules.orders.models.special_code import SpecialCode
+from app.modules.orders.models.order_rule import OrderRule
 from app.modules.quality.models.test_record import TestRecord
 from app.modules.quality.models.catalog_test import CatalogTest
 from app.modules.quality.models.code_test import CodeTest
