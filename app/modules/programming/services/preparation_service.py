@@ -4,9 +4,9 @@ from typing import List
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from app.modules.codes.models.preparation import Preparation
-from app.modules.codes.repositories import preparation_repository
-from app.modules.codes.schemas.preparation import PreparationCreate, PreparationOut
+from app.modules.programming.models.preparation import Preparation
+from app.modules.programming.repositories import preparation_repository
+from app.modules.programming.schemas.preparation import PreparationCreate, PreparationOut
 from app.shared.utils.business.data_cleaning import clean_int, clean_str
 
 logger = logging.getLogger(__name__)

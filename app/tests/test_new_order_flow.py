@@ -18,7 +18,7 @@ from app.shared.db.session import SessionLocal
 from app.modules.organization.models.user import User
 from app.modules.organization.models.team import Team
 from app.modules.codes.models.code import Code
-from app.modules.codes.models.preparation import Preparation
+from app.modules.programming.models.preparation import Preparation
 from app.modules.programming.models.programming import Programming, ProgrammingTask
 from app.modules.programming.models.task import Task
 from app.modules.orders.models.order import Order

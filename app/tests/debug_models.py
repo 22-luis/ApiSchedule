@@ -11,7 +11,7 @@ try:
     print("Importing Code...")
     from app.modules.codes.models.code import Code
     print("Importing Preparation...")
-    from app.modules.codes.models.preparation import Preparation
+    from app.modules.programming.models.preparation import Preparation
     print("Importing Programming...")
     from app.modules.programming.models.programming import Programming, ProgrammingTask
     print("Importing Task...")

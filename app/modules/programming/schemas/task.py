@@ -4,7 +4,7 @@ from typing import Optional, List
 from datetime import datetime
 from app.modules.organization.schemas.team import TeamOut
 from app.modules.codes.schemas.code import CodeOut
-from app.modules.codes.schemas.preparation import PreparationOut
+from app.modules.programming.schemas.preparation import PreparationOut
 from app.modules.organization.schemas.user import UserOut
 
 class TaskCreate(BaseModel):

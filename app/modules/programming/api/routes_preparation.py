@@ -4,8 +4,8 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.modules.codes.schemas.preparation import PreparationCreate, PreparationOut
-from app.modules.codes.services import preparation_service
+from app.modules.programming.schemas.preparation import PreparationCreate, PreparationOut
+from app.modules.programming.services import preparation_service
 from app.modules.organization.models.role import UserRole
 from app.modules.organization.models.user import User
 from app.shared.db.session import get_db

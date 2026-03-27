@@ -2,7 +2,7 @@ from typing import Optional, List
 
 from sqlalchemy.orm import Session
 
-from app.modules.codes.models.preparation import Preparation
+from app.modules.programming.models.preparation import Preparation
 
 
 def find_by_id(db: Session, preparation_id: str) -> Optional[Preparation]:

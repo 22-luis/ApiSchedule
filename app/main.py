@@ -13,7 +13,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from app.modules.available.api.routes_available import router as available_router
 from app.modules.codes.api.routes_code import router as code_router
 from app.modules.quality.api.routes_code_test import router as code_test_router
-from app.modules.codes.api.routes_preparation import router as preparation_router
+from app.modules.programming.api.routes_preparation import router as preparation_router
 # Import Routers
 from app.modules.organization.api.routes_auth import router as auth_router
 from app.modules.organization.api.routes_team import router as team_router
