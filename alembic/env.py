@@ -22,6 +22,7 @@ from app.shared.db.database import Base
 # Import all models here so Alembic can see them
 from app.modules.codes.models.code import Code
 from app.modules.codes.models.codeVerification import CodeVerification
+from app.modules.codes.models.production_code import ProductionCode
 from app.modules.programming.models.preparation import Preparation
 from app.modules.organization.models.user import User
 from app.modules.organization.models.user_profile import UserProfile
