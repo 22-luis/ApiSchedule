@@ -1,4 +1,4 @@
-from datetime import date, time
+from datetime import date, time, datetime
 from typing import List, Dict, Any, Optional, cast
 
 from sqlalchemy.orm import Session
@@ -32,7 +32,10 @@ class ScheduleRule:
         task_minutes: int,
         db: Session,
         order_data: Optional[Dict] = None,
-        activity_details: Optional[Dict] = None
+        activity_details: Optional[Dict] = None,
+        override_start_time: Optional[datetime] = None,
+        override_end_time: Optional[datetime] = None,
+        metadata_minutes: Optional[int] = None
     ) -> Dict[str, Any]:
         current_date = date.today()
 
@@ -159,8 +162,10 @@ class ScheduleRule:
                 if order_data and activity_details:
                     # Usar la lista actualizada de tareas (que incluye la tarea de preparación si se creó)
                     task_result = ProgrammingUtils.create_order_task(
-                        programming_id, programming_tasks, task_minutes,
-                        order_data, activity_details, db
+                        programming_id, programming_tasks, (metadata_minutes if metadata_minutes is not None else task_minutes),
+                        order_data, activity_details, db,
+                        override_start_time=override_start_time,
+                        override_end_time=override_end_time
                     )
                     if task_result.get("success"):
                         result["order_task_created"] = task_result.get("task_data")

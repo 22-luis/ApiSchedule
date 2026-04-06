@@ -49,6 +49,7 @@ class TimerStartPayload(BaseModel):
 class TimerStopPayload(BaseModel):
     quantity: float
     is_completed: Optional[bool] = None
+    override_duration: Optional[float] = None
 
 # Supervisor Schemas
 class SupVerificationFields(BaseModel):

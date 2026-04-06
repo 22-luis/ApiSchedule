@@ -39,7 +39,13 @@ def start_timer(task_id: uuid.UUID, payload: TimerStartPayload, db: Session = De
 def stop_timer(task_id: uuid.UUID, payload: TimerStopPayload, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     service = TimerService(db)
     try:
-        record = service.stop_stopwatch(task_id=task_id, real_quantity=payload.quantity, user_id=current_user.id, is_completed=payload.is_completed)
+        record = service.stop_stopwatch(
+            task_id=task_id, 
+            real_quantity=payload.quantity, 
+            user_id=current_user.id, 
+            is_completed=payload.is_completed,
+            override_duration=payload.override_duration
+        )
         return record
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
