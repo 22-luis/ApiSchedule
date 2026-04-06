@@ -12,6 +12,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.modules.available.api.routes_available import router as available_router
 from app.modules.codes.api.routes_code import router as code_router
+from app.modules.codes.api.v1.code_automation_rules import router as code_automation_rules_router
 from app.modules.quality.api.routes_code_test import router as code_test_router
 from app.modules.programming.api.routes_preparation import router as preparation_router
 # Import Routers
@@ -167,6 +168,7 @@ api_router.include_router(task_router, tags=["tasks"])
 api_router.include_router(task_status_log_router, tags=["tasks"])
 api_router.include_router(preparation_router, tags=["preparations"])
 api_router.include_router(code_router, tags=["codes"])
+api_router.include_router(code_automation_rules_router, tags=["Code Automation Rules"])
 api_router.include_router(catalog_test_router, tags=["catalog-tests"])
 api_router.include_router(code_test_router, tags=["codes"])
 api_router.include_router(programming_router, tags=["programmings"])

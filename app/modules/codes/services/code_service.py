@@ -13,6 +13,8 @@ from app.modules.codes.schemas.code_bulk import CodeBulkItem
 from app.shared.utils.business.data_cleaning import (
     clean_float, clean_int, clean_str, clean_str_preserve_case,
 )
+from app.shared.core.enums import WeighingActivities, ManufacturingActivities, PackagingActivities
+from app.modules.automation.services.config import ServiceType
 
 logger = logging.getLogger(__name__)
 
@@ -124,6 +126,24 @@ def get_code_activities(db: Session, code: str) -> dict:
 def get_lotes_by_code(db: Session, code: str) -> dict:
     lotes = code_repository.find_lotes_by_code(db, code)
     return {"code": code, "lotes": lotes}
+
+
+def get_services_for_code(db: Session, code: str) -> list[str]:
+    code_objs = code_repository.find_by_code(db, code)
+    if not code_objs:
+        raise HTTPException(status_code=404, detail="Code not found")
+
+    services = set()
+    for obj in code_objs:
+        activity = obj.activity
+        if activity in [a.value for a in WeighingActivities]:
+            services.add(ServiceType.WEIGHING.value)
+        if activity in [a.value for a in ManufacturingActivities]:
+            services.add(ServiceType.FABRICATION.value)
+        if activity in [a.value for a in PackagingActivities]:
+            services.add(ServiceType.PACKAGING.value)
+
+    return list(services)
 
 
 # ---------------------------------------------------------------------------

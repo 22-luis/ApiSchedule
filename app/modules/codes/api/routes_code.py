@@ -161,6 +161,18 @@ def get_lotes_by_code(
     return code_service.get_lotes_by_code(db, code)
 
 
+@router.get("/by_code/{code}/services")
+@cache_response(ttl=600, key_fields=["code"])
+def get_services_for_code(
+    code: str,
+    db: Session = Depends(get_db),
+    _current_user: User = Depends(
+        require_roles(UserRole.ADMIN, UserRole.PLANNER)
+    ),
+):
+    return code_service.get_services_for_code(db, code)
+
+
 # --- Endpoint de Carga Masiva ---
 
 @router.post("/bulk_upload")
