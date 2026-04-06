@@ -102,11 +102,13 @@ class ReportRepository:
                 Task.lote,
                 Task.type,
                 Task.activity,
-                (cast(1.0, Float) / func.nullif(Task.performance, 0)).label('horas'),
+               # (cast(1.0, Float) / func.nullif(Task.performance, 0)).label('horas'),#quitar esta columna
+                #agregar columna productividad que sera cantidad/minutos  convertido a hora 
+                (cast(ProgrammingTask.real_quantity, Float)/func.nullif(ProgrammingTask.duration_in_hours, 0)).label('productividad'),
                 ProgrammingTask.real_quantity,
-                func.coalesce(real_minutes_subquery.c.total_real_minutes, ProgrammingTask.duration_in_hours * 60, 0).label('minutes'),
+                func.coalesce(ProgrammingTask.duration_in_hours , 0).label('minutes'),#dejar en horas
                 Task.people,
-                ((cast(1.0, Float) / func.nullif(Task.performance, 0)) * ProgrammingTask.real_quantity).label('total_horas'),
+                (ProgrammingTask.duration_in_hours * Task.people).label('total_horas'),
                 case(
                     (ProgrammingTask.real_quantity != 0,
                      ((1.0 / func.nullif(Task.performance, 0)) * Task.quantity) / cast(ProgrammingTask.real_quantity, Float)

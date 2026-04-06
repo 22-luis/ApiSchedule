@@ -46,12 +46,13 @@ class ReportService:
             "lote": row.lote,
             "tipo": row.type,
             "actividad": row.activity,
-            "horas": round(float(row.horas), 4) if row.horas else None,
+            #"horas": round(float(row.horas), 4) if row.horas else None,
+            "productividad": round(float(row.productividad), 4) if row.productividad else None,
             "cantidad_real": float(row.real_quantity) if row.real_quantity else None,
             "minutes": round(float(row.minutes), 4) if row.minutes else None,
             "personas": row.people,
             "total_horas": round(float(row.total_horas), 4) if row.total_horas else None,
-            "proporcion": round(float(row.proporcion), 4) if row.proporcion else None
+           # "proporcion": round(float(row.proporcion), 4) if row.proporcion else None
         } for row in results]
 
     def get_task_performance_group_report(self, year: Optional[int] = None, month: Optional[int] = None):
