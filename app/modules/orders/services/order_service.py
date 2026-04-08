@@ -29,7 +29,8 @@ class OrderService:
             
             order_dict = order.dict() if hasattr(order, 'dict') else order.model_dump()
             cleaned_order = clean_order_data(order_dict)
-            order_code = cleaned_order['code']
+            original_code = cleaned_order['code']
+            order_code = original_code
             initial_status = OrderStatus.unprogrammed
 
             # Aplicar excepciones de código (OrderRule)
@@ -49,13 +50,17 @@ class OrderService:
             db_order = Order(
                 lote=order.lote,
                 dueDate=order.dueDate,
-                code=order_code,
+                code=original_code,
                 description=cleaned_order['description'],
                 quantity=order.quantity,
                 missing_quantity=order.quantity,
                 bin=order.bin,
                 status=initial_status
             )
+            
+            # Guardamos internamente el código para las tareas sin afectar a la orden
+            setattr(db_order, '_programming_code', order_code)
+            
             db.add(db_order)
             created_orders.append(db_order)
 

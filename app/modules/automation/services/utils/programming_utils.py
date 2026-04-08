@@ -36,10 +36,14 @@ class ProgrammingUtils:
         extracted_data = []
         if orders:
             for order in orders:
+                code_val = getattr(order, "_programming_code", None)
+                if not code_val:
+                    code_val = order.code
+                    
                 extracted_data.append({
                     "lote": order.lote,
                     "quantity": order.quantity,
-                    "code": order.code,
+                    "code": code_val,
                     "order_id": order.lote,
                     "description": order.description
                 })

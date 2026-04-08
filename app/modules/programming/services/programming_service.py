@@ -17,6 +17,21 @@ from app.modules.programming.models.task_creation_notification import TaskCreati
 from app.shared.utils.core.time_utils import TimeZoneUtils
 from app.modules.programming.schemas.task import TaskOut
 from app.modules.organization.schemas.user import UserOut
+
+def calculate_duration_excluding_lunch(start_dt, end_dt):
+    if not start_dt or not end_dt: return 0.0
+    duration = (end_dt - start_dt).total_seconds() / 60.0
+    
+    lunch_start = datetime.combine(start_dt.date(), time(12, 0))
+    lunch_end = datetime.combine(start_dt.date(), time(13, 0))
+    
+    if start_dt < lunch_end and end_dt > lunch_start:
+        overlap_start = max(start_dt, lunch_start)
+        overlap_end = min(end_dt, lunch_end)
+        overlap_mins = (overlap_end - overlap_start).total_seconds() / 60.0
+        duration -= max(0, overlap_mins)
+        
+    return max(0.0, duration)
 from app.modules.timing.models.record_stopwatch import RecordStopwatch
 from app.shared.utils.business.programming_availability import update_programming_availability
 from app.modules.automation.services.utils.programming_utils import ProgrammingUtils
@@ -125,6 +140,10 @@ class ProgrammingService:
                 if real_min == 0 and pt.real_start_time and pt.real_end_time:
                     delta = pt.real_end_time - pt.real_start_time
                     real_min = delta.total_seconds() / 60.0
+                
+                if pt.real_start_time and pt.real_end_time:
+                    duration_no_lunch = calculate_duration_excluding_lunch(pt.real_start_time, pt.real_end_time)
+                    real_min = min(real_min, duration_no_lunch)
                 
                 t['accumulated_real_minutes'] = real_min
                 t['comment'] = getattr(pt, 'comment', None)
@@ -317,6 +336,10 @@ class ProgrammingService:
                     if real_min == 0 and pt.real_start_time and pt.real_end_time:
                         delta = pt.real_end_time - pt.real_start_time
                         real_min = delta.total_seconds() / 60.0
+                        
+                    if pt.real_start_time and pt.real_end_time:
+                        duration_no_lunch = calculate_duration_excluding_lunch(pt.real_start_time, pt.real_end_time)
+                        real_min = min(real_min, duration_no_lunch)
                     
                     t['accumulated_real_minutes'] = real_min
                     t['comment'] = getattr(pt, 'comment', None)
@@ -633,8 +656,7 @@ class ProgrammingService:
                 # Tiempos planeados: Scheduled Duration (end_time - start_time) como en ReportExcel.tsx
                 p_min = 0.0
                 if pt.start_time and pt.end_time:
-                    delta_p = pt.end_time - pt.start_time
-                    p_min = float(round(delta_p.total_seconds() / 60.0))
+                    p_min = float(round(calculate_duration_excluding_lunch(pt.start_time, pt.end_time)))
                 else:
                     # Fallback a Task.minutes o Code.time si no hay programación de horarios
                     p_min = float(round(task.minutes or (task.code.time if task.code else 0.0) or 0.0))
@@ -645,6 +667,10 @@ class ProgrammingService:
                     delta_r = pt.real_end_time - pt.real_start_time
                     r_min_val = delta_r.total_seconds() / 60.0
                 
+                if pt.real_start_time and pt.real_end_time:
+                    duration_no_lunch = calculate_duration_excluding_lunch(pt.real_start_time, pt.real_end_time)
+                    r_min_val = min(r_min_val, duration_no_lunch)
+                    
                 r_min = float(round(r_min_val))
 
                 # Cantidades (Mismo comportamiento que ReportExcel.tsx)

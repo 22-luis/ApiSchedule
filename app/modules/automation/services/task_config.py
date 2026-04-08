@@ -1,4 +1,4 @@
-﻿from datetime import time
+from datetime import time
 from typing import Dict
 
 from pydantic import BaseModel, Field
@@ -65,10 +65,14 @@ def extract_created_orders_data(created_orders: list) -> list:
     return weighing_service.extract_order_data(created_orders)
 
 def extract_order_data_for_processing(order) -> dict:
+    code_val = getattr(order, "_programming_code", None)
+    if not code_val:
+        code_val = order.code
+        
     order_data = {
         "lote": order.lote,
         "quantity": order.quantity,
-        "code": order.code
+        "code": code_val
     }
     return order_data
 

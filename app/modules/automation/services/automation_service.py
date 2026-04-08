@@ -25,6 +25,15 @@ class AutomationService:
                 logger.warning(f"No orders found for lotes={lotes}")
                 return {"error": "No orders found"}
 
+            # Populate _programming_code for downstream extraction
+            from app.modules.orders.repositories import order_rule_repository
+            for o in orders:
+                rule = order_rule_repository.find_by_code(db, o.code)
+                if rule and rule.programming_code:
+                    o._programming_code = rule.programming_code
+                else:
+                    o._programming_code = o.code
+
             # Import OrderFlowService for bin 8 orders
             from app.modules.automation.services.order_flow_service import OrderFlowService
 

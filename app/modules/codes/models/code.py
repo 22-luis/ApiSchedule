@@ -21,5 +21,6 @@ class Code(Base):
     presentation = Column(String, nullable=True)
     fabricationCode = Column(String, nullable=True, index=True)
     usefulLife = Column(String, nullable=True)
+    is_verified = Column(Boolean, default=False)
     
     automation_rules = relationship("CodeAutomationRule", back_populates="code", cascade="all, delete-orphan")
