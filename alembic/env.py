@@ -21,7 +21,7 @@ if config.config_file_name is not None:
 from app.shared.db.database import Base
 # Import all models here so Alembic can see them
 from app.modules.codes.models.code import Code
-from app.modules.codes.models.codeVerification import CodeVerification
+from app.modules.codes.models.code_automation_rule import CodeAutomationRule
 from app.modules.programming.models.preparation import Preparation
 from app.modules.organization.models.user import User
 from app.modules.organization.models.user_profile import UserProfile

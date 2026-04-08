@@ -1,6 +1,9 @@
 from typing import Dict, Any, Optional, List, Set
 from abc import ABC, abstractmethod
 from app.modules.automation.services.config import ServiceType, ServiceConfig
+from sqlalchemy.orm import Session
+from app.modules.codes.models.code import Code
+from app.modules.codes.models.code_automation_rule import CodeAutomationRule
 
 class BaseAutomationRule(ABC):
     
@@ -139,3 +142,61 @@ class BaseAutomationRule(ABC):
             "reason": reason,
             "rule_applied": rule
         }
+
+    def check_db_rules(self, db: Session, order_data: Dict, activity_type: Optional[str]) -> Optional[Dict[str, Any]]:
+        code_str = order_data.get("code", "")
+        quantity = order_data.get("quantity", 0)
+
+        if not code_str:
+            return None
+
+        # Fetch the code object
+        code_obj = db.query(Code).filter(Code.code == code_str).first()
+        if not code_obj:
+            return None
+
+        # Fetch rules for this code and service type
+        rules = db.query(CodeAutomationRule).filter(
+            CodeAutomationRule.code_id == code_obj.id,
+            CodeAutomationRule.service_type == self.service_type.value
+        ).order_by(CodeAutomationRule.priority.asc()).all()
+
+        for rule in rules:
+            # Check activity type if rule specifies one
+            if rule.activity_type and rule.activity_type != activity_type:
+                continue
+
+            # Check min quantity
+            if rule.min_quantity is not None and quantity < rule.min_quantity:
+                continue
+
+            # Check max quantity
+            if rule.max_quantity is not None and quantity > rule.max_quantity:
+                continue
+
+            # Match! 
+            target_team = rule.target_team
+            overflow_team = rule.overflow_team
+
+            # We can check capacity if needed, but for now we just return target or overflow
+            from app.modules.automation.services.utils.capacity_verification_service import CapacityVerificationService
+            # Check capacity 
+            # Note: capacity logic in get_most_suitable_team receives programming_date, but here we don't have it explicitly.
+            # Base response 
+            return {
+                "success": True,
+                "selected_team": {
+                    "id": str(target_team.id),
+                    "name": target_team.name,
+                    "type": target_team.name.lower()
+                },
+                "overflow_team": {
+                    "id": str(overflow_team.id),
+                    "name": overflow_team.name,
+                    "type": overflow_team.name.lower()
+                } if overflow_team else None,
+                "reason": f"Regla de BD aplicada (Prioridad {rule.priority})",
+                "rule_applied": f"db_rule_{rule.id}"
+            }
+        
+        return None

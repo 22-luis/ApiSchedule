@@ -7,7 +7,6 @@ from sqlalchemy.orm import Session
 from app.modules.programming.models.programming import ProgrammingTask
 from app.modules.programming.models.task import Task
 from app.modules.organization.models.team import Team
-from app.modules.codes.models.codeVerification import CodeVerification
 from app.modules.organization.models.user import User
 from app.modules.organization.models.user_profile import UserProfile
 from app.modules.organization.models.role import UserRole
@@ -119,10 +118,6 @@ class UserService:
         db.query(Team).filter(
             Team.supervisorId == uid
         ).update({Team.supervisorId: None}, synchronize_session=False)
-
-        db.query(CodeVerification).filter(
-            CodeVerification.userId == uid
-        ).update({CodeVerification.userId: None}, synchronize_session=False)
 
         user_repository.delete(db, target_user)
 

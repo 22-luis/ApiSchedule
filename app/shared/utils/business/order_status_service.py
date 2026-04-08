@@ -19,12 +19,14 @@ class OrderStatusService:
         try:
             lote_int = int(task.lote)
             order = db.query(Order).filter(Order.lote == lote_int).first()
-            if order and order.status == OrderStatus.unprogrammed:
+            if not order:
+                return
+            if order.status == OrderStatus.unprogrammed:
                 order.status = OrderStatus.programmed
                 db.commit()
         except (ValueError, TypeError):
             # Si el lote no es un número válido, no hacer nada
-            pass
+            return
     
         if order.missing_quantity is None:
             return

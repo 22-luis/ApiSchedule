@@ -12,6 +12,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.modules.available.api.routes_available import router as available_router
 from app.modules.codes.api.routes_code import router as code_router
+from app.modules.codes.api.v1.code_automation_rules import router as code_automation_rules_router
 from app.modules.quality.api.routes_code_test import router as code_test_router
 from app.modules.programming.api.routes_preparation import router as preparation_router
 # Import Routers
@@ -36,7 +37,6 @@ from app.modules.reports.api.routes_report import router as report_router
 from app.modules.timing.api.routes_record_stopwatch import router as record_stopwatch_router
 from app.modules.timing.api.operator_routes_timer import router as timer_router
 from app.modules.warehouse.api.routes_history import router as warehouse_history_router
-from app.modules.codes.api.routes_verifications import router as code_verification_router
 from app.modules.automation.api.routes_auto import router as automation_router
 from app.modules.quality.api.routes_test_results import router as test_results_router
 from app.modules.reports.api.historico_comparacion_fechas import router as historico_fechas_router
@@ -167,6 +167,7 @@ api_router.include_router(task_router, tags=["tasks"])
 api_router.include_router(task_status_log_router, tags=["tasks"])
 api_router.include_router(preparation_router, tags=["preparations"])
 api_router.include_router(code_router, tags=["codes"])
+api_router.include_router(code_automation_rules_router, tags=["Code Automation Rules"])
 api_router.include_router(catalog_test_router, tags=["catalog-tests"])
 api_router.include_router(code_test_router, tags=["codes"])
 api_router.include_router(programming_router, tags=["programmings"])
@@ -183,7 +184,6 @@ api_router.include_router(qc_router, tags=["qctest"])
 api_router.include_router(test_question_router, tags=["test-questions"])
 api_router.include_router(test_record_router, tags=["test-record"])
 api_router.include_router(warehouse_history_router, tags=["warehouse"])
-api_router.include_router(code_verification_router, tags=["verifications"])
 api_router.include_router(automation_router, tags=["orders-auto"])
 api_router.include_router(test_results_router, tags=["test-results"])
 api_router.include_router(historico_fechas_router, tags=["historico-comparacion-fechas"])

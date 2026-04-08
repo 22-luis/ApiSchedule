@@ -50,7 +50,12 @@ class PackagingRule(BaseAutomationRule):
             pass
 
     def get_most_suitable_team(self, db: Session, order_data: Dict = None, activity_type: Optional[str] = None) -> Dict[str, Any]:
-    
+        # --- VERIFICACIÓN DE REGLAS EN BASE DE DATOS PRIMERO ---
+        if order_data:
+            db_rule_result = self.check_db_rules(db, order_data, activity_type)
+            if db_rule_result:
+                return db_rule_result
+
         code = order_data.get("code", "") if order_data else ""
         quantity = order_data.get("quantity", 0) if order_data else 0
         

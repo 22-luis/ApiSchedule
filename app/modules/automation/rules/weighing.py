@@ -21,8 +21,13 @@ class WeighingRule(BaseAutomationRule):
     def priority_keywords_groups(self) -> List[List[str]]:
         return [["PESADO"]]
 
-    @staticmethod
-    def get_most_suitable_team(db: Session, activity_type: Optional[str] = None) -> Dict[str, Any]:
+    def get_most_suitable_team(self, db: Session, order_data: Dict = None, activity_type: Optional[str] = None) -> Dict[str, Any]:
+        # --- VERIFICACIÓN DE REGLAS EN BASE DE DATOS PRIMERO ---
+        if order_data:
+            db_rule_result = self.check_db_rules(db, order_data, activity_type)
+            if db_rule_result:
+                return db_rule_result
+
         # Restriction removed: Weighing tasks should be created regardless of quantity.
         pass
 

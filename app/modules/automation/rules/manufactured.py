@@ -42,6 +42,11 @@ class ManufacturedRule(BaseAutomationRule):
 
 
     def get_most_suitable_team(self, db: Session, order_data: Dict, activity_type: Optional[str] = None, programming_date: date = None) -> Dict[str, Any]:
+        # --- VERIFICACIÓN DE REGLAS EN BASE DE DATOS PRIMERO ---
+        db_rule_result = self.check_db_rules(db, order_data, activity_type)
+        if db_rule_result:
+             return db_rule_result
+
         code = order_data.get("code", "")
         quantity = order_data.get("quantity", 0)
         

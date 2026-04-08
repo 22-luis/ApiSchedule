@@ -36,10 +36,14 @@ class ProgrammingUtils:
         extracted_data = []
         if orders:
             for order in orders:
+                code_val = getattr(order, "_programming_code", None)
+                if not code_val:
+                    code_val = order.code
+                    
                 extracted_data.append({
                     "lote": order.lote,
                     "quantity": order.quantity,
-                    "code": order.code,
+                    "code": code_val,
                     "order_id": order.lote,
                     "description": order.description
                 })
@@ -283,7 +287,9 @@ class ProgrammingUtils:
 
     @staticmethod
     def create_order_task(programming_id: str, programming_tasks: List[ProgrammingTask], task_minutes: int, 
-                         order_data: Dict, activity_details: Dict, db: Session) -> Dict[str, Any]:
+                         order_data: Dict, activity_details: Dict, db: Session,
+                         override_start_time: Optional[datetime] = None,
+                         override_end_time: Optional[datetime] = None) -> Dict[str, Any]:
         """
         Crea una tarea de programación para una orden.
         """
@@ -299,23 +305,27 @@ class ProgrammingUtils:
             # Asegurar que programming_date sea de tipo date para evitar warnings de tipo
             programming_date: date = programming.date
 
-            # Calcular hora de inicio basada en tareas existentes
-            start_minutes = ProgrammingUtils.calculate_current_programming_time(programming_tasks, programming_date)
-            
-            # Convertir minutos a datetime para el ajuste
-            start_hour = start_minutes // 60
-            start_minute = start_minutes % 60
-            start_datetime = datetime.combine(programming_date, time(start_hour, start_minute))
-            
-            # Usar la nueva utilidad para calcular el end_datetime con el ajuste de almuerzo
-            end_datetime = ProgrammingUtils.adjust_for_lunch_break(start_datetime, task_minutes)
-            
-            # Re-ajustar start_datetime por si acaso el inicio cayó en el almuerzo
-            # (El método adjust_for_lunch_break no muta el inicio original, así que si cayó en almuerzo, 
-            # necesitamos asegurar que el start_datetime guardado sea el correcto)
-            start_total_mins = start_datetime.hour * 60 + start_datetime.minute
-            if 720 <= start_total_mins < 780:
-                 start_datetime = datetime.combine(programming_date, time(13, 0))
+            if override_start_time and override_end_time:
+                start_datetime = override_start_time
+                end_datetime = override_end_time
+            else:
+                # Calcular hora de inicio basada en tareas existentes
+                start_minutes = ProgrammingUtils.calculate_current_programming_time(programming_tasks, programming_date)
+                
+                # Convertir minutos a datetime para el ajuste
+                start_hour = start_minutes // 60
+                start_minute = start_minutes % 60
+                start_datetime = datetime.combine(programming_date, time(start_hour, start_minute))
+                
+                # Usar la nueva utilidad para calcular el end_datetime con el ajuste de almuerzo
+                end_datetime = ProgrammingUtils.adjust_for_lunch_break(start_datetime, task_minutes)
+                
+                # Re-ajustar start_datetime por si acaso el inicio cayó en el almuerzo
+                # (El método adjust_for_lunch_break no muta el inicio original, así que si cayó en almuerzo, 
+                # necesitamos asegurar que el start_datetime guardado sea el correcto)
+                start_total_mins = start_datetime.hour * 60 + start_datetime.minute
+                if 720 <= start_total_mins < 780:
+                     start_datetime = datetime.combine(programming_date, time(13, 0))
             
             task_id = uuid.uuid4()
             next_order = order_data.get("lote")

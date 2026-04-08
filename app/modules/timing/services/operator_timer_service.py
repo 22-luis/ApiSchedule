@@ -86,7 +86,7 @@ class TimerService:
 
         return timer_repository.save_stopwatch(self.db, stopwatch)
 
-    def stop_stopwatch(self, task_id: uuid.UUID, real_quantity: float, user_id: uuid.UUID, is_completed: bool | None = None):
+    def stop_stopwatch(self, task_id: uuid.UUID, real_quantity: float, user_id: uuid.UUID, is_completed: bool | None = None, override_duration: float | None = None):
         from app.modules.timing.repositories import timer_repository
         from app.modules.programming.repositories import task_repository
         
@@ -100,16 +100,19 @@ class TimerService:
         if stopwatch.status == TimerStatus.STOPPED:
             raise ValueError("Stopwatch is already stopped")
 
-        accumulated_duration: float = float(stopwatch.accumulated_duration)
+        if override_duration is not None:
+            accumulated_duration = override_duration
+        else:
+            accumulated_duration: float = float(stopwatch.accumulated_duration)
 
-        if stopwatch.status == TimerStatus.RUNNING:
-            last_start_time = (stopwatch.update_at or stopwatch.created_at)
-            if last_start_time and last_start_time.tzinfo:
-                last_start_time = last_start_time.replace(tzinfo=None)
+            if stopwatch.status == TimerStatus.RUNNING:
+                last_start_time = (stopwatch.update_at or stopwatch.created_at)
+                if last_start_time and last_start_time.tzinfo:
+                    last_start_time = last_start_time.replace(tzinfo=None)
 
-            time_difference = now - last_start_time
-            elapsed_time = time_difference.total_seconds() / 3600  # Convert to hours
-            accumulated_duration += elapsed_time
+                time_difference = now - last_start_time
+                elapsed_time = time_difference.total_seconds() / 3600  # Convert to hours
+                accumulated_duration += elapsed_time
 
         # Create a record in record_stopwatch (ALWAYS, for all types of tasks)
         accumulated_duration_value: float = accumulated_duration
