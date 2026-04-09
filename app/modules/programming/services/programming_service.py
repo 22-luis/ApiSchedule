@@ -678,9 +678,9 @@ class ProgrammingService:
                 c_plan = float(task.quantity) if has_planned_qty else 1.0
                 c_real = float(pt.real_quantity if pt.real_quantity is not None else 0.0) if has_planned_qty else 1.0
                 
-                # R = (T.Plan * C.Real) / (T.Real * C.Plan)
-                if r_min > 0 and c_plan > 0:
-                    sum_perf += (p_min * c_real) / (r_min * c_plan)
+                # R = (T.Plan * C.Plan) / (T.Real * C.Real)
+                if r_min > 0 and c_real > 0:
+                    sum_perf += (p_min * c_plan) / (r_min * c_real)
             
             # Promedio sobre el total de tareas válidas
             avg_perf = (sum_perf / len(valid_tasks)) * 100.0
